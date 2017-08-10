@@ -1,0 +1,24 @@
+%\VignetteIndexEntry{User manual}
+
+\documentclass{article}
+
+\usepackage{amsmath}
+\usepackage{amscd}
+\usepackage[tableposition=top]{caption}
+\usepackage{ifthen}
+\usepackage[utf8]{inputenc}
+\usepackage[dvips]{epsfig,psfrag}
+\usepackage{listings}
+\usepackage[margin=1in]{geometry} % 1 inch margins all around
+
+\begin{document}
+\SweaveOpts{concordance=TRUE}
+
+\title{Package 'tgstat' - User Manual}
+\maketitle
+
+'tgstat' package - Tanay's group statistical utilities.
+
+\tableofcontents
+
+\end{document}

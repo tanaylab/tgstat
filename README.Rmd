@@ -1,0 +1,44 @@
+---
+output:
+  md_document:
+    variant: markdown_github
+---
+
+```{r, echo = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.path = "README-"
+)
+```
+
+# tgstat package - Tanay's group statistical utilities
+
+The goal of tgstat is to provide fast and efficient statistical tools.
+
+## Installation
+```{r, eval=FALSE}
+devtools::install_bitbucket('tanaylab/tgstat@default')
+```
+
+
+## Correlation
+
+```{r}
+library(tgstat)
+rows <- 100
+cols <- 1000
+vals <- sample(1 : (rows * cols / 2), rows * cols, replace = T)
+m <- matrix(vals, nrow = rows, ncol = cols)
+m[sample(1 : (rows * cols), rows * cols / 1000)] <- NA
+
+r1 <- tgs_cor(m, spearman = F)
+
+r1[1:5, 1:5]
+```
+
+```{r}
+r2 <- tgs_cor(m, pairwise.complete.obs = T, spearman = T)
+r2[1:5, 1:5]
+```
+

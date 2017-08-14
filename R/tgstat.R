@@ -18,7 +18,7 @@
 }
 
 .tgs_call <- function(...) {
-	tryCatch({ res <- .Call(...) },
+	tryCatch({ res <- .Call(..., PACKAGE='tgstat') },
 			 interrupt = function(interrupt){ stop("Command interrupted!", call. = FALSE); } )
 	res
 }
@@ -30,8 +30,6 @@
         options(x)[[1L]]
     else default
 }
-
-
 
 #' Calculates correlation between the matrix columns
 #' 

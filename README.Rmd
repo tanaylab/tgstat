@@ -10,6 +10,7 @@ knitr::opts_chunk$set(
   comment = "#>",
   fig.path = "README-"
 )
+set.seed(19)
 ```
 
 # tgstat package - Tanay's group statistical utilities
@@ -20,7 +21,6 @@ The goal of tgstat is to provide fast and efficient statistical tools.
 ```{r, eval=FALSE}
 devtools::install_bitbucket('tanaylab/tgstat@default')
 ```
-
 
 ## Correlation
 
@@ -40,5 +40,25 @@ r1[1:5, 1:5]
 ```{r}
 r2 <- tgs_cor(m, pairwise.complete.obs = T, spearman = T)
 r2[1:5, 1:5]
+```
+
+Especially useful for large matrices:
+```{r}
+rows <- 1000
+cols <- 10000
+vals <- sample(1 : (rows * cols / 2), rows * cols, replace = T)
+m <- matrix(vals, nrow = rows, ncol = cols)
+m[sample(1 : (rows * cols), rows * cols / 1000)] <- NA
+
+system.time(r1 <- tgs_cor(m, pairwise.complete.obs=TRUE, spearman = F))
+```
+
+Compared to R \code{cor}:
+```{r, cache=TRUE}
+system.time(r2 <- cor(m, use='pairwise.complete.obs'))
+```
+
+```{r}
+sessionInfo()
 ```
 

@@ -352,7 +352,17 @@ SEXP tgs_cor(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _tidy, S
             INTEGER(dim)[0] = num_cols;
             INTEGER(dim)[1] = num_cols;
             setAttrib(answer, R_DimSymbol, dim);
+
+            SEXP old_dimnames = getAttrib(_x, R_DimNamesSymbol);
+            if (!isNull(old_dimnames) && Rf_length(old_dimnames) == 2) {
+                SEXP dimnames;
+                rprotect(dimnames = allocVector(VECSXP, 2));
+                SET_VECTOR_ELT(dimnames, 0, VECTOR_ELT(old_dimnames, 1));
+                SET_VECTOR_ELT(dimnames, 1, VECTOR_ELT(old_dimnames, 1));
+                setAttrib(answer, R_DimNamesSymbol, dimnames);
+            }
         }
+
     } catch (TGLException &e) {
         if (!TGStat::is_kid() && res != (double *)MAP_FAILED) {
             munmap(res, res_sizeof);

@@ -1,15 +1,14 @@
 Package: tgstat
 Type: Package
 Title: Tanay's group statistical utilities
-Version: 1.0.0
+Version: 1.0.1
 Depends: utils
 SystemRequirements: GNU make
-Date: 2017-08-09
+Date: 2017-08-14
 Authors@R: c(person("Misha", "Hoichman", email = "misha@hoichman.com", role=c("aut", "cre")))
+Maintainer: Misha Hoichman <misha@hoichman.com>
 Description: Tanay's group statistical utilities
 License: GPL-2
 LazyLoad: yes
 NeedsCompilation: yes
 RoxygenNote: 6.0.1
-LinkingTo: Rcpp
-Imports: Rcpp

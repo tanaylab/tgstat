@@ -82,8 +82,8 @@
 #' r2 <- tgs_cor(m, pairwise.complete.obs = T, spearman = T)
 #' 
 #' @export tgs_cor
-tgs_cor <- function(x = NULL, pairwise.complete.obs = F, spearman = F, tidy = F, threshold = 0) {
-    if (is.null(x))
+tgs_cor <- function(x, pairwise.complete.obs = F, spearman = F, tidy = F, threshold = 0) {
+    if (missing(x))
         stop("Usage: tgs_cor(x, pairwise.complete.obs = F, spearman = F, tidy = F, threshold = 0)", call. = F)
     .tgs_call("tgs_cor", x, pairwise.complete.obs, spearman, tidy, threshold, new.env(parent = parent.frame()))
 }

@@ -4,7 +4,7 @@
 \alias{tgs_cor}
 \title{Calculates correlation between the matrix columns}
 \usage{
-tgs_cor(x = NULL, pairwise.complete.obs = F, spearman = F, tidy = F,
+tgs_cor(x, pairwise.complete.obs = F, spearman = F, tidy = F,
   threshold = 0)
 }
 \arguments{
@@ -40,12 +40,11 @@ matrix columns and implements only two modes of treating data containing NA,
 which are equivalent to 'use="everything"' and 'use="pairwise.complete.obs".
 Please refer the documentation of this function for more details.
 
-'tgs_cor(x, spearman = F)' is equivalent to 'cor(x, method = "pearson")'
-'tgs_cor(x, spearman = T)' is equivalent to 'cor(x, method = "spearman")'
-'tgs_cor(x, pairwise.complete.obs = T, spearman = T)' is equivalent to
-'cor(x, use = "pairwise.complete.obs", method = "spearman")' 'tgs_cor(x,
-pairwise.complete.obs = T, spearman = F)' is equivalent to 'cor(x, use =
-"pairwise.complete.obs", method = "pearson")'
+\itemize{
+ \item{}{\code{tgs_cor(x, spearman = F)} is equivalent to \code{cor(x, method = "pearson")}}
+ \item{}{\code{tgs_cor(x, pairwise.complete.obs = T, spearman = T)} is equivalent to \code{cor(x, use = "pairwise.complete.obs", method = "spearman")}}
+ \item{}{\code{tgs_cor(x, pairwise.complete.obs = T, spearman = F)} is equivalent to \code{cor(x, use = "pairwise.complete.obs", method = "pearson")}}
+}
 
 Finally 'tgs_cor' can output its result in "tidy" format: a data frame with
 three columns named 'col1', 'col2' and 'cor'. Only the correlation values
@@ -60,9 +59,11 @@ cols <- 1000
 vals <- sample(1 : (rows * cols / 2), rows * cols, replace = T)
 m <- matrix(vals, nrow = rows, ncol = cols)
 m[sample(1 : (rows * cols), rows * cols / 1000)] <- NA
+m[1:5, 1:5]
 
 r1 <- tgs_cor(m, spearman = F)
-r2 <- tgs_cor(m, pairwise.complete.obs = T, spearman = T)
+r2 <- tgs_cor(m, pairwise.complete.obs = T, spearman = T)#' 
+r2[1:5, 1:5]
 
 }
 \keyword{~correlation}

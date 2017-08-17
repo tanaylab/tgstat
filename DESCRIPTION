@@ -1,10 +1,10 @@
 Package: tgstat
 Type: Package
 Title: Tanay's group statistical utilities
-Version: 1.0.1
+Version: 1.0.2
 Depends: utils
 SystemRequirements: GNU make
-Date: 2017-08-14
+Date: 2017-08-17
 Authors@R: c(person("Misha", "Hoichman", email = "misha@hoichman.com", role=c("aut", "cre")))
 Maintainer: Misha Hoichman <misha@hoichman.com>
 Description: Tanay's group statistical utilities

@@ -54,8 +54,8 @@ SEXP tgs_cor(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _tidy, S
         bool pairwise_complete_obs = asLogical(_pairwise_complete_obs);
         bool tidy = asLogical(_tidy);
         double threshold = fabs(asReal(_threshold));
-        int num_rows = INTEGER(rdim)[0];
-        int num_cols = INTEGER(rdim)[1];
+        int num_rows = nrows(_x);
+        int num_cols = ncols(_x);
 
         if (num_rows <= 1 || num_cols <= 1)
             verror("\"x\" argument must be a matrix of numeric values");
@@ -79,7 +79,7 @@ SEXP tgs_cor(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _tidy, S
         col_pvals2.reserve(num_rows);
 
         for (size_t i = 0; i < num_vals; ++i) {
-            if (isReal(_x) && (ISNA(REAL(_x)[i]) || isnan(REAL(_x)[i])) || isInteger(_x) && INTEGER(_x)[i] == NA_INTEGER) {
+            if (isReal(_x) && !R_FINITE(REAL(_x)[i]) || isInteger(_x) && INTEGER(_x)[i] == NA_INTEGER) {
                 nan_in_col[i / num_rows] = true;
                 vals.push_back(numeric_limits<double>::quiet_NaN());
             } else
@@ -165,7 +165,7 @@ SEXP tgs_cor(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _tidy, S
 
                 for (int ipart = 0; ipart < 2; ipart++) {
                     for (int icol1 = 0; icol1 < num_cols; ++icol1) {
-                        int start = max(scol[ipart], icol1);
+                        int start = max(scol[ipart], icol1 + 1);
                         if (start >= ecol[ipart])
                             break;
 
@@ -280,12 +280,14 @@ SEXP tgs_cor(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _tidy, S
 
         progress.report_last();
 
-        // pack the answer
+        // assemble the answer
+        SEXP rold_dimnames = getAttrib(_x, R_DimNamesSymbol);
+        SEXP rold_colnames = !isNull(rold_dimnames) && Rf_length(rold_dimnames) == 2 ? VECTOR_ELT(rold_dimnames, 1) : R_NilValue;
+
         if (tidy) {
             enum { COL1, COL2, COR, NUM_COLS };
             const char *COL_NAMES[NUM_COLS] = { "col1", "col2", "cor" };
 
-            // assemble the answer
             rprotect(answer = allocVector(VECSXP, NUM_COLS));
 
             size_t answer_size = 0;
@@ -293,34 +295,41 @@ SEXP tgs_cor(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _tidy, S
             for (int icol1 = 0; icol1 < num_cols; ++icol1) {
                 size_t idx = icol1;
                 for (int icol2 = 0; icol2 < icol1; ++icol2) {
-                    if (!isnan(res[idx]) && fabs(res[idx]) > threshold)
+                    if (!isnan(res[idx]) && fabs(res[idx]) >= threshold)
                         ++answer_size;
                     idx += num_cols;
                 }
             }
 
-            SEXP rcol1, rcol2, rcor, rrow_names, rcol_names;
+            SEXP rcol1, rcol2, rcor, rrownames, rcolnames;
 
             SET_VECTOR_ELT(answer, COL1, (rcol1 = allocVector(INTSXP, answer_size)));
             SET_VECTOR_ELT(answer, COL2, (rcol2 = allocVector(INTSXP, answer_size)));
             SET_VECTOR_ELT(answer, COR, (rcor = allocVector(REALSXP, answer_size)));
 
-            setAttrib(answer, R_NamesSymbol, (rcol_names = allocVector(STRSXP, NUM_COLS)));
+            if (rold_colnames != R_NilValue) {
+                setAttrib(rcol1, R_LevelsSymbol, rold_colnames);
+                setAttrib(rcol1, R_ClassSymbol, mkString("factor"));
+                setAttrib(rcol2, R_LevelsSymbol, rold_colnames);
+                setAttrib(rcol2, R_ClassSymbol, mkString("factor"));
+            }
+
+            setAttrib(answer, R_NamesSymbol, (rcolnames = allocVector(STRSXP, NUM_COLS)));
             setAttrib(answer, R_ClassSymbol, mkString("data.frame"));
-            setAttrib(answer, R_RowNamesSymbol, (rrow_names = allocVector(INTSXP, answer_size)));
+            setAttrib(answer, R_RowNamesSymbol, (rrownames = allocVector(INTSXP, answer_size)));
 
             for (int i = 0; i < NUM_COLS; i++)
-                SET_STRING_ELT(rcol_names, i, mkChar(COL_NAMES[i]));
+                SET_STRING_ELT(rcolnames, i, mkChar(COL_NAMES[i]));
 
             int i = 0;
             for (int icol1 = 0; icol1 < num_cols; ++icol1) {
                 for (int icol2 = icol1 + 1; icol2 < num_cols; ++icol2) {
                     size_t idx = icol1 * num_cols + icol2;
-                    if (!isnan(res[idx]) && fabs(res[idx]) > threshold) {
+                    if (!isnan(res[idx]) && fabs(res[idx]) >= threshold) {
                         INTEGER(rcol1)[i] = icol1 + 1;
                         INTEGER(rcol2)[i] = icol2 + 1;
                         REAL(rcor)[i] = res[idx];
-                        INTEGER(rrow_names)[i] = i + 1;
+                        INTEGER(rrownames)[i] = i + 1;
                         ++i;
                     }
                 }
@@ -353,12 +362,11 @@ SEXP tgs_cor(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _tidy, S
             INTEGER(dim)[1] = num_cols;
             setAttrib(answer, R_DimSymbol, dim);
 
-            SEXP old_dimnames = getAttrib(_x, R_DimNamesSymbol);
-            if (!isNull(old_dimnames) && Rf_length(old_dimnames) == 2) {
+            if (rold_colnames != R_NilValue) {
                 SEXP dimnames;
                 rprotect(dimnames = allocVector(VECSXP, 2));
-                SET_VECTOR_ELT(dimnames, 0, VECTOR_ELT(old_dimnames, 1));
-                SET_VECTOR_ELT(dimnames, 1, VECTOR_ELT(old_dimnames, 1));
+                SET_VECTOR_ELT(dimnames, 0, rold_colnames);
+                SET_VECTOR_ELT(dimnames, 1, rold_colnames);
                 setAttrib(answer, R_DimNamesSymbol, dimnames);
             }
         }

@@ -45,7 +45,7 @@ r2[1:5, 1:5]
 Especially useful for large matrices:
 ```{r}
 rows <- 1000
-cols <- 10000
+cols <- 1000
 vals <- sample(1 : (rows * cols / 2), rows * cols, replace = T)
 m <- matrix(vals, nrow = rows, ncol = cols)
 m[sample(1 : (rows * cols), rows * cols / 1000)] <- NA
@@ -54,7 +54,7 @@ system.time(r1 <- tgs_cor(m, pairwise.complete.obs=TRUE, spearman = F))
 ```
 
 Compared to R \code{cor}:
-```{r, cache=TRUE}
+```{r}
 system.time(r2 <- cor(m, use='pairwise.complete.obs'))
 ```
 

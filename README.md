@@ -54,15 +54,32 @@ m[sample(1 : (rows * cols), rows * cols / 1000)] <- NA
 
 system.time(r1 <- tgs_cor(m, pairwise.complete.obs=TRUE, spearman = F))
 #>    user  system elapsed 
-#>   4.506   0.868   0.303
+#>   4.713   0.743   0.281
 ```
 
-Compared to R :
+Compared to base R:
 
 ``` r
 system.time(r2 <- cor(m, use='pairwise.complete.obs'))
 #>    user  system elapsed 
-#>  10.628   0.009  10.636
+#>  10.600   0.006  10.603
+```
+
+Euclidian distance
+------------------
+
+``` r
+system.time(d <- tgs_dist(m))
+#>    user  system elapsed 
+#>   1.683   0.681   0.195
+```
+
+Compared to base R:
+
+``` r
+system.time(d <- dist(m, method='euclidian'))
+#>    user  system elapsed 
+#>   3.934   0.005   3.939
 ```
 
 ``` r
@@ -84,29 +101,29 @@ sessionInfo()
 #> [8] base     
 #> 
 #> other attached packages:
-#>  [1] tgstat_1.0.1    cowplot_0.8.0   stringr_1.2.0   dplyr_0.7.2    
+#>  [1] tgstat_1.0.2    cowplot_0.8.0   stringr_1.2.0   dplyr_0.7.2    
 #>  [5] purrr_0.2.3     readr_1.1.1     tidyr_0.6.3     tibble_1.3.3   
 #>  [9] ggplot2_2.2.1   tidyverse_1.1.1 reshape2_1.4.2  plyr_1.8.4     
 #> [13] scales_0.4.1    optparse_1.3.2  pacman_0.4.6    misha_3.5.6    
 #> 
 #> loaded via a namespace (and not attached):
-#>  [1] httr_1.2.1           pkgload_0.0.0.9000   jsonlite_1.5        
-#>  [4] modelr_0.1.0         assertthat_0.2.0     cellranger_1.1.0    
-#>  [7] yaml_2.1.14          highlight_0.4.7.1    backports_1.1.0     
-#> [10] lattice_0.20-35      glue_1.1.1           digest_0.6.12       
-#> [13] rvest_0.3.2          colorspace_1.3-2     htmltools_0.3.6     
-#> [16] psych_1.7.5          pkgconfig_2.0.1      devtools_1.13.3     
-#> [19] GetoptLong_0.1.6     broom_0.4.2          haven_1.0.0         
-#> [22] whisker_0.3-2        getopt_1.20.0        withr_2.0.0         
-#> [25] lazyeval_0.2.0       mnormt_1.5-5         magrittr_1.5        
-#> [28] crayon_1.3.2         readxl_1.0.0         memoise_1.1.0       
-#> [31] evaluate_0.10.1      nlme_3.1-131         forcats_0.2.0       
-#> [34] xml2_1.1.1           foreign_0.8-69       tools_3.3.2         
-#> [37] data.table_1.10.4    hms_0.3              GlobalOptions_0.0.12
-#> [40] munsell_0.4.3        bindrcpp_0.2         pkgdown_0.1.0.9000  
-#> [43] rlang_0.1.2.9000     rjson_0.2.15         rmarkdown_1.6       
-#> [46] gtable_0.2.0         roxygen2_6.0.1       R6_2.2.2            
-#> [49] lubridate_1.6.0      knitr_1.17           bindr_0.1           
-#> [52] commonmark_1.2       rprojroot_1.2        desc_1.1.1          
-#> [55] stringi_1.1.5        parallel_3.3.2       Rcpp_0.12.12
+#>  [1] Rcpp_0.12.12         lubridate_1.6.0      lattice_0.20-35     
+#>  [4] assertthat_0.2.0     rprojroot_1.2        digest_0.6.12       
+#>  [7] psych_1.7.5          R6_2.2.2             cellranger_1.1.0    
+#> [10] backports_1.1.0      evaluate_0.10.1      httr_1.2.1          
+#> [13] GlobalOptions_0.0.12 rlang_0.1.2.9000     lazyeval_0.2.0      
+#> [16] readxl_1.0.0         data.table_1.10.4    whisker_0.3-2       
+#> [19] GetoptLong_0.1.6     pkgdown_0.1.0.9000   rmarkdown_1.6       
+#> [22] desc_1.1.1           devtools_1.13.3      foreign_0.8-69      
+#> [25] munsell_0.4.3        broom_0.4.2          modelr_0.1.0        
+#> [28] pkgconfig_2.0.1      mnormt_1.5-5         htmltools_0.3.6     
+#> [31] roxygen2_6.0.1       crayon_1.3.2         withr_2.0.0         
+#> [34] commonmark_1.2       nlme_3.1-131         jsonlite_1.5        
+#> [37] gtable_0.2.0         git2r_0.19.0         magrittr_1.5        
+#> [40] stringi_1.1.5        bindrcpp_0.2         getopt_1.20.0       
+#> [43] xml2_1.1.1           rjson_0.2.15         tools_3.3.2         
+#> [46] forcats_0.2.0        glue_1.1.1           hms_0.3             
+#> [49] pkgload_0.0.0.9000   parallel_3.3.2       yaml_2.1.14         
+#> [52] colorspace_1.3-2     rvest_0.3.2          memoise_1.1.0       
+#> [55] knitr_1.17           bindr_0.1            haven_1.0.0
 ```

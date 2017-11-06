@@ -49,6 +49,8 @@ void rerror(const char *fmt, ...);
 
 void verror(const char *fmt, ...);
 
+void vdebug(const char *fmt, ...);
+
 // Use rprotect instead of PROTECT!
 SEXP rprotect(SEXP &expr);
 
@@ -124,18 +126,11 @@ public:
     // Verifies that the data size does not exceed the maximum allowed.
     void verify_max_data_size(uint64_t data_size, const char *data_name = "Result");
 
-    // Returns true if multitasking option is switched on
-    bool multitasking_avail() const { return m_multitasking_avail; }
-
-    // Returns min / max number of processes
-    int min_processes() const { return m_min_processes; }
-    int max_processes() const { return m_max_processes; }
+    // true if debug prints are allowed
+    bool debug() const { return m_debug; }
 
     // Returns the upper limit for data size
 	uint64_t max_data_size() const { return m_max_data_size; }
-
-	// Returns the size of the buffer used to store highest/lowest values for high-precision computation of quantiles
-	uint64_t quantile_edge_data_size() const { return m_quantile_edge_data_size; }
 
     static void set_alarm(int msecs);   // time is given in milliseconds
     static void reset_alarm();
@@ -159,27 +154,23 @@ public:
 
     static int num_kids() { return s_kid_index; }
 
+    static sem_t *shm_sem() { return s_shm_sem; }
+
 protected:
-    struct DeathStat {
-        pid_t pid;
-        int   status;
-
-        DeathStat(pid_t _pid, int _status) : pid(_pid), status(_status) {}
-    };
-
     struct Shm {
         char          error_msg[10000];
         uint64_t      itr_idx[MAX_KIDS];          // used for progress report
     };
 
-    struct SigchldBlocker {
-        SigchldBlocker() {
+    struct SigBlocker {
+        SigBlocker() {
             sigemptyset(&sigset);
             sigaddset(&sigset, SIGCHLD);
+            sigaddset(&sigset, SIGINT);
             sigprocmask(SIG_BLOCK, &sigset, &oldsigset);
         }
 
-        ~SigchldBlocker() { sigprocmask(SIG_UNBLOCK, &sigset, NULL); }
+        ~SigBlocker() { sigprocmask(SIG_UNBLOCK, &sigset, NULL); }
 
         sigset_t sigset;
         sigset_t oldsigset;
@@ -199,7 +190,6 @@ protected:
     static sem_t               *s_fifo_sem;
     static int                  s_kid_index;
     static vector<pid_t>        s_running_pids;
-    static vector<DeathStat>    s_dead_pids;
     static Shm                 *s_shm;
     static int                  s_fifo_fd;
 
@@ -210,11 +200,8 @@ protected:
 	unsigned                    m_old_protect_count;
 	set<int>                    m_old_open_fds;
 
-    bool                        m_multitasking_avail;
-    int                         m_min_processes;
-    int                         m_max_processes;
+    bool                        m_debug;
 	uint64_t                    m_max_data_size;
-	uint64_t                    m_quantile_edge_data_size;
 
 	void load_options();
 
@@ -227,6 +214,7 @@ protected:
     static void    sigalrm_handler(int);
     static void    sigchld_handler(int);
 	static void    get_open_fds(set<int> &fds);
+    static void    check_kids_state(bool ignore_errors);
 
 	friend void check_interrupt() throw (TGLException);
 	friend SEXP rprotect(SEXP &expr);

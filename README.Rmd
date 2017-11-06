@@ -53,10 +53,21 @@ m[sample(1 : (rows * cols), rows * cols / 1000)] <- NA
 system.time(r1 <- tgs_cor(m, pairwise.complete.obs=TRUE, spearman = F))
 ```
 
-Compared to R \code{cor}:
+Compared to base R:
 ```{r}
 system.time(r2 <- cor(m, use='pairwise.complete.obs'))
 ```
+
+## Euclidian distance
+```{r}
+system.time(d <- tgs_dist(m))
+```
+
+Compared to base R:
+```{r}
+system.time(d <- dist(m, method='euclidian'))
+```
+
 
 ```{r}
 sessionInfo()

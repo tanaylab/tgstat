@@ -41,13 +41,17 @@ void ProgressReporter::report(uint64_t delta_steps_done)
 
 		if (delta > m_min_report_interval) {
 			int progress = m_maxsteps ? (int)(100. * m_numsteps / m_maxsteps) : 0;
+            progress = min(progress, 100);
 
 			if (m_last_progress_reported < 0 && !m_report_prefix.empty())
 				Rprintf("%s", m_report_prefix.c_str());
 
-			if (progress != m_last_progress_reported)
-				Rprintf("%d%%...", progress);
-			else
+			if (progress != m_last_progress_reported) {
+                if (progress == 100)
+                    Rprintf("%d%%", progress);
+                else
+                    Rprintf("%d%%...", progress);
+            } else
 				Rprintf(".");
 			m_last_progress_reported = progress;
 			m_numsteps_from_last_report = 0;

@@ -85,8 +85,7 @@ sem_t                   *TGStat::s_shm_sem = SEM_FAILED;
 sem_t                   *TGStat::s_fifo_sem = SEM_FAILED;
 int                      TGStat::s_kid_index;
 vector<pid_t>            TGStat::s_running_pids;
-vector<TGStat::DeathStat> TGStat::s_dead_pids;
-TGStat::Shm              *TGStat::s_shm = (TGStat::Shm *)MAP_FAILED;
+TGStat::Shm             *TGStat::s_shm = (TGStat::Shm *)MAP_FAILED;
 int                      TGStat::s_fifo_fd = -1;
 
 TGStat *g_tgstat = NULL;
@@ -110,12 +109,6 @@ TGStat::TGStat(SEXP _env) :
         s_shm = (Shm *)MAP_FAILED;
         s_fifo_fd = -1;
         s_running_pids.clear();
-        s_dead_pids.clear();
-
-        // These containers are altered in a signal handler of SIGCHLD.
-        // Since malloc should be avoided in a signal handler let's reserve the memory in advance.
-        s_running_pids.reserve(MAX_KIDS);
-        s_dead_pids.reserve(MAX_KIDS);
 
 		m_old_error_handler = TGLException::set_error_handler(TGLException::throw_error_handler);
 
@@ -178,20 +171,24 @@ TGStat::~TGStat()
         if (!s_is_kid) {
             if (s_shm_sem != SEM_FAILED) {
                 SemLocker sl(s_shm_sem);
-                SigchldBlocker sb;
+                SigBlocker sb;
 
                 // kill all the remaining child processes
-                for (vector<pid_t>::const_iterator ipid = s_running_pids.begin(); ipid != s_running_pids.end(); ++ipid) 
+                for (vector<pid_t>::const_iterator ipid = s_running_pids.begin(); ipid != s_running_pids.end(); ++ipid) {
+                    vdebug("Forcefully terminating process %d\n", *ipid);
                     kill(*ipid, SIGTERM);
+                }
             }
 
             // after SIGTERM is sent to all the kids let's wait till sigchld_hander() burries them all
             while (1) {
-                SigchldBlocker sb;
+                SigBlocker sb;
+                check_kids_state(true);
                 if (s_running_pids.empty())
                     break;
-                else
-                    sigsuspend(&sb.oldsigset);
+
+                vdebug("Waiting for %ld child processes to end\n", s_running_pids.size());
+                sigsuspend(&sb.oldsigset);
             }
 
             if (s_shm_sem != SEM_FAILED)
@@ -267,6 +264,7 @@ string TGStat::get_fifo_name()
 
 void TGStat::prepare4multitasking()
 {
+    vdebug("Cleaning old semaphores\n");
 	if (s_shm_sem == SEM_FAILED) {
 		sem_unlink(get_shm_sem_name().c_str()); // remove a semaphore if it was somehow not cleaned from the previous invocation of the lib
 		if ((s_shm_sem = sem_open(get_shm_sem_name().c_str(), O_CREAT | O_EXCL, 0644, 1)) == SEM_FAILED)
@@ -287,6 +285,7 @@ void TGStat::prepare4multitasking()
         sem_unlink(get_fifo_sem_name().c_str());
     }
 
+    vdebug("Creating FIFO channel\n");
     if (s_fifo_fd == -1) {
         unlink(get_fifo_name().c_str());
 
@@ -301,6 +300,7 @@ void TGStat::prepare4multitasking()
 #endif
     }
 
+    vdebug("Allocating shared memory for internal communication\n");
 	if (s_shm == (Shm *)MAP_FAILED) {
 		s_shm = (Shm *)mmap(NULL, sizeof(Shm), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
 
@@ -321,7 +321,7 @@ pid_t TGStat::launch_process()
 	if (s_kid_index >= MAX_KIDS) 
 		verror("Too many child processes");
 
-	SigchldBlocker sb;
+    vdebug("SemLock\n");
 
 	check_interrupt();
 
@@ -331,12 +331,14 @@ pid_t TGStat::launch_process()
 			verror("%s", s_shm->error_msg);
 	}
 
+    vdebug("fork\n");
 	pid_t pid = fork(); 
 
 	if (pid == -1)
         verror("fork failed: %s", strerror(errno));
 
-	if (pid){ // a parent process
+	if (pid) { // a parent process
+        vdebug("%d: child process %d has been launched\n", getpid(), pid);
         s_running_pids.push_back(pid);
         ++s_kid_index;
     } else {   // a child process
@@ -363,27 +365,42 @@ pid_t TGStat::launch_process()
 	return pid;
 }
 
+void TGStat::check_kids_state(bool ignore_errors)
+{
+    int status;
+    pid_t pid;
+
+    while ((pid = waitpid((pid_t)-1, &status, WNOHANG)) > 0) {
+        vdebug("pid %d has ended\n", pid);
+        for (vector<pid_t>::iterator ipid = s_running_pids.begin(); ipid != s_running_pids.end(); ++ipid) {
+            if (*ipid == pid) {
+                vdebug("pid %d was identified as a child process\n", pid);
+                swap(*ipid, s_running_pids.back());
+                s_running_pids.pop_back();
+                if (!ignore_errors && !WIFEXITED(status))
+                    verror("Child process %d ended unexpectedly", (int)pid);
+                break;
+            }
+        }
+    }
+}
+
 bool TGStat::wait_for_kids(int millisecs)
 {
     struct timespec timeout, remaining;
-
     set_rel_timeout(millisecs, timeout);
 
     while (1) {
+        vdebug("SIGINT fired? %d\n", s_sigint_fired);
         check_interrupt();
+        check_kids_state(false);
 
-        while (s_dead_pids.size()) {
-            SigchldBlocker sb;
-            const DeathStat &death_stat = s_dead_pids.back();
-
-            if (WIFEXITED(death_stat.status))
-                s_dead_pids.pop_back();
-            else
-                verror("Child process %d ended unexpectedly", (int)death_stat.pid);
+        if (s_running_pids.empty()) {
+            vdebug("No more running child processes\n");
+            return false;
         }
 
-        if (s_running_pids.empty())
-            return false;
+        vdebug("still running %ld child processes (%d, ...)\n", s_running_pids.size(), s_running_pids.front());
 
         if (nanosleep(&timeout, &remaining))
             timeout = remaining;
@@ -436,15 +453,7 @@ int TGStat::read_multitask_fifo(void *buf, size_t bytes)
             verror("%s", s_shm->error_msg);
         }
 
-        while (s_dead_pids.size()) {
-            SigchldBlocker sb;
-            const DeathStat &death_stat = s_dead_pids.back();
-
-            if (WIFEXITED(death_stat.status))
-                s_dead_pids.pop_back();
-            else
-                verror("Child process %d ended unexpectedly", (int)death_stat.pid);
-        }
+        check_kids_state(false);
 
         // If we exit on EOF without checking s_running_pids, we might miss the error message that the kid generated before it exited.
         // This happens because on error the kid first closes the FIFO and only then generates an error message and exits. 
@@ -480,7 +489,7 @@ void TGStat::verify_max_data_size(uint64_t data_size, const char *data_name)
 {
 	if (data_size > max_data_size())
 		verror("%s size exceeded the maximal allowed (%ld).\n"
-               "Note: the maximum data size is controlled via emr_max.data.size option (see options, getOptions).",
+               "Note: the maximum data size is controlled via tgs_max.data.size option (see options, getOptions).",
 			   data_name, max_data_size());
 }
 
@@ -516,50 +525,13 @@ void TGStat::load_options()
 {
 	SEXP rvar;
 
-    rvar = GetOption(install("emr_multitasking"), R_NilValue);
+    rvar = GetOption(install("tgs_debug"), R_NilValue);
     if (isLogical(rvar))
-        m_multitasking_avail = (int)LOGICAL(rvar)[0];
+        m_debug = (int)LOGICAL(rvar)[0];
     else
-        m_multitasking_avail = false;
+        m_debug = false;
 
-    rvar = GetOption(install("emr_min.processes"), R_NilValue);
-    if (isReal(rvar))
-        m_min_processes = (uint64_t)REAL(rvar)[0];
-    else if (isInteger(rvar))
-        m_min_processes = INTEGER(rvar)[0];
-    else
-        m_min_processes = 4;
-    if (m_min_processes < 1) 
-        m_min_processes = 4;
-
-    rvar = GetOption(install("emr_max.processes"), R_NilValue);
-    if (isReal(rvar))
-        m_max_processes = (uint64_t)REAL(rvar)[0];
-    else if (isInteger(rvar))
-        m_max_processes = INTEGER(rvar)[0];
-    else
-        m_max_processes = 20;
-    if (m_max_processes < 1) 
-        m_max_processes = 20;
-    m_max_processes = max(m_min_processes, m_max_processes);
-
-	rvar = GetOption(install("emr_max.data.size"), R_NilValue);
-	if (isReal(rvar))
-		m_max_data_size = (uint64_t)REAL(rvar)[0];
-	else if (isInteger(rvar))
-		m_max_data_size = INTEGER(rvar)[0];
-	else
-		m_max_data_size = numeric_limits<uint64_t>::max();
-
-	rvar = GetOption(install("emr_quantile.edge.data.size"), R_NilValue);
-	if (isReal(rvar))
-		m_quantile_edge_data_size = (uint64_t)REAL(rvar)[0];
-	else if (isInteger(rvar))
-		m_quantile_edge_data_size = INTEGER(rvar)[0];
-	else
-		m_quantile_edge_data_size = 0;
-
-	SEXP r_rnd_seed = GetOption(install("emr_rnd.seed"), R_NilValue);
+	SEXP r_rnd_seed = GetOption(install("tgs_rnd.seed"), R_NilValue);
 	uint64_t rnd_seed;
 
 	if (isReal(r_rnd_seed))
@@ -602,24 +574,7 @@ void TGStat::sigalrm_handler(int)
 
 void TGStat::sigchld_handler(int)
 {
-	// Normally this condition should be always true since the kid installs the default handler for SIGINT.
-	// However due to race condition the old handler might still be in use.
-	if (getpid() == s_parent_pid) {
-		int status;
-		pid_t pid;
-
-		while ((pid = waitpid((pid_t)-1, &status, WNOHANG)) > 0) {
-			for (vector<pid_t>::iterator ipid = s_running_pids.begin(); ipid != s_running_pids.end(); ++ipid) {
-				if (*ipid == pid) {
-					if (ipid != s_running_pids.end() - 1)
-						*ipid = *(s_running_pids.end() - 1);
-					s_running_pids.pop_back();
-                    s_dead_pids.push_back(DeathStat(pid, status));
-					break;
-				}
-			}
-		}
-	}
+    vdebug("SIGCHLD\n");
 }
 
 void TGStat::get_open_fds(set<int> &fds)
@@ -669,6 +624,24 @@ void verror(const char *fmt, ...)
 		TGLError("%s", buf);
 	else
 		TGStat::handle_error(buf);
+}
+
+void vdebug(const char *fmt, ...)
+{
+    if (g_tgstat->debug()) {
+        struct timeval tmnow;
+        struct tm *tm;
+        char buf[30], usec_buf[6];
+        gettimeofday(&tmnow, NULL);
+        tm = localtime(&tmnow.tv_sec);
+        strftime(buf, sizeof(buf), "%H:%M:%S", tm);
+        printf("[DEBUG %s.%03d] ", buf, (int)(tmnow.tv_usec / 1000));
+
+        va_list ap;
+    	va_start(ap, fmt);
+    	vprintf(fmt, ap);
+        va_end(ap);
+    }
 }
 
 SEXP rprotect(SEXP &expr)

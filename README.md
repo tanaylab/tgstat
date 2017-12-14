@@ -5,6 +5,11 @@ The goal of tgstat is to provide fast and efficient statistical tools.
 
 Installation
 ------------
+``` r
+install.packages('tgstat', repos='tanaylab.bitbucket.io/repo')
+```
+
+or:
 
 ``` r
 devtools::install_bitbucket('tanaylab/tgstat@default')

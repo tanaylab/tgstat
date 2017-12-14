@@ -1,0 +1,4 @@
+useDynLib(tgstat)
+exportPattern("^[[:alpha:]]+")
+exportPattern("^[\\.[:alpha:]]+")
+

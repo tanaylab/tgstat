@@ -40,9 +40,19 @@ tgs_cor <- function(x, pairwise.complete.obs = F, spearman = F, tidy = F, thresh
         stop("Usage: tgs_cor(x, pairwise.complete.obs = F, spearman = F, tidy = F, threshold = 0)", call. = F)
 
     if (pairwise.complete.obs && spearman && !tgs_finite(x) || !.tgs_use_blas())
-        .tgs_call("tgs_cor", x, pairwise.complete.obs, spearman, tidy, threshold, new.env(parent = parent.frame()))
+        .tgs_call("tgs_cor", x, pairwise.complete.obs, spearman, tidy, threshold, NULL, new.env(parent = parent.frame()))
     else
-        .tgs_call("tgs_cor_blas", x, pairwise.complete.obs, spearman, tidy, threshold, new.env(parent = parent.frame()))
+        .tgs_call("tgs_cor_blas", x, pairwise.complete.obs, spearman, tidy, threshold, NULL, new.env(parent = parent.frame()))
+}
+
+tgs_cor_knn <- function(x, knn, pairwise.complete.obs = F, spearman = F, threshold = 0) {
+    if (missing(x) || missing(knn))
+        stop("Usage: tgs_cor_knn(x, knn, pairwise.complete.obs = F, spearman = F, threshold = 0)", call. = F)
+
+    if (pairwise.complete.obs && spearman && !tgs_finite(x) || !.tgs_use_blas())
+        .tgs_call("tgs_cor", x, pairwise.complete.obs, spearman, T, threshold, knn, new.env(parent = parent.frame()))
+    else
+        .tgs_call("tgs_cor_blas", x, pairwise.complete.obs, spearman, T, threshold, knn, new.env(parent = parent.frame()))
 }
 
 tgs_dist <- function(x, diag = FALSE, upper = FALSE, tidy = F, threshold = Inf) {

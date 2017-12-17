@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <queue>
 #include <sys/mman.h>
 #include <unistd.h>
 
@@ -20,7 +21,7 @@
 
 extern "C" {
 
-SEXP tgs_cor(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _tidy, SEXP _threshold, SEXP _envir)
+SEXP tgs_cor(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _tidy, SEXP _threshold, SEXP _knn, SEXP _envir)
 {
     SEXP answer = R_NilValue;
     double *res = (double *)MAP_FAILED;
@@ -44,6 +45,9 @@ SEXP tgs_cor(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _tidy, S
         if (!isReal(_threshold) && !isInteger(_threshold) || xlength(_threshold) != 1)
             verror("\"threshold\" argument must be a numeric value");
 
+        if (!isNull(_knn) && (!isReal(_knn) && !isInteger(_knn) || xlength(_knn) != 1))
+            verror("\"knn\" argument must be a numeric value");
+
         SEXP rdim = getAttrib(_x, R_DimSymbol);
 
         if (!isInteger(rdim) || xlength(rdim) != 2)
@@ -53,11 +57,17 @@ SEXP tgs_cor(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _tidy, S
         bool spearman = asLogical(_spearman);
         bool tidy = asLogical(_tidy);
         double threshold = fabs(asReal(_threshold));
+        double knn_d = isNull(_knn) ? 0 : asReal(_knn);
         size_t num_rows = nrows(_x);
         size_t num_cols = ncols(_x);
 
         if (num_rows <= 1 || num_cols <= 1)
             verror("\"x\" argument must be a matrix of numeric values");
+
+        if (!isNull(_knn) && knn_d < 1)
+            verror("\"knn\" argument must be a positive integer");
+
+        size_t knn = (size_t)knn_d;
 
         size_t num_vals = num_rows * num_cols;
         bool nan_in_vals = false;
@@ -292,14 +302,45 @@ SEXP tgs_cor(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _tidy, S
             rprotect(answer = allocVector(VECSXP, NUM_COLS));
 
             size_t answer_size = 0;
+            auto cmp = [&res](size_t idx1, size_t idx2) { return fabs(res[idx1]) > fabs(res[idx2]); };
+            priority_queue<size_t, vector<size_t>, decltype(cmp)> q(cmp);
 
-            for (size_t icol1 = 0; icol1 < num_cols; ++icol1) {
-                size_t idx = icol1;
-                for (size_t icol2 = 0; icol2 < icol1; ++icol2) {
-                    if (!std::isnan(res[idx]) && fabs(res[idx]) >= threshold)
-                        ++answer_size;
-                    idx += num_cols;
+            if (isNull(_knn)) {
+                for (size_t icol1 = 0; icol1 < num_cols; ++icol1) {
+                    size_t idx = icol1;
+                    for (size_t icol2 = 0; icol2 < icol1; ++icol2) {
+                        if (!std::isnan(res[idx]) && fabs(res[idx]) >= threshold)
+                            ++answer_size;
+                        idx += num_cols;
+                    }
                 }
+            } else if (knn > 0) {
+                // find the res_knn: the lowest correlation within the final results set
+                for (size_t icol1 = 0; icol1 < num_cols; ++icol1) {
+                    size_t idx = icol1;
+                    for (size_t icol2 = 0; icol2 < icol1; ++icol2) {
+                        if (!std::isnan(res[idx]) && fabs(res[idx]) >= threshold) {
+                            q.push(idx);
+                            if (q.size() > knn)
+                                q.pop();
+                        }
+                        idx += num_cols;
+                    }
+                }
+
+                // set all results lower than res_knn to NaN
+                for (size_t icol1 = 0; icol1 < num_cols; ++icol1) {
+                    size_t idx = icol1;
+                    for (size_t icol2 = 0; icol2 < icol1; ++icol2) {
+                        if (!std::isnan(res[idx]) && fabs(res[idx]) >= threshold) {
+                            if (fabs(res[idx]) < fabs(res[q.top()]))
+                                res[idx] = numeric_limits<double>::quiet_NaN();
+                        }
+                        idx += num_cols;
+                    }
+                }
+
+                answer_size = q.size();
             }
 
             SEXP rcol1, rcol2, rcor, rrownames, rcolnames;
@@ -322,16 +363,29 @@ SEXP tgs_cor(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _tidy, S
             for (int i = 0; i < NUM_COLS; i++)
                 SET_STRING_ELT(rcolnames, i, mkChar(COL_NAMES[i]));
 
-            size_t i = 0;
-            for (size_t icol1 = 0; icol1 < num_cols; ++icol1) {
-                for (size_t icol2 = icol1 + 1; icol2 < num_cols; ++icol2) {
-                    size_t idx = (size_t)icol1 * num_cols + icol2;
-                    if (!std::isnan(res[idx]) && fabs(res[idx]) >= threshold) {
-                        INTEGER(rcol1)[i] = icol1 + 1;
-                        INTEGER(rcol2)[i] = icol2 + 1;
-                        REAL(rcor)[i] = res[idx];
-                        INTEGER(rrownames)[i] = i + 1;
-                        ++i;
+            if (answer_size) {
+                if (isNull(_knn)) {
+                    size_t i = 0;
+                    for (size_t icol1 = 0; icol1 < num_cols; ++icol1) {
+                        for (size_t icol2 = icol1 + 1; icol2 < num_cols; ++icol2) {
+                            size_t idx = (size_t)icol1 * num_cols + icol2;
+                            if (!std::isnan(res[idx]) && fabs(res[idx]) >= threshold) {
+                                INTEGER(rcol1)[i] = icol1 + 1;
+                                INTEGER(rcol2)[i] = icol2 + 1;
+                                REAL(rcor)[i] = res[idx];
+                                INTEGER(rrownames)[i] = i + 1;
+                                ++i;
+                            }
+                        }
+                    }
+                } else {
+                    for (size_t i = 0; i < answer_size; ++i) {
+                        size_t idx = answer_size - i - 1;
+                        INTEGER(rcol1)[idx] = q.top() / num_cols + 1;
+                        INTEGER(rcol2)[idx] = q.top() % num_cols + 1;
+                        REAL(rcor)[idx] = res[q.top()];
+                        INTEGER(rrownames)[idx] = answer_size - i;
+                        q.pop();
                     }
                 }
             }
@@ -387,7 +441,7 @@ SEXP tgs_cor(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _tidy, S
 	rreturn(answer);
 }
 
-SEXP tgs_cor_blas(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _tidy, SEXP _threshold, SEXP _envir)
+SEXP tgs_cor_blas(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _tidy, SEXP _threshold, SEXP _knn, SEXP _envir)
 {
     SEXP answer = R_NilValue;
 
@@ -420,6 +474,9 @@ SEXP tgs_cor_blas(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _ti
         if (!isReal(_threshold) && !isInteger(_threshold) || xlength(_threshold) != 1)
             verror("\"threshold\" argument must be a numeric value");
 
+        if (!isNull(_knn) && (!isReal(_knn) && !isInteger(_knn) || xlength(_knn) != 1))
+            verror("\"knn\" argument must be a numeric value");
+
         SEXP rdim = getAttrib(_x, R_DimSymbol);
 
         if (!isInteger(rdim) || xlength(rdim) != 2)
@@ -429,6 +486,7 @@ SEXP tgs_cor_blas(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _ti
         bool spearman = asLogical(_spearman);
         bool tidy = asLogical(_tidy);
         double threshold = fabs(asReal(_threshold));
+        double knn_d = isNull(_knn) ? 0 : asReal(_knn);
         size_t num_dims = nrows(_x);
         size_t num_points = ncols(_x);
         int num_dims32 = (int)num_dims;
@@ -437,6 +495,10 @@ SEXP tgs_cor_blas(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _ti
         if (num_dims <= 1 || num_points <= 1)
             verror("\"x\" argument must be a matrix of numeric values");
 
+        if (!isNull(_knn) && knn_d < 1)
+            verror("\"knn\" argument must be a positive integer");
+
+        size_t knn = (size_t)knn_d;
         size_t num_vals = num_points * num_dims;
         size_t res_size = num_points * num_points;
         bool nan_in_vals = false;
@@ -692,14 +754,45 @@ SEXP tgs_cor_blas(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _ti
             rprotect(answer = allocVector(VECSXP, NUM_COLS));
 
             size_t answer_size = 0;
+            auto cmp = [&mem](size_t idx1, size_t idx2) { return fabs(mem.res[idx1]) > fabs(mem.res[idx2]); };
+            priority_queue<size_t, vector<size_t>, decltype(cmp)> q(cmp);
 
-            for (size_t icol1 = 0; icol1 < num_points; ++icol1) {
-                size_t idx = icol1;
-                for (size_t icol2 = 0; icol2 < icol1; ++icol2) {
-                    if (!std::isnan(mem.res[idx]) && fabs(mem.res[idx]) >= threshold)
-                        ++answer_size;
-                    idx += num_points;
+            if (isNull(_knn)) {
+                for (size_t icol1 = 0; icol1 < num_points; ++icol1) {
+                    size_t idx = icol1;
+                    for (size_t icol2 = 0; icol2 < icol1; ++icol2) {
+                        if (!std::isnan(mem.res[idx]) && fabs(mem.res[idx]) >= threshold)
+                            ++answer_size;
+                        idx += num_points;
+                    }
                 }
+            } else if (knn > 0) {
+                // find the res_knn: the lowest correlation within the final results set
+                for (size_t icol1 = 0; icol1 < num_points; ++icol1) {
+                    size_t idx = icol1;
+                    for (size_t icol2 = 0; icol2 < icol1; ++icol2) {
+                        if (!std::isnan(mem.res[idx]) && fabs(mem.res[idx]) >= threshold) {
+                            q.push(idx);
+                            if (q.size() > knn)
+                                q.pop();
+                        }
+                        idx += num_points;
+                    }
+                }
+
+                // set all results lower than res_knn to NaN
+                for (size_t icol1 = 0; icol1 < num_points; ++icol1) {
+                    size_t idx = icol1;
+                    for (size_t icol2 = 0; icol2 < icol1; ++icol2) {
+                        if (!std::isnan(mem.res[idx]) && fabs(mem.res[idx]) >= threshold) {
+                            if (fabs(mem.res[idx]) < fabs(mem.res[q.top()]))
+                                mem.res[idx] = numeric_limits<double>::quiet_NaN();
+                        }
+                        idx += num_points;
+                    }
+                }
+
+                answer_size = q.size();
             }
 
             SEXP rcol1, rcol2, rcor, rrownames, rcolnames;
@@ -722,16 +815,29 @@ SEXP tgs_cor_blas(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _ti
             for (int i = 0; i < NUM_COLS; i++)
                 SET_STRING_ELT(rcolnames, i, mkChar(COL_NAMES[i]));
 
-            size_t i = 0;
-            for (size_t icol1 = 0; icol1 < num_points; ++icol1) {
-                for (size_t icol2 = icol1 + 1; icol2 < num_points; ++icol2) {
-                    size_t idx = icol1 * num_points + icol2;
-                    if (!std::isnan(mem.res[idx]) && fabs(mem.res[idx]) >= threshold) {
-                        INTEGER(rcol1)[i] = icol1 + 1;
-                        INTEGER(rcol2)[i] = icol2 + 1;
-                        REAL(rcor)[i] = mem.res[idx];
-                        INTEGER(rrownames)[i] = i + 1;
-                        ++i;
+            if (answer_size) {
+                if (isNull(_knn)) {
+                    size_t i = 0;
+                    for (size_t icol1 = 0; icol1 < num_points; ++icol1) {
+                        for (size_t icol2 = icol1 + 1; icol2 < num_points; ++icol2) {
+                            size_t idx = (size_t)icol1 * num_points + icol2;
+                            if (!std::isnan(mem.res[idx]) && fabs(mem.res[idx]) >= threshold) {
+                                INTEGER(rcol1)[i] = icol1 + 1;
+                                INTEGER(rcol2)[i] = icol2 + 1;
+                                REAL(rcor)[i] = mem.res[idx];
+                                INTEGER(rrownames)[i] = i + 1;
+                                ++i;
+                            }
+                        }
+                    }
+                } else {
+                    for (size_t i = 0; i < answer_size; ++i) {
+                        size_t idx = answer_size - i - 1;
+                        INTEGER(rcol1)[idx] = q.top() / num_points + 1;
+                        INTEGER(rcol2)[idx] = q.top() % num_points + 1;
+                        REAL(rcor)[idx] = mem.res[q.top()];
+                        INTEGER(rrownames)[idx] = answer_size - i;
+                        q.pop();
                     }
                 }
             }

@@ -36,7 +36,6 @@
 #include "tgstat.h"
 
 using namespace std;
-using namespace __gnu_cxx;
 
 // A hack into R to change the default error report mechanism.
 //
@@ -395,6 +394,12 @@ bool TGStat::wait_for_kids(int millisecs)
         check_interrupt();
         check_kids_state(false);
 
+        {
+            SemLocker sl(s_shm_sem);
+            if (s_shm->error_msg[0])
+                verror("%s", s_shm->error_msg);
+        }
+
         if (s_running_pids.empty()) {
             vdebug("No more running child processes\n");
             return false;
@@ -559,6 +564,7 @@ void TGStat::out_of_memory()
 
 void TGStat::sigint_handler(int)
 {
+    vdebug("SIGINT\n");
 	++s_sigint_fired;
 
     // Normally this condition should be always true since the kid installs the default handler for SIGINT.
@@ -569,6 +575,7 @@ void TGStat::sigint_handler(int)
 
 void TGStat::sigalrm_handler(int)
 {
+    vdebug("SIGALRM\n");
 	s_sigalrm_fired = true;
 }
 

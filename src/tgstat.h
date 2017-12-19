@@ -23,14 +23,7 @@
 
 #include "TGLException.h"
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
-#ifndef isnan
-#define isnan ::isnan
-#endif
-#endif
-
 using namespace std;
-using namespace __gnu_cxx;
 
 // should be used instead of R_CheckUserInterrupt. Throws exception if the command is interrupted.
 void check_interrupt() throw (TGLException);

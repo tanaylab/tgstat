@@ -40,6 +40,4 @@ using namespace std;
 #include "dbg.h"
 #include "util.h"
 
-using namespace __gnu_cxx;
-
 #endif //  TGLUtil_port_h

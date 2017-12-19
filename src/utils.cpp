@@ -16,7 +16,7 @@ SEXP tgs_finite(SEXP _x, SEXP _envir)
 {
 	try {
         TGStat tgstat(_envir);
-        size_t len = Rf_length(_x);
+        size_t len = xlength(_x);
 
         if (!isReal(_x) && !isInteger(_x))
             verror("\"x\" argument must be numeric or integer");

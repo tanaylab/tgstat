@@ -15,7 +15,7 @@ GCCVERSION := $(subst $(space),$(empty),$(GCCVERSION))
 GCCVERSION := $(shell expr `echo $(GCCVERSION)` | cut -b1-3)
 #$(warning $(GCCVERSION))
 
-CFLAGS=-O3 -std=c++0x -Wno-deprecated -DNDEBUG -fpic -I$(R_INCLUDE_DIR)
+CFLAGS=-O3 -std=c++0x -DNDEBUG -fpic -I$(R_INCLUDE_DIR)
 
 TGT=tgstat.so
 SRCS=$(wildcard *.cpp)

@@ -295,17 +295,17 @@ SEXP tgs_cor(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _tidy, S
         SEXP rold_dimnames = getAttrib(_x, R_DimNamesSymbol);
         SEXP rold_colnames = !isNull(rold_dimnames) && xlength(rold_dimnames) == 2 ? VECTOR_ELT(rold_dimnames, 1) : R_NilValue;
 
-        if (tidy) {
-            enum { COL1, COL2, COR, NUM_COLS };
-            const char *COL_NAMES[NUM_COLS] = { "col1", "col2", "cor" };
+        if (isNull(_knn)) {
+            if (tidy) {
+                enum { COL1, COL2, COR, NUM_COLS };
+                const char *COL_NAMES[NUM_COLS] = { "col1", "col2", "cor" };
 
-            rprotect(answer = allocVector(VECSXP, NUM_COLS));
+                rprotect(answer = allocVector(VECSXP, NUM_COLS));
 
-            size_t answer_size = 0;
-            auto cmp = [&res](size_t idx1, size_t idx2) { return fabs(res[idx1]) > fabs(res[idx2]); };
-            priority_queue<size_t, vector<size_t>, decltype(cmp)> q(cmp);
+                size_t answer_size = 0;
+                auto cmp = [&res](size_t idx1, size_t idx2) { return fabs(res[idx1]) > fabs(res[idx2]); };
+                priority_queue<size_t, vector<size_t>, decltype(cmp)> q(cmp);
 
-            if (isNull(_knn)) {
                 for (size_t icol1 = 0; icol1 < num_cols; ++icol1) {
                     size_t idx = icol1;
                     for (size_t icol2 = 0; icol2 < icol1; ++icol2) {
@@ -314,40 +314,121 @@ SEXP tgs_cor(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _tidy, S
                         idx += num_cols;
                     }
                 }
-            } else if (knn > 0) {
-                // find the res_knn: the lowest correlation within the final results set
-                for (size_t icol1 = 0; icol1 < num_cols; ++icol1) {
-                    size_t idx = icol1;
-                    for (size_t icol2 = 0; icol2 < icol1; ++icol2) {
-                        if (!std::isnan(res[idx]) && fabs(res[idx]) >= threshold) {
-                            q.push(idx);
-                            if (q.size() > knn)
-                                q.pop();
-                        }
-                        idx += num_cols;
-                    }
+
+                SEXP rcol1, rcol2, rcor, rrownames, rcolnames;
+
+                SET_VECTOR_ELT(answer, COL1, (rcol1 = allocVector(INTSXP, answer_size)));
+                SET_VECTOR_ELT(answer, COL2, (rcol2 = allocVector(INTSXP, answer_size)));
+                SET_VECTOR_ELT(answer, COR, (rcor = allocVector(REALSXP, answer_size)));
+
+                if (rold_colnames != R_NilValue) {
+                    setAttrib(rcol1, R_LevelsSymbol, rold_colnames);
+                    setAttrib(rcol1, R_ClassSymbol, mkString("factor"));
+                    setAttrib(rcol2, R_LevelsSymbol, rold_colnames);
+                    setAttrib(rcol2, R_ClassSymbol, mkString("factor"));
                 }
 
-                // set all results lower than res_knn to NaN
-                for (size_t icol1 = 0; icol1 < num_cols; ++icol1) {
-                    size_t idx = icol1;
-                    for (size_t icol2 = 0; icol2 < icol1; ++icol2) {
-                        if (!std::isnan(res[idx]) && fabs(res[idx]) >= threshold) {
-                            if (fabs(res[idx]) < fabs(res[q.top()]))
-                                res[idx] = numeric_limits<double>::quiet_NaN();
+                setAttrib(answer, R_NamesSymbol, (rcolnames = allocVector(STRSXP, NUM_COLS)));
+                setAttrib(answer, R_ClassSymbol, mkString("data.frame"));
+                setAttrib(answer, R_RowNamesSymbol, (rrownames = allocVector(INTSXP, answer_size)));
+
+                for (int i = 0; i < NUM_COLS; i++)
+                    SET_STRING_ELT(rcolnames, i, mkChar(COL_NAMES[i]));
+
+                if (answer_size) {
+                    size_t i = 0;
+                    for (size_t icol1 = 0; icol1 < num_cols; ++icol1) {
+                        for (size_t icol2 = icol1 + 1; icol2 < num_cols; ++icol2) {
+                            size_t idx = (size_t)icol1 * num_cols + icol2;
+                            if (!std::isnan(res[idx]) && fabs(res[idx]) >= threshold) {
+                                INTEGER(rcol1)[i] = icol1 + 1;
+                                INTEGER(rcol2)[i] = icol2 + 1;
+                                REAL(rcor)[i] = res[idx];
+                                INTEGER(rrownames)[i] = i + 1;
+                                ++i;
+                            }
                         }
-                        idx += num_cols;
                     }
                 }
+            } else {
+                // copy the matrix below the diagonal to the upper part (the two parts are identical since cor(X,Y)=cor(Y,X)
+                for (size_t icol1 = 0; icol1 < (size_t)num_cols; ++icol1) {
+                    size_t idx1 = icol1 * num_cols;
+                    size_t idx2 = icol1;
+                    for (size_t icol2 = 0; icol2 < icol1; ++icol2) {
+                        res[idx1] = res[idx2];
+                        idx1++;
+                        idx2 += num_cols;
+                    }
+                    res[icol1 * (num_cols + 1)] = 1.;
+                }
 
-                answer_size = q.size();
+                for (size_t i = 0; i < res_size; ++i) {
+                    if (std::isnan(res[i]))
+                        res[i] = NA_REAL;
+                }
+
+                SEXP dim;
+
+                rprotect(answer = allocVector(REALSXP, res_size));
+                memcpy(REAL(answer), res, res_sizeof);
+
+                rprotect(dim = allocVector(INTSXP, 2));
+                INTEGER(dim)[0] = num_cols;
+                INTEGER(dim)[1] = num_cols;
+                setAttrib(answer, R_DimSymbol, dim);
+
+                if (rold_colnames != R_NilValue) {
+                    SEXP dimnames;
+                    rprotect(dimnames = allocVector(VECSXP, 2));
+                    SET_VECTOR_ELT(dimnames, 0, rold_colnames);
+                    SET_VECTOR_ELT(dimnames, 1, rold_colnames);
+                    setAttrib(answer, R_DimNamesSymbol, dimnames);
+                }
+            }
+        } else {
+            enum { COL1, COL2, COR, RANK, NUM_COLS };
+            const char *COL_NAMES[NUM_COLS] = { "col1", "col2", "cor", "rank" };
+
+            rprotect(answer = allocVector(VECSXP, NUM_COLS));
+
+            // copy the matrix below the diagonal to the upper part (the two parts are identical since cor(X,Y)=cor(Y,X)
+            for (size_t icol1 = 0; icol1 < (size_t)num_cols; ++icol1) {
+                size_t idx1 = icol1 * num_cols;
+                size_t idx2 = icol1;
+                for (size_t icol2 = 0; icol2 < icol1; ++icol2) {
+                    res[idx1] = res[idx2];
+                    idx1++;
+                    idx2 += num_cols;
+                }
+                res[icol1 * (num_cols + 1)] = 1.;
             }
 
-            SEXP rcol1, rcol2, rcor, rrownames, rcolnames;
+            size_t answer_size = 0;
+            auto cmp = [&res](size_t idx1, size_t idx2) { return fabs(res[idx1]) > fabs(res[idx2]); };
+            typedef priority_queue<size_t, vector<size_t>, decltype(cmp)> BestCor;
+            vector<BestCor> qs(num_cols, BestCor(cmp));
+
+            // find the best knn correlations for each column
+            for (size_t icol1 = 0; icol1 < num_cols; ++icol1) {
+                size_t idx = icol1;
+                for (size_t icol2 = 0; icol2 < num_cols; ++icol2) {
+                    if (icol1 != icol2 && !std::isnan(res[idx]) && fabs(res[idx]) >= threshold) {
+                        qs[icol1].push(idx);
+                        if (qs[icol1].size() > knn)
+                            qs[icol1].pop();
+                    }
+                    idx += num_cols;
+                }
+                answer_size += qs[icol1].size();
+            }
+
+            SEXP rcol1, rcol2, rcor, rrank, rrownames, rcolnames;
 
             SET_VECTOR_ELT(answer, COL1, (rcol1 = allocVector(INTSXP, answer_size)));
             SET_VECTOR_ELT(answer, COL2, (rcol2 = allocVector(INTSXP, answer_size)));
             SET_VECTOR_ELT(answer, COR, (rcor = allocVector(REALSXP, answer_size)));
+            SET_VECTOR_ELT(answer, RANK, (rrank = allocVector(INTSXP, answer_size)));
 
             if (rold_colnames != R_NilValue) {
                 setAttrib(rcol1, R_LevelsSymbol, rold_colnames);
@@ -364,68 +445,28 @@ SEXP tgs_cor(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _tidy, S
                 SET_STRING_ELT(rcolnames, i, mkChar(COL_NAMES[i]));
 
             if (answer_size) {
-                if (isNull(_knn)) {
-                    size_t i = 0;
-                    for (size_t icol1 = 0; icol1 < num_cols; ++icol1) {
-                        for (size_t icol2 = icol1 + 1; icol2 < num_cols; ++icol2) {
-                            size_t idx = (size_t)icol1 * num_cols + icol2;
-                            if (!std::isnan(res[idx]) && fabs(res[idx]) >= threshold) {
-                                INTEGER(rcol1)[i] = icol1 + 1;
-                                INTEGER(rcol2)[i] = icol2 + 1;
-                                REAL(rcor)[i] = res[idx];
-                                INTEGER(rrownames)[i] = i + 1;
-                                ++i;
-                            }
-                        }
+                size_t idx = 0;
+
+                for (size_t icol = 0; icol < num_cols; ++icol) {
+                    size_t q_size = qs[icol].size();
+                    size_t rank = q_size;
+                    idx += q_size - 1;
+                    while (!qs[icol].empty()) {
+                        INTEGER(rcol1)[idx] = qs[icol].top() % num_cols + 1;
+                        INTEGER(rcol2)[idx] = qs[icol].top() / num_cols + 1;
+                        REAL(rcor)[idx] = res[qs[icol].top()];
+                        INTEGER(rrank)[idx] = rank;
+                        qs[icol].pop();
+                        --idx;
+                        --rank;
                     }
-                } else {
-                    for (size_t i = 0; i < answer_size; ++i) {
-                        size_t idx = answer_size - i - 1;
-                        INTEGER(rcol1)[idx] = q.top() / num_cols + 1;
-                        INTEGER(rcol2)[idx] = q.top() % num_cols + 1;
-                        REAL(rcor)[idx] = res[q.top()];
-                        INTEGER(rrownames)[idx] = answer_size - i;
-                        q.pop();
-                    }
+                    idx += q_size + 1;
                 }
-            }
-        } else {
-            // copy the matrix below the diagonal to the upper part (the two parts are identical since cor(X,Y)=cor(Y,X)
-            for (size_t icol1 = 0; icol1 < (size_t)num_cols; ++icol1) {
-                size_t idx1 = icol1 * num_cols;
-                size_t idx2 = icol1;
-                for (size_t icol2 = 0; icol2 < icol1; ++icol2) {
-                    res[idx1] = res[idx2];
-                    idx1++;
-                    idx2 += num_cols;
-                }
-                res[icol1 * (num_cols + 1)] = 1.;
-            }
 
-            for (size_t i = 0; i < res_size; ++i) {
-                if (std::isnan(res[i]))
-                    res[i] = NA_REAL;
-            }
-
-            SEXP dim;
-
-            rprotect(answer = allocVector(REALSXP, res_size));
-            memcpy(REAL(answer), res, res_sizeof);
-
-            rprotect(dim = allocVector(INTSXP, 2));
-            INTEGER(dim)[0] = num_cols;
-            INTEGER(dim)[1] = num_cols;
-            setAttrib(answer, R_DimSymbol, dim);
-
-            if (rold_colnames != R_NilValue) {
-                SEXP dimnames;
-                rprotect(dimnames = allocVector(VECSXP, 2));
-                SET_VECTOR_ELT(dimnames, 0, rold_colnames);
-                SET_VECTOR_ELT(dimnames, 1, rold_colnames);
-                setAttrib(answer, R_DimNamesSymbol, dimnames);
+                for (size_t i = 0; i < answer_size; ++i)
+                    INTEGER(rrownames)[i] = i + 1;
             }
         }
-
     } catch (TGLException &e) {
         if (!TGStat::is_kid() && res != (double *)MAP_FAILED) {
             munmap(res, res_sizeof);
@@ -747,17 +788,15 @@ SEXP tgs_cor_blas(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _ti
         SEXP rold_dimnames = getAttrib(_x, R_DimNamesSymbol);
         SEXP rold_colnames = !isNull(rold_dimnames) && xlength(rold_dimnames) == 2 ? VECTOR_ELT(rold_dimnames, 1) : R_NilValue;
 
-        if (tidy) {
-            enum { COL1, COL2, COR, NUM_COLS };
-            const char *COL_NAMES[NUM_COLS] = { "col1", "col2", "cor" };
+        if (isNull(_knn)) {
+            if (tidy) {
+                enum { COL1, COL2, COR, NUM_COLS };
+                const char *COL_NAMES[NUM_COLS] = { "col1", "col2", "cor" };
 
-            rprotect(answer = allocVector(VECSXP, NUM_COLS));
+                rprotect(answer = allocVector(VECSXP, NUM_COLS));
 
-            size_t answer_size = 0;
-            auto cmp = [&mem](size_t idx1, size_t idx2) { return fabs(mem.res[idx1]) > fabs(mem.res[idx2]); };
-            priority_queue<size_t, vector<size_t>, decltype(cmp)> q(cmp);
+                size_t answer_size = 0;
 
-            if (isNull(_knn)) {
                 for (size_t icol1 = 0; icol1 < num_points; ++icol1) {
                     size_t idx = icol1;
                     for (size_t icol2 = 0; icol2 < icol1; ++icol2) {
@@ -766,40 +805,104 @@ SEXP tgs_cor_blas(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _ti
                         idx += num_points;
                     }
                 }
-            } else if (knn > 0) {
-                // find the res_knn: the lowest correlation within the final results set
-                for (size_t icol1 = 0; icol1 < num_points; ++icol1) {
-                    size_t idx = icol1;
-                    for (size_t icol2 = 0; icol2 < icol1; ++icol2) {
-                        if (!std::isnan(mem.res[idx]) && fabs(mem.res[idx]) >= threshold) {
-                            q.push(idx);
-                            if (q.size() > knn)
-                                q.pop();
-                        }
-                        idx += num_points;
-                    }
+
+                SEXP rcol1, rcol2, rcor, rrownames, rcolnames;
+
+                SET_VECTOR_ELT(answer, COL1, (rcol1 = allocVector(INTSXP, answer_size)));
+                SET_VECTOR_ELT(answer, COL2, (rcol2 = allocVector(INTSXP, answer_size)));
+                SET_VECTOR_ELT(answer, COR, (rcor = allocVector(REALSXP, answer_size)));
+
+                if (rold_colnames != R_NilValue) {
+                    setAttrib(rcol1, R_LevelsSymbol, rold_colnames);
+                    setAttrib(rcol1, R_ClassSymbol, mkString("factor"));
+                    setAttrib(rcol2, R_LevelsSymbol, rold_colnames);
+                    setAttrib(rcol2, R_ClassSymbol, mkString("factor"));
                 }
 
-                // set all results lower than res_knn to NaN
-                for (size_t icol1 = 0; icol1 < num_points; ++icol1) {
-                    size_t idx = icol1;
-                    for (size_t icol2 = 0; icol2 < icol1; ++icol2) {
-                        if (!std::isnan(mem.res[idx]) && fabs(mem.res[idx]) >= threshold) {
-                            if (fabs(mem.res[idx]) < fabs(mem.res[q.top()]))
-                                mem.res[idx] = numeric_limits<double>::quiet_NaN();
+                setAttrib(answer, R_NamesSymbol, (rcolnames = allocVector(STRSXP, NUM_COLS)));
+                setAttrib(answer, R_ClassSymbol, mkString("data.frame"));
+                setAttrib(answer, R_RowNamesSymbol, (rrownames = allocVector(INTSXP, answer_size)));
+
+                for (int i = 0; i < NUM_COLS; i++)
+                    SET_STRING_ELT(rcolnames, i, mkChar(COL_NAMES[i]));
+
+                if (answer_size) {
+                    size_t i = 0;
+                    for (size_t icol1 = 0; icol1 < num_points; ++icol1) {
+                        for (size_t icol2 = icol1 + 1; icol2 < num_points; ++icol2) {
+                            size_t idx = (size_t)icol1 * num_points + icol2;
+                            if (!std::isnan(mem.res[idx]) && fabs(mem.res[idx]) >= threshold) {
+                                INTEGER(rcol1)[i] = icol1 + 1;
+                                INTEGER(rcol2)[i] = icol2 + 1;
+                                REAL(rcor)[i] = mem.res[idx];
+                                INTEGER(rrownames)[i] = i + 1;
+                                ++i;
+                            }
                         }
-                        idx += num_points;
                     }
                 }
+            } else {
+                SEXP dim;
 
-                answer_size = q.size();
+                rprotect(answer = allocVector(REALSXP, res_size));
+                memcpy(REAL(answer), mem.res, res_size * sizeof(double));
+
+                rprotect(dim = allocVector(INTSXP, 2));
+                INTEGER(dim)[0] = num_points;
+                INTEGER(dim)[1] = num_points;
+                setAttrib(answer, R_DimSymbol, dim);
+
+                if (rold_colnames != R_NilValue) {
+                    SEXP dimnames;
+                    rprotect(dimnames = allocVector(VECSXP, 2));
+                    SET_VECTOR_ELT(dimnames, 0, rold_colnames);
+                    SET_VECTOR_ELT(dimnames, 1, rold_colnames);
+                    setAttrib(answer, R_DimNamesSymbol, dimnames);
+                }
+            }
+        } else {
+            enum { COL1, COL2, COR, RANK, NUM_COLS };
+            const char *COL_NAMES[NUM_COLS] = { "col1", "col2", "cor", "rank" };
+
+            rprotect(answer = allocVector(VECSXP, NUM_COLS));
+
+            // copy the matrix below the diagonal to the upper part (the two parts are identical since cor(X,Y)=cor(Y,X)
+            for (size_t icol1 = 0; icol1 < (size_t)num_points; ++icol1) {
+                size_t idx1 = icol1 * num_points;
+                size_t idx2 = icol1;
+                for (size_t icol2 = 0; icol2 < icol1; ++icol2) {
+                    mem.res[idx1] = mem.res[idx2];
+                    idx1++;
+                    idx2 += num_points;
+                }
+                mem.res[icol1 * (num_points + 1)] = 1.;
             }
 
-            SEXP rcol1, rcol2, rcor, rrownames, rcolnames;
+            size_t answer_size = 0;
+            auto cmp = [&mem](size_t idx1, size_t idx2) { return fabs(mem.res[idx1]) > fabs(mem.res[idx2]); };
+            typedef priority_queue<size_t, vector<size_t>, decltype(cmp)> BestCor;
+            vector<BestCor> qs(num_points, BestCor(cmp));
+
+            // find the best knn correlations for each column
+            for (size_t icol1 = 0; icol1 < num_points; ++icol1) {
+                size_t idx = icol1;
+                for (size_t icol2 = 0; icol2 < num_points; ++icol2) {
+                    if (icol1 != icol2 && !std::isnan(mem.res[idx]) && fabs(mem.res[idx]) >= threshold) {
+                        qs[icol1].push(idx);
+                        if (qs[icol1].size() > knn)
+                            qs[icol1].pop();
+                    }
+                    idx += num_points;
+                }
+                answer_size += qs[icol1].size();
+            }
+
+            SEXP rcol1, rcol2, rcor, rrank, rrownames, rcolnames;
 
             SET_VECTOR_ELT(answer, COL1, (rcol1 = allocVector(INTSXP, answer_size)));
             SET_VECTOR_ELT(answer, COL2, (rcol2 = allocVector(INTSXP, answer_size)));
             SET_VECTOR_ELT(answer, COR, (rcor = allocVector(REALSXP, answer_size)));
+            SET_VECTOR_ELT(answer, RANK, (rrank = allocVector(INTSXP, answer_size)));
 
             if (rold_colnames != R_NilValue) {
                 setAttrib(rcol1, R_LevelsSymbol, rold_colnames);
@@ -816,51 +919,28 @@ SEXP tgs_cor_blas(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _ti
                 SET_STRING_ELT(rcolnames, i, mkChar(COL_NAMES[i]));
 
             if (answer_size) {
-                if (isNull(_knn)) {
-                    size_t i = 0;
-                    for (size_t icol1 = 0; icol1 < num_points; ++icol1) {
-                        for (size_t icol2 = icol1 + 1; icol2 < num_points; ++icol2) {
-                            size_t idx = (size_t)icol1 * num_points + icol2;
-                            if (!std::isnan(mem.res[idx]) && fabs(mem.res[idx]) >= threshold) {
-                                INTEGER(rcol1)[i] = icol1 + 1;
-                                INTEGER(rcol2)[i] = icol2 + 1;
-                                REAL(rcor)[i] = mem.res[idx];
-                                INTEGER(rrownames)[i] = i + 1;
-                                ++i;
-                            }
-                        }
+                size_t idx = 0;
+
+                for (size_t icol = 0; icol < num_points; ++icol) {
+                    size_t q_size = qs[icol].size();
+                    size_t rank = q_size;
+                    idx += q_size - 1;
+                    while (!qs[icol].empty()) {
+                        INTEGER(rcol1)[idx] = qs[icol].top() % num_points + 1;
+                        INTEGER(rcol2)[idx] = qs[icol].top() / num_points + 1;
+                        REAL(rcor)[idx] = mem.res[qs[icol].top()];
+                        INTEGER(rrank)[idx] = rank;
+                        qs[icol].pop();
+                        --idx;
+                        --rank;
                     }
-                } else {
-                    for (size_t i = 0; i < answer_size; ++i) {
-                        size_t idx = answer_size - i - 1;
-                        INTEGER(rcol1)[idx] = q.top() / num_points + 1;
-                        INTEGER(rcol2)[idx] = q.top() % num_points + 1;
-                        REAL(rcor)[idx] = mem.res[q.top()];
-                        INTEGER(rrownames)[idx] = answer_size - i;
-                        q.pop();
-                    }
+                    idx += q_size + 1;
                 }
-            }
-        } else {
-            SEXP dim;
 
-            rprotect(answer = allocVector(REALSXP, res_size));
-            memcpy(REAL(answer), mem.res, res_size * sizeof(double));
-
-            rprotect(dim = allocVector(INTSXP, 2));
-            INTEGER(dim)[0] = num_points;
-            INTEGER(dim)[1] = num_points;
-            setAttrib(answer, R_DimSymbol, dim);
-
-            if (rold_colnames != R_NilValue) {
-                SEXP dimnames;
-                rprotect(dimnames = allocVector(VECSXP, 2));
-                SET_VECTOR_ELT(dimnames, 0, rold_colnames);
-                SET_VECTOR_ELT(dimnames, 1, rold_colnames);
-                setAttrib(answer, R_DimNamesSymbol, dimnames);
+                for (size_t i = 0; i < answer_size; ++i)
+                    INTEGER(rrownames)[i] = i + 1;
             }
         }
-
     } catch (TGLException &e) {
         rerror("%s", e.msg());
     }

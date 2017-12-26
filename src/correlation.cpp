@@ -405,7 +405,7 @@ SEXP tgs_cor(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _tidy, S
             }
 
             size_t answer_size = 0;
-            auto cmp = [&res](size_t idx1, size_t idx2) { return fabs(res[idx1]) > fabs(res[idx2]); };
+            auto cmp = [&res](size_t idx1, size_t idx2) { return fabs(res[idx1]) > fabs(res[idx2]) || res[idx1] == res[idx2] && idx1 < idx2; };
             typedef priority_queue<size_t, vector<size_t>, decltype(cmp)> BestCor;
             vector<BestCor> qs(num_cols, BestCor(cmp));
 
@@ -879,7 +879,7 @@ SEXP tgs_cor_blas(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _ti
             }
 
             size_t answer_size = 0;
-            auto cmp = [&mem](size_t idx1, size_t idx2) { return fabs(mem.res[idx1]) > fabs(mem.res[idx2]); };
+            auto cmp = [&mem](size_t idx1, size_t idx2) { return fabs(mem.res[idx1]) > fabs(mem.res[idx2]) || mem.res[idx1] == mem.res[idx2] && idx1 < idx2; };
             typedef priority_queue<size_t, vector<size_t>, decltype(cmp)> BestCor;
             vector<BestCor> qs(num_points, BestCor(cmp));
 

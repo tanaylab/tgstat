@@ -1,0 +1,194 @@
+#include <algorithm>
+#include <limits>
+#include <unordered_map>
+
+#include <R.h>
+#include <Rinternals.h>
+
+#include "HashFunc.h"
+
+#ifdef length
+#undef length
+#endif
+#ifdef error
+#undef error
+#endif
+
+#include "ProgressReporter.h"
+#include "tgstat.h"
+
+extern "C" {
+
+SEXP tgs_cor_graph(SEXP _ranks, SEXP _knn, SEXP _k_expand, SEXP _k_beta, SEXP _rcolnames, SEXP _envir)
+{
+	try {
+        TGStat tgstat(_envir);
+
+        int *pcol1;
+        int *pcol2;
+        int *prank;
+        size_t num_ranks;
+
+        if (!isReal(_k_beta) && !isInteger(_k_beta) || xlength(_k_beta) != 1)
+            verror("\"k_beta\" argument must be a numeric value");
+
+        {
+            enum { COL1, COL2, COR, RANK, NUM_COLS };
+            const char *COL_NAMES[NUM_COLS] = { "col1", "col2", "cor", "rank" };
+
+            SEXP rnames = getAttrib(_ranks, R_NamesSymbol);
+
+    		if (!isVector(_ranks) || xlength(_ranks) != NUM_COLS || xlength(rnames) != NUM_COLS ||
+                strcmp(CHAR(STRING_ELT(rnames, COL1)), COL_NAMES[COL1]) || !isInteger(VECTOR_ELT(_ranks, COL1)) && !isFactor(VECTOR_ELT(_ranks, COL1)) ||
+                strcmp(CHAR(STRING_ELT(rnames, COL2)), COL_NAMES[COL2]) || !isInteger(VECTOR_ELT(_ranks, COL2)) && !isFactor(VECTOR_ELT(_ranks, COL2)) ||
+                xlength(VECTOR_ELT(_ranks, COL2)) != xlength(VECTOR_ELT(_ranks, COL1)) ||
+                strcmp(CHAR(STRING_ELT(rnames, COR)), COL_NAMES[COR]) || !isReal(VECTOR_ELT(_ranks, COR)) || xlength(VECTOR_ELT(_ranks, COR)) != xlength(VECTOR_ELT(_ranks, COL1)) ||
+                strcmp(CHAR(STRING_ELT(rnames, RANK)), COL_NAMES[RANK]) || !isInteger(VECTOR_ELT(_ranks, RANK)) || xlength(VECTOR_ELT(_ranks, RANK)) != xlength(VECTOR_ELT(_ranks, COL1)))
+    			verror("\"ranks\" argument must be in the format that is returned by tgs_cor_knn function");
+
+            pcol1 = INTEGER(VECTOR_ELT(_ranks, COL1));
+            pcol2 = INTEGER(VECTOR_ELT(_ranks, COL2));
+            prank = INTEGER(VECTOR_ELT(_ranks, RANK));
+            num_ranks = xlength(VECTOR_ELT(_ranks, RANK));
+        }
+
+        if (!isNull(_knn) && (!isReal(_knn) && !isInteger(_knn) || xlength(_knn) != 1))
+            verror("\"knn\" argument must be a numeric value");
+
+        if (!isNull(_k_expand) && (!isReal(_k_expand) && !isInteger(_k_expand) || xlength(_k_expand) != 1))
+            verror("\"k_expand\" argument must be a numeric value");
+
+        double knn_d = isNull(_knn) ? 0 : asReal(_knn);
+        double k_expand = asReal(_k_expand);
+        double k_beta = asReal(_k_beta);
+
+        if (knn_d < 1)
+            verror("\"knn\" argument must be a positive integer");
+
+        if (k_expand <= 0)
+            verror("\"k_expand\" argument must be a positive number");
+
+        if (k_beta <= 0)
+            verror("\"k_beta\" argument must be a positive number");
+
+        size_t knn = (size_t)knn_d;
+        unsigned num_points = 0;
+        unordered_map<pair<unsigned, unsigned>, size_t> ij2weight;
+        unordered_map<pair<unsigned, unsigned>, size_t> ij2rank;
+        size_t max_weight = knn * knn * k_expand;
+
+        for (size_t i = 0; i < num_ranks; ++i)
+            ij2rank[{pcol1[i], pcol2[i]}] = prank[i];
+
+        for (const auto &r : ij2rank) {
+            const auto &ij = r.first;
+            num_points = max(num_points, ij.first + 1);
+            num_points = max(num_points, ij.second + 1);
+            if (ij.first < ij.second) {
+                auto itr = ij2rank.find({ij.second, ij.first});
+                if (itr != ij2rank.end()) {
+                    size_t weight = r.second * itr->second;    // weight = rank[i,j] * rank[j,i]
+                    if (weight <= max_weight)
+                        ij2weight[ij] = ij2weight[{ij.second, ij.first}] = weight;
+                }
+            }
+        }
+
+        {
+            decltype(ij2rank) cleaner;
+            ij2rank.swap(cleaner);     // force ij2rank to release memory
+        }
+
+        struct Edge {
+            unsigned node;
+            size_t weight;
+            Edge(unsigned _node, unsigned _weight) : node(_node), weight(_weight) {}
+            bool operator<(const Edge &o) const { return weight < o.weight || weight == o.weight && node < o.node; }
+        };
+
+        // leave max k_beta * knn incoming edges
+        vector<vector<Edge>> incoming(num_points);
+        for (const auto &w : ij2weight) {
+            unsigned i = w.first.first;
+            unsigned j = w.first.second;
+            incoming[j].push_back(Edge(i, w.second));
+        }
+
+        for (auto iedges = incoming.begin(); iedges < incoming.end(); ++iedges) {
+            sort(iedges->begin(), iedges->end());
+            for (auto iedge = iedges->begin() + k_beta * knn; iedge < iedges->end(); ++iedge)
+                ij2weight.erase({iedge->node, iedges - incoming.begin()});
+        }
+
+        {
+            decltype(incoming) cleaner;
+            incoming.swap(cleaner);     // force incoming to release memory
+        }
+
+        // leave max knn outgoing edges and pack the answer
+        vector<vector<Edge>> outgoing(num_points);
+
+        for (const auto &w : ij2weight) {
+            unsigned i = w.first.first;
+            unsigned j = w.first.second;
+            outgoing[i].push_back(Edge(j, w.second));
+        }
+
+        {
+            decltype(ij2weight) cleaner;
+            ij2weight.swap(cleaner);     // force ij2weight to release memory
+        }
+
+        enum { COL1, COL2, WEIGHT, NUM_COLS };
+        const char *COL_NAMES[NUM_COLS] = { "col1", "col2", "weight" };
+
+        size_t answer_size = 0;
+        SEXP ranswer, rcol1, rcol2, rweight, rrownames, rcolnames;
+
+        for (const auto &edges : outgoing)
+            answer_size += min(edges.size(), knn);
+
+        rprotect(ranswer = allocVector(VECSXP, NUM_COLS));
+        SET_VECTOR_ELT(ranswer, COL1, (rcol1 = allocVector(INTSXP, answer_size)));
+        SET_VECTOR_ELT(ranswer, COL2, (rcol2 = allocVector(INTSXP, answer_size)));
+        SET_VECTOR_ELT(ranswer, WEIGHT, (rweight = allocVector(REALSXP, answer_size)));
+
+        if (_rcolnames != R_NilValue) {
+            setAttrib(rcol1, R_LevelsSymbol, _rcolnames);
+            setAttrib(rcol1, R_ClassSymbol, mkString("factor"));
+            setAttrib(rcol2, R_LevelsSymbol, _rcolnames);
+            setAttrib(rcol2, R_ClassSymbol, mkString("factor"));
+        }
+
+        setAttrib(ranswer, R_NamesSymbol, (rcolnames = allocVector(STRSXP, NUM_COLS)));
+        setAttrib(ranswer, R_ClassSymbol, mkString("data.frame"));
+        setAttrib(ranswer, R_RowNamesSymbol, (rrownames = allocVector(INTSXP, answer_size)));
+
+        for (int i = 0; i < NUM_COLS; i++)
+            SET_STRING_ELT(rcolnames, i, mkChar(COL_NAMES[i]));
+
+        size_t idx = 0;
+        for (auto iedges = outgoing.begin(); iedges < outgoing.end(); ++iedges) {
+            double rank = 0;
+            sort(iedges->begin(), iedges->end());
+            for (auto iedge = iedges->begin(); iedge < iedges->end() && iedge - iedges->begin() < knn; ++iedge) {
+                int i = iedges - outgoing.begin();
+                int j = iedge->node;
+                INTEGER(rcol1)[idx] = i;
+                INTEGER(rcol2)[idx] = j;
+                REAL(rweight)[idx] = knn == 1 ? 1. : 1. - rank / (knn - 1);
+                INTEGER(rrownames)[idx] = idx + 1;
+                ++idx;
+                ++rank;
+            }
+        }
+
+        rreturn(ranswer);
+    } catch (TGLException &e) {
+		rerror("%s", e.msg());
+	}
+
+    rreturn(R_NilValue);
+}
+
+}

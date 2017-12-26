@@ -45,6 +45,14 @@ tgs_cor <- function(x, pairwise.complete.obs = F, spearman = F, tidy = F, thresh
         .tgs_call("tgs_cor_blas", x, pairwise.complete.obs, spearman, tidy, threshold, NULL, new.env(parent = parent.frame()))
 }
 
+tgs_cor_graph <- function(x, knn, k_expand, k_alpha = 10, k_beta = 3, pairwise.complete.obs = F, spearman = F) {
+    if (missing(x) || missing(knn) || missing(k_expand))
+        stop("Usage: tgs_cor_graph(x, knn, k_expand, k_alpha = 10, k_beta = 3, pairwise.complete.obs = F, spearman = F)", call. = F)
+
+    r <- tgs_cor_knn(x, knn * k_alpha, pairwise.complete.obs = pairwise.complete.obs, spearman = spearman, threshold = 0)
+    .tgs_call("tgs_cor_graph", r, knn, k_expand, k_beta, colnames(x), new.env(parent = parent.frame()))
+}
+
 tgs_cor_knn <- function(x, knn, pairwise.complete.obs = F, spearman = F, threshold = 0) {
     if (missing(x) || missing(knn))
         stop("Usage: tgs_cor_knn(x, knn, pairwise.complete.obs = F, spearman = F, threshold = 0)", call. = F)

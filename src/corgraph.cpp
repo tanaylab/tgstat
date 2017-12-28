@@ -115,9 +115,11 @@ SEXP tgs_cor_graph(SEXP _ranks, SEXP _knn, SEXP _k_expand, SEXP _k_beta, SEXP _r
         }
 
         for (auto iedges = incoming.begin(); iedges < incoming.end(); ++iedges) {
-            sort(iedges->begin(), iedges->end());
-            for (auto iedge = iedges->begin() + k_beta * knn; iedge < iedges->end(); ++iedge)
-                ij2weight.erase({iedge->node, iedges - incoming.begin()});
+            if (iedges->size() > k_beta * knn) {
+                partial_sort(iedges->begin(), iedges->begin() + k_beta * knn, iedges->end());
+                for (auto iedge = iedges->begin() + k_beta * knn; iedge < iedges->end(); ++iedge)
+                    ij2weight.erase({iedge->node, iedges - incoming.begin()});
+            }
         }
 
         {
@@ -170,8 +172,15 @@ SEXP tgs_cor_graph(SEXP _ranks, SEXP _knn, SEXP _k_expand, SEXP _k_beta, SEXP _r
         size_t idx = 0;
         for (auto iedges = outgoing.begin(); iedges < outgoing.end(); ++iedges) {
             double rank = 0;
-            sort(iedges->begin(), iedges->end());
-            for (auto iedge = iedges->begin(); iedge < iedges->end() && iedge - iedges->begin() < knn; ++iedge) {
+
+            if (iedges->size() <= knn)
+                sort(iedges->begin(), iedges->end());
+            else
+                partial_sort(iedges->begin(), iedges->begin() + knn, iedges->end());
+
+            auto iedge_end = iedges->size() <= knn ? iedges->end() : iedges->begin() + knn;
+
+            for (auto iedge = iedges->begin(); iedge < iedge_end; ++iedge) {
                 int i = iedges - outgoing.begin();
                 int j = iedge->node;
                 INTEGER(rcol1)[idx] = i;

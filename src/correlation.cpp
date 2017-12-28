@@ -406,20 +406,24 @@ SEXP tgs_cor(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _tidy, S
 
             size_t answer_size = 0;
             auto cmp = [&res](size_t idx1, size_t idx2) { return fabs(res[idx1]) > fabs(res[idx2]) || res[idx1] == res[idx2] && idx1 < idx2; };
-            typedef priority_queue<size_t, vector<size_t>, decltype(cmp)> BestCor;
-            vector<BestCor> qs(num_cols, BestCor(cmp));
+            typedef vector<size_t> BestCor;
+            vector<BestCor> qs(num_cols);
 
             // find the best knn correlations for each column
             for (size_t icol1 = 0; icol1 < num_cols; ++icol1) {
                 size_t idx = icol1;
+                BestCor &best_cor = qs[icol1];
                 for (size_t icol2 = 0; icol2 < num_cols; ++icol2) {
-                    if (icol1 != icol2 && !std::isnan(res[idx]) && fabs(res[idx]) >= threshold) {
-                        qs[icol1].push(idx);
-                        if (qs[icol1].size() > knn)
-                            qs[icol1].pop();
-                    }
+                    if (icol1 != icol2 && !std::isnan(res[idx]) && fabs(res[idx]) >= threshold) 
+                        best_cor.push_back(idx);
                     idx += num_cols;
                 }
+                if (best_cor.size() > knn) {
+                    partial_sort(best_cor.begin(), best_cor.begin() + knn, best_cor.end(), cmp);
+                    best_cor.erase(best_cor.begin() + knn, best_cor.end());
+                    best_cor.shrink_to_fit();
+                } else
+                    sort(best_cor.begin(), best_cor.end(), cmp);
                 answer_size += qs[icol1].size();
             }
 
@@ -448,19 +452,14 @@ SEXP tgs_cor(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _tidy, S
                 size_t idx = 0;
 
                 for (size_t icol = 0; icol < num_cols; ++icol) {
-                    size_t q_size = qs[icol].size();
-                    size_t rank = q_size;
-                    idx += q_size - 1;
-                    while (!qs[icol].empty()) {
-                        INTEGER(rcol1)[idx] = qs[icol].top() % num_cols + 1;
-                        INTEGER(rcol2)[idx] = qs[icol].top() / num_cols + 1;
-                        REAL(rcor)[idx] = res[qs[icol].top()];
-                        INTEGER(rrank)[idx] = rank;
-                        qs[icol].pop();
-                        --idx;
-                        --rank;
+                    BestCor &best_cor = qs[icol];
+                    for (auto icor = best_cor.begin(); icor != best_cor.end(); ++icor) {
+                        INTEGER(rcol1)[idx] = *icor % num_cols + 1;
+                        INTEGER(rcol2)[idx] = *icor / num_cols + 1;
+                        REAL(rcor)[idx] = res[*icor];
+                        INTEGER(rrank)[idx] = icor - best_cor.begin() + 1;
+                        ++idx;
                     }
-                    idx += q_size + 1;
                 }
 
                 for (size_t i = 0; i < answer_size; ++i)
@@ -545,6 +544,7 @@ SEXP tgs_cor_blas(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _ti
         bool nan_in_vals = false;
         vector<bool> nan_in_point(num_points, false);
 
+vdebug("START BLAS COR\n");
         // some BLAS implementations ask to align double arrays to 64 for improved efficiency
         mem.m = (double *)aligned_alloc(64, sizeof(double) * num_vals);
         mem.mask = (double *)aligned_alloc(64, sizeof(double) * num_vals);
@@ -771,6 +771,7 @@ SEXP tgs_cor_blas(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _ti
 
             progress.report_last();
         }
+vdebug("END BLAS COR\n");
 
 //memcpy(mem.res, mem.var_n, sizeof(double) * res_size);
 //{
@@ -866,6 +867,7 @@ SEXP tgs_cor_blas(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _ti
 
             rprotect(answer = allocVector(VECSXP, NUM_COLS));
 
+vdebug("COPY ABOVE DIAGONAL\n");
             // copy the matrix below the diagonal to the upper part (the two parts are identical since cor(X,Y)=cor(Y,X)
             for (size_t icol1 = 0; icol1 < (size_t)num_points; ++icol1) {
                 size_t idx1 = icol1 * num_points;
@@ -880,25 +882,31 @@ SEXP tgs_cor_blas(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _ti
 
             size_t answer_size = 0;
             auto cmp = [&mem](size_t idx1, size_t idx2) { return fabs(mem.res[idx1]) > fabs(mem.res[idx2]) || mem.res[idx1] == mem.res[idx2] && idx1 < idx2; };
-            typedef priority_queue<size_t, vector<size_t>, decltype(cmp)> BestCor;
-            vector<BestCor> qs(num_points, BestCor(cmp));
+            typedef vector<size_t> BestCor;
+            vector<BestCor> qs(num_points);
 
             // find the best knn correlations for each column
+vdebug("SELECTING BEST KNN\n");
             for (size_t icol1 = 0; icol1 < num_points; ++icol1) {
                 size_t idx = icol1;
+                BestCor &best_cor = qs[icol1];
                 for (size_t icol2 = 0; icol2 < num_points; ++icol2) {
-                    if (icol1 != icol2 && !std::isnan(mem.res[idx]) && fabs(mem.res[idx]) >= threshold) {
-                        qs[icol1].push(idx);
-                        if (qs[icol1].size() > knn)
-                            qs[icol1].pop();
-                    }
+                    if (icol1 != icol2 && !std::isnan(mem.res[idx]) && fabs(mem.res[idx]) >= threshold) 
+                        best_cor.push_back(idx);
                     idx += num_points;
                 }
-                answer_size += qs[icol1].size();
+                if (best_cor.size() > knn) {
+                    partial_sort(best_cor.begin(), best_cor.begin() + knn, best_cor.end(), cmp);
+                    best_cor.erase(best_cor.begin() + knn, best_cor.end());
+                    best_cor.shrink_to_fit();
+                } else
+                    sort(best_cor.begin(), best_cor.end(), cmp);
+                answer_size += best_cor.size();
             }
 
             SEXP rcol1, rcol2, rcor, rrank, rrownames, rcolnames;
 
+vdebug("PACKING\n");
             SET_VECTOR_ELT(answer, COL1, (rcol1 = allocVector(INTSXP, answer_size)));
             SET_VECTOR_ELT(answer, COL2, (rcol2 = allocVector(INTSXP, answer_size)));
             SET_VECTOR_ELT(answer, COR, (rcor = allocVector(REALSXP, answer_size)));
@@ -922,24 +930,20 @@ SEXP tgs_cor_blas(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _ti
                 size_t idx = 0;
 
                 for (size_t icol = 0; icol < num_points; ++icol) {
-                    size_t q_size = qs[icol].size();
-                    size_t rank = q_size;
-                    idx += q_size - 1;
-                    while (!qs[icol].empty()) {
-                        INTEGER(rcol1)[idx] = qs[icol].top() % num_points + 1;
-                        INTEGER(rcol2)[idx] = qs[icol].top() / num_points + 1;
-                        REAL(rcor)[idx] = mem.res[qs[icol].top()];
-                        INTEGER(rrank)[idx] = rank;
-                        qs[icol].pop();
-                        --idx;
-                        --rank;
+                    BestCor &best_cor = qs[icol];
+                    for (auto icor = best_cor.begin(); icor != best_cor.end(); ++icor) {
+                        INTEGER(rcol1)[idx] = *icor % num_points + 1;
+                        INTEGER(rcol2)[idx] = *icor / num_points + 1;
+                        REAL(rcor)[idx] = mem.res[*icor];
+                        INTEGER(rrank)[idx] = icor - best_cor.begin() + 1;
+                        ++idx;
                     }
-                    idx += q_size + 1;
                 }
 
                 for (size_t i = 0; i < answer_size; ++i)
                     INTEGER(rrownames)[i] = i + 1;
             }
+vdebug("END\n");
         }
     } catch (TGLException &e) {
         rerror("%s", e.msg());

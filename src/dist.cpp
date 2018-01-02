@@ -770,7 +770,7 @@ SEXP tgs_dist_blas(SEXP _x, SEXP _attrs, SEXP _tidy, SEXP _threshold, SEXP _rrow
             for (size_t ipoint1 = 0, idx = 0; ipoint1 < num_points; ++ipoint1) {
                 idx += ipoint1 + 1;
                 for (size_t ipoint2 = ipoint1 + 1; ipoint2 < num_points; ++ipoint2) {
-                    mem.res[idx] = sqrt(mem.res[idx] + s_v2[ipoint1] + s_v2[ipoint2]);
+                    mem.res[idx] = sqrt(max(mem.res[idx] + s_v2[ipoint1] + s_v2[ipoint2], 0.));
                     ++idx;
                 }
             }

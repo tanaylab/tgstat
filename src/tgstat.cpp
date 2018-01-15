@@ -554,6 +554,7 @@ void TGStat::load_options()
 	}
 
 	srand48(rnd_seed);
+    std::srand(rnd_seed);
 }
 
 void TGStat::out_of_memory()

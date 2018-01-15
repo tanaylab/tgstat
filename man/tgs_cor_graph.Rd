@@ -32,7 +32,7 @@ Here is how 'tgs_cor_graph' works in detail:
 5. Prune excessive outgoing edges: remove edge(i,j) if more than knn edges of type edge(i,node) exist and sym_rank(i,j) is higher than sym_rank(i,node) for node != i.
 }
 \value{
-The graph edges are returned in a data frame, with the weight of each edge varying between 1 and 0. edge(i,j) receives weight 1 if its sym_rank is the lowest among all edges of type edge(i,node). Accordingly the edge with the highest sym_rank receives weight 0. Formally defined: weight(i,j) = 1 - (place(i,j) - 1) / (knn - 1), where place(i,j) is the location of edge(i,j) within the sorted set of edges outgoing from i, i.e. edge(i,node). The sort is done by sym_rank of the edges. If knn == 1, the weight is 1.
+The graph edges are returned in a data frame, with the weight of each edge. edge(i,j) receives weight 1 if its sym_rank is the lowest among all edges of type edge(i,node). Formally defined: weight(i,j) = 1 - (place(i,j) - 1) / knn, where place(i,j) is the location of edge(i,j) within the sorted set of edges outgoing from i, i.e. edge(i,node). The sort is done by sym_rank of the edges.
 }
 
 \examples{

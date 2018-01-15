@@ -185,7 +185,7 @@ SEXP tgs_cor_graph(SEXP _ranks, SEXP _knn, SEXP _k_expand, SEXP _k_beta, SEXP _r
                 int j = iedge->node;
                 INTEGER(rcol1)[idx] = i;
                 INTEGER(rcol2)[idx] = j;
-                REAL(rweight)[idx] = knn == 1 ? 1. : 1. - rank / (knn - 1);
+                REAL(rweight)[idx] = 1. - rank / knn;
                 INTEGER(rrownames)[idx] = idx + 1;
                 ++idx;
                 ++rank;

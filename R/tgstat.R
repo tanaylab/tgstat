@@ -76,6 +76,13 @@ tgs_dist <- function(x, diag = FALSE, upper = FALSE, tidy = F, threshold = Inf) 
         .tgs_call("tgs_dist", x, attrs, tidy, threshold, dimnames(x)[[1L]], new.env(parent = parent.frame()))
 }
 
+tgs_cluster <- function(graph, min_cluster_size, cooling = 1.05, burn_in = 10) {
+    if (missing(graph) || missing(min_cluster_size))
+        stop("Usage: tgs_cluster(graph, min_cluster_size, cooling = 1.05, burn_in = 10)", call. = F)
+
+    .tgs_call("tgs_graph2cluster", graph, min_cluster_size, cooling, burn_in, new.env(parent = parent.frame()))
+}
+
 tgs_finite <- function(x) {
     if (missing(x))
         stop("Usage: tgs_finite(x)", call. = F)

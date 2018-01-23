@@ -384,6 +384,39 @@ void TGStat::check_kids_state(bool ignore_errors)
     }
 }
 
+bool TGStat::wait_for_kid(int millisecs)
+{
+    struct timespec timeout, remaining;
+    set_rel_timeout(millisecs, timeout);
+
+    while (1) {
+        vdebug("SIGINT fired? %d\n", s_sigint_fired);
+        check_interrupt();
+
+        size_t num_running_pids = s_running_pids.size();
+        check_kids_state(false);
+
+        {
+            SemLocker sl(s_shm_sem);
+            if (s_shm->error_msg[0])
+                verror("%s", s_shm->error_msg);
+        }
+
+        if (s_running_pids.empty() || num_running_pids > s_running_pids.size()) {
+            vdebug("still running %ld child processes\n", s_running_pids.size());
+            return false;
+        }
+
+        vdebug("still running %ld child processes (%d, ...)\n", s_running_pids.size(), s_running_pids.front());
+
+        if (nanosleep(&timeout, &remaining))
+            timeout = remaining;
+        else
+            break;
+    }
+    return true;
+}
+
 bool TGStat::wait_for_kids(int millisecs)
 {
     struct timespec timeout, remaining;
@@ -537,24 +570,30 @@ void TGStat::load_options()
         m_debug = false;
 
 	SEXP r_rnd_seed = GetOption(install("tgs_rnd.seed"), R_NilValue);
-	uint64_t rnd_seed;
 
 	if (isReal(r_rnd_seed))
-		rnd_seed = (uint64_t)REAL(r_rnd_seed)[0];
+		m_rnd_seed = (uint64_t)REAL(r_rnd_seed)[0];
 	else if (isInteger(r_rnd_seed))
-		rnd_seed = INTEGER(r_rnd_seed)[0];
+		m_rnd_seed = INTEGER(r_rnd_seed)[0];
 	else
-		rnd_seed = 0;
+		m_rnd_seed = 0;
 
-	if (!rnd_seed) {
+	if (!m_rnd_seed) {
 		struct timeval tv;
 		gettimeofday(&tv, NULL);
 		// for better randomness combine global time in seconds with the lower 12 bits of current microseconds
-		rnd_seed = (time(NULL) << 12) | (tv.tv_usec & 0xfff);
+		m_rnd_seed = (time(NULL) << 12) | (tv.tv_usec & 0xfff);
 	}
 
-	srand48(rnd_seed);
-    std::srand(rnd_seed);
+	srand48(m_rnd_seed);
+    std::srand(m_rnd_seed);
+}
+
+void TGStat::rnd_seed(uint64_t seed)
+{
+    m_rnd_seed = seed;
+    srand48(m_rnd_seed);
+    std::srand(m_rnd_seed);
 }
 
 void TGStat::out_of_memory()
@@ -565,7 +604,6 @@ void TGStat::out_of_memory()
 
 void TGStat::sigint_handler(int)
 {
-    vdebug("SIGINT\n");
 	++s_sigint_fired;
 
     // Normally this condition should be always true since the kid installs the default handler for SIGINT.
@@ -576,13 +614,11 @@ void TGStat::sigint_handler(int)
 
 void TGStat::sigalrm_handler(int)
 {
-    vdebug("SIGALRM\n");
 	s_sigalrm_fired = true;
 }
 
 void TGStat::sigchld_handler(int)
 {
-    vdebug("SIGCHLD\n");
 }
 
 void TGStat::get_open_fds(set<int> &fds)

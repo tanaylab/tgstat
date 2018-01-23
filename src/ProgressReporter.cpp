@@ -30,7 +30,7 @@ void ProgressReporter::report(uint64_t delta_steps_done)
 {
 	m_numsteps_from_last_report += delta_steps_done;
 	m_numsteps += delta_steps_done;
-	if (m_numsteps_from_last_report > m_report_step) {
+	if (m_numsteps_from_last_report >= m_report_step) {
 		uint64_t curclock = get_cur_clock();
 		double delta = curclock - m_last_report_clock;
 
@@ -48,7 +48,7 @@ void ProgressReporter::report(uint64_t delta_steps_done)
 
 			if (progress != m_last_progress_reported) {
                 if (progress == 100)
-                    Rprintf("%d%%", progress);
+                    Rprintf("%d%%\n", progress);
                 else
                     Rprintf("%d%%...", progress);
             } else

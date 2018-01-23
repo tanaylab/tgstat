@@ -71,15 +71,21 @@ SEXP tgs_cor_graph(SEXP _ranks, SEXP _knn, SEXP _k_expand, SEXP _k_beta, SEXP _r
         if (k_beta <= 0)
             verror("\"k_beta\" argument must be a positive number");
 
+        vdebug("Building the graph\n");
+
         size_t knn = (size_t)knn_d;
         unsigned num_points = 0;
         unordered_map<pair<unsigned, unsigned>, size_t> ij2weight;
         unordered_map<pair<unsigned, unsigned>, size_t> ij2rank;
         size_t max_weight = knn * knn * k_expand;
 
+        vdebug("Reading ranks\n");
+        ij2rank.reserve(num_ranks);
         for (size_t i = 0; i < num_ranks; ++i)
             ij2rank[{pcol1[i], pcol2[i]}] = prank[i];
 
+        vdebug("Building edges weights\n");
+        ij2weight.reserve(num_ranks * 2);
         for (const auto &r : ij2rank) {
             const auto &ij = r.first;
             num_points = max(num_points, ij.first + 1);
@@ -106,6 +112,8 @@ SEXP tgs_cor_graph(SEXP _ranks, SEXP _knn, SEXP _k_expand, SEXP _k_beta, SEXP _r
             bool operator<(const Edge &o) const { return weight < o.weight || weight == o.weight && node < o.node; }
         };
 
+        vdebug("Filter out by incoming edges\n");
+
         // leave max k_beta * knn incoming edges
         vector<vector<Edge>> incoming(num_points);
         for (const auto &w : ij2weight) {
@@ -127,6 +135,8 @@ SEXP tgs_cor_graph(SEXP _ranks, SEXP _knn, SEXP _k_expand, SEXP _k_beta, SEXP _r
             incoming.swap(cleaner);     // force incoming to release memory
         }
 
+        vdebug("Filter out by outgoing edges\n");
+
         // leave max knn outgoing edges and pack the answer
         vector<vector<Edge>> outgoing(num_points);
 
@@ -140,6 +150,8 @@ SEXP tgs_cor_graph(SEXP _ranks, SEXP _knn, SEXP _k_expand, SEXP _k_beta, SEXP _r
             decltype(ij2weight) cleaner;
             ij2weight.swap(cleaner);     // force ij2weight to release memory
         }
+
+        vdebug("PACKING\n");
 
         enum { COL1, COL2, WEIGHT, NUM_COLS };
         const char *COL_NAMES[NUM_COLS] = { "col1", "col2", "weight" };
@@ -191,6 +203,8 @@ SEXP tgs_cor_graph(SEXP _ranks, SEXP _knn, SEXP _k_expand, SEXP _k_beta, SEXP _r
                 ++rank;
             }
         }
+
+        vdebug("END\n");
 
         rreturn(ranswer);
     } catch (TGLException &e) {

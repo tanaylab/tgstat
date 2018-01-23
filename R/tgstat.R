@@ -76,11 +76,18 @@ tgs_dist <- function(x, diag = FALSE, upper = FALSE, tidy = F, threshold = Inf) 
         .tgs_call("tgs_dist", x, attrs, tidy, threshold, dimnames(x)[[1L]], new.env(parent = parent.frame()))
 }
 
-tgs_cluster <- function(graph, min_cluster_size, cooling = 1.05, burn_in = 10) {
+tgs_graph_cover <- function(graph, min_cluster_size, cooling = 1.05, burn_in = 10) {
     if (missing(graph) || missing(min_cluster_size))
-        stop("Usage: tgs_cluster(graph, min_cluster_size, cooling = 1.05, burn_in = 10)", call. = F)
+        stop("Usage: tgs_graph_cover(graph, min_cluster_size, cooling = 1.05, burn_in = 10)", call. = F)
 
     .tgs_call("tgs_graph2cluster", graph, min_cluster_size, cooling, burn_in, new.env(parent = parent.frame()))
+}
+
+tgs_graph_cover_resample <- function(graph, knn, min_cluster_size, cooling = 1.05, burn_in = 10, p_resamp = 0.75, n_resamp = 500) {
+    if (missing(graph) || missing(knn) || missing(min_cluster_size))
+        stop("Usage: tgs_graph_cover_resample(graph, knn, min_cluster_size, cooling = 1.05, burn_in = 10, p_resamp = 0.75, n_resamp = 500)", call. = F)
+
+    .tgs_call("tgs_graph2cluster_multi", graph, knn, min_cluster_size, cooling, burn_in, p_resamp, n_resamp, new.env(parent = parent.frame()))
 }
 
 tgs_finite <- function(x) {

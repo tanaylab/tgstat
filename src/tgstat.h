@@ -125,12 +125,18 @@ public:
     // Returns the upper limit for data size
 	uint64_t max_data_size() const { return m_max_data_size; }
 
+    uint64_t rnd_seed() const { return m_rnd_seed; }
+    void rnd_seed(uint64_t seed);
+
     static void set_alarm(int msecs);   // time is given in milliseconds
     static void reset_alarm();
     static int alarm_fired() { return s_sigalrm_fired; }
 
     static void prepare4multitasking();
     static pid_t launch_process();
+
+    // returns false if one or more child processes have ended or true if the timeout has elapsed
+    static bool wait_for_kid(int millisecs);
 
     // returns false if all the child processes have ended or true if the timeout has elapsed
     static bool wait_for_kids(int millisecs);
@@ -146,6 +152,8 @@ public:
     static uint64_t itr_idx_sum();   // sum of itr_idx over all the kids
 
     static int num_kids() { return s_kid_index; }
+
+    static int num_kids_running() { return s_running_pids.size(); }
 
     static sem_t *shm_sem() { return s_shm_sem; }
 
@@ -193,6 +201,7 @@ protected:
 	unsigned                    m_old_protect_count;
 	set<int>                    m_old_open_fds;
 
+    uint64_t                    m_rnd_seed;
     bool                        m_debug;
 	uint64_t                    m_max_data_size;
 

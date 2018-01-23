@@ -544,7 +544,7 @@ SEXP tgs_cor_blas(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _ti
         bool nan_in_vals = false;
         vector<bool> nan_in_point(num_points, false);
 
-vdebug("START BLAS COR\n");
+        vdebug("START BLAS COR\n");
         // some BLAS implementations ask to align double arrays to 64 for improved efficiency
         mem.m = (double *)aligned_alloc(64, sizeof(double) * num_vals);
         mem.mask = (double *)aligned_alloc(64, sizeof(double) * num_vals);
@@ -771,7 +771,7 @@ vdebug("START BLAS COR\n");
 
             progress.report_last();
         }
-vdebug("END BLAS COR\n");
+        vdebug("END BLAS COR\n");
 
 //memcpy(mem.res, mem.var_n, sizeof(double) * res_size);
 //{
@@ -867,7 +867,7 @@ vdebug("END BLAS COR\n");
 
             rprotect(answer = allocVector(VECSXP, NUM_COLS));
 
-vdebug("COPY ABOVE DIAGONAL\n");
+            vdebug("COPY ABOVE DIAGONAL\n");
             // copy the matrix below the diagonal to the upper part (the two parts are identical since cor(X,Y)=cor(Y,X)
             for (size_t icol1 = 0; icol1 < (size_t)num_points; ++icol1) {
                 size_t idx1 = icol1 * num_points;
@@ -886,7 +886,7 @@ vdebug("COPY ABOVE DIAGONAL\n");
             vector<BestCor> qs(num_points);
 
             // find the best knn correlations for each column
-vdebug("SELECTING BEST KNN\n");
+            vdebug("SELECTING BEST KNN\n");
             for (size_t icol1 = 0; icol1 < num_points; ++icol1) {
                 size_t idx = icol1;
                 BestCor &best_cor = qs[icol1];
@@ -906,7 +906,7 @@ vdebug("SELECTING BEST KNN\n");
 
             SEXP rcol1, rcol2, rcor, rrank, rrownames, rcolnames;
 
-vdebug("PACKING\n");
+            vdebug("PACKING\n");
             SET_VECTOR_ELT(answer, COL1, (rcol1 = allocVector(INTSXP, answer_size)));
             SET_VECTOR_ELT(answer, COL2, (rcol2 = allocVector(INTSXP, answer_size)));
             SET_VECTOR_ELT(answer, COR, (rcor = allocVector(REALSXP, answer_size)));
@@ -943,7 +943,7 @@ vdebug("PACKING\n");
                 for (size_t i = 0; i < answer_size; ++i)
                     INTEGER(rrownames)[i] = i + 1;
             }
-vdebug("END\n");
+            vdebug("END\n");
         }
     } catch (TGLException &e) {
         rerror("%s", e.msg());

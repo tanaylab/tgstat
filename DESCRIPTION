@@ -1,14 +1,14 @@
 Package: tgstat
 Type: Package
 Title: Tanay's group statistical utilities
-Version: 2.0.9
+Version: 2.1.0
 Depends: utils
 SystemRequirements: GNU make
-Date: 2018-01-15
+Date: 2018-01-23
 Author: Misha Hoichman
 Maintainer: Misha Hoichman <misha@hoichman.com>
 Description: Tanay's group statistical utilities
 License: GPL-2
 LazyLoad: yes
 NeedsCompilation: yes
-Packaged: 2018-01-15 19:46:06 UTC; hoichman
+Packaged: 2018-01-23 10:46:50 UTC; hoichman

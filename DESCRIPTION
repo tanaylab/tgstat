@@ -4,11 +4,11 @@ Title: Tanay's group statistical utilities
 Version: 2.1.0
 Depends: utils
 SystemRequirements: GNU make
-Date: 2018-01-23
+Date: 2018-01-25
 Author: Misha Hoichman
 Maintainer: Misha Hoichman <misha@hoichman.com>
 Description: Tanay's group statistical utilities
 License: GPL-2
 LazyLoad: yes
 NeedsCompilation: yes
-Packaged: 2018-01-23 10:46:50 UTC; hoichman
+Packaged: 2018-01-25 14:07:36 UTC; hoichman

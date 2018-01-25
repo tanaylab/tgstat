@@ -534,6 +534,7 @@ SEXP tgs_graph2cluster_multi(SEXP _graph, SEXP _knn, SEXP _min_cluster_size, SEX
         int num_kids_finished = 0;
 
         unordered_map<pair<unsigned, unsigned>, unsigned> co_cluster;
+        vector<unsigned> co_cluster_diag(num_nodes, 0);
         vector<unsigned> node2sample_cnt(num_nodes, 0);
 
         vdebug("Allocating shared memory for results\n");
@@ -572,6 +573,12 @@ SEXP tgs_graph2cluster_multi(SEXP _graph, SEXP _knn, SEXP _min_cluster_size, SEX
         for (unsigned i = 0; i < num_nodes; ++i)
             nodes[i] = i;
 
+//unordered_set<pair<unsigned, unsigned>> edges_hash;
+//
+//edges.reserve(num_edges);
+//for (size_t i = 0; i < num_edges; ++i)
+//edges.insert({pcol1[i] - 1, pcol2[i] - 1});
+
         while (num_kids_finished < n_resamp) {
             while (TGStat::wait_for_kid(3000))
                 progress.report(0);
@@ -590,8 +597,10 @@ SEXP tgs_graph2cluster_multi(SEXP _graph, SEXP _knn, SEXP _min_cluster_size, SEX
                     for (unsigned i = 0; i < num_nodes; ++i) {
                         if (clusters[i] != -2) {
                             ++node2sample_cnt[i];
-                            if (clusters[i] != -1)
+                            if (clusters[i] != -1) {
                                 cluster2nodes[clusters[i]].push_back(i);
+                                co_cluster_diag[i]++;
+                            }
                         }
                     }
 
@@ -600,11 +609,21 @@ SEXP tgs_graph2cluster_multi(SEXP _graph, SEXP _knn, SEXP _min_cluster_size, SEX
 
                     vdebug("Updating co_cluster... Num pairs: %ld, num_clusters: %d\n", num_pairs, *num_clusters, co_cluster.size());
                     vdebug("co_cluster.size() = %ld, load factor: %g, max load factor: %g\n", co_cluster.size(), co_cluster.load_factor(), co_cluster.max_load_factor());
+
                     for (unsigned cluster = 0; cluster < *num_clusters; ++cluster) {
                         const vector<unsigned> &cluster_nodes = cluster2nodes[cluster];
                         for (auto i = cluster_nodes.begin(); i < cluster_nodes.end(); ++i) {
-                            for (auto j = i + 1; j < cluster_nodes.end(); ++j)
-                                co_cluster[{min(*i, *j), max(*i, *j)}]++;
+                            for (auto j = i + 1; j < cluster_nodes.end(); ++j) {
+                                unsigned node1 = *i;
+                                unsigned node2 = *j;
+                                if (node1 > node2)
+                                    swap(node1, node2);
+                                co_cluster[{node1, node2}]++;
+//unsigned n1 = min(*i, *j);
+//unsigned n2 = max(*i, *j);
+//if (edges.find({n1, n2}) != edges.end())
+//co_cluster[{n1, n2}]++;
+                            }
                         }
                     }
 
@@ -633,20 +652,38 @@ SEXP tgs_graph2cluster_multi(SEXP _graph, SEXP _knn, SEXP _min_cluster_size, SEX
         const char *COL_NAMES[NUM_COLS] = { "node1", "node2", "cnt" };
 
         SEXP rco_clust, rsamples, rnode1, rnode2, rcount, rrownames, rcolnames, rnames;
+        unsigned co_cluster_diag_size = 0;
+
+        for (auto cnt : co_cluster_diag) {
+            if (cnt)
+                ++co_cluster_diag_size;
+        }
 
         rprotect(answer = allocVector(VECSXP, 2));
 
         SET_VECTOR_ELT(answer, 0, (rco_clust = allocVector(VECSXP, NUM_COLS)));
-        SET_VECTOR_ELT(rco_clust, NODE1, (rnode1 = allocVector(INTSXP, co_cluster.size())));
-        SET_VECTOR_ELT(rco_clust, NODE2, (rnode2 = allocVector(INTSXP, co_cluster.size())));
-        SET_VECTOR_ELT(rco_clust, CNT, (rcount = allocVector(INTSXP, co_cluster.size())));
+        SET_VECTOR_ELT(rco_clust, NODE1, (rnode1 = allocVector(INTSXP, co_cluster_diag_size + co_cluster.size())));
+        SET_VECTOR_ELT(rco_clust, NODE2, (rnode2 = allocVector(INTSXP, co_cluster_diag_size + co_cluster.size())));
+        SET_VECTOR_ELT(rco_clust, CNT, (rcount = allocVector(INTSXP, co_cluster_diag_size + co_cluster.size())));
 
         setAttrib(rco_clust, R_NamesSymbol, (rcolnames = allocVector(STRSXP, NUM_COLS)));
         setAttrib(rco_clust, R_ClassSymbol, mkString("data.frame"));
-        setAttrib(rco_clust, R_RowNamesSymbol, (rrownames = allocVector(INTSXP, co_cluster.size())));
+        setAttrib(rco_clust, R_RowNamesSymbol, (rrownames = allocVector(INTSXP, co_cluster_diag_size + co_cluster.size())));
 
         {
             int i = 0;
+            for (auto ico_cluster = co_cluster_diag.begin(); ico_cluster != co_cluster_diag.end(); ++ico_cluster) {
+                if (*ico_cluster) {
+                    INTEGER(rnode1)[i] = INTEGER(rnode2)[i] = ico_cluster - co_cluster_diag.begin() + 1;
+                    INTEGER(rcount)[i] = *ico_cluster;
+                    INTEGER(rrownames)[i] = i + 1;
+                    ++i;
+                }
+            }
+        }
+
+        {
+            int i = co_cluster_diag_size;
             for (auto ico_cluster = co_cluster.begin(); ico_cluster != co_cluster.end(); ++ico_cluster, ++i) {
                 INTEGER(rnode1)[i] = ico_cluster->first.first + 1;
                 INTEGER(rnode2)[i] = ico_cluster->first.second + 1;

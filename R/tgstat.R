@@ -83,11 +83,18 @@ tgs_graph_cover <- function(graph, min_cluster_size, cooling = 1.05, burn_in = 1
     .tgs_call("tgs_graph2cluster", graph, min_cluster_size, cooling, burn_in, new.env(parent = parent.frame()))
 }
 
-tgs_graph_cover_resample <- function(graph, knn, min_cluster_size, cooling = 1.05, burn_in = 10, p_resamp = 0.75, n_resamp = 500) {
+tgs_graph_cover_resample <- function(graph, knn, min_cluster_size, cooling = 1.05, burn_in = 10, p_resamp = 0.75, n_resamp = 500, method = "hash") {
     if (missing(graph) || missing(knn) || missing(min_cluster_size))
         stop("Usage: tgs_graph_cover_resample(graph, knn, min_cluster_size, cooling = 1.05, burn_in = 10, p_resamp = 0.75, n_resamp = 500)", call. = F)
 
-    .tgs_call("tgs_graph2cluster_multi", graph, knn, min_cluster_size, cooling, burn_in, p_resamp, n_resamp, new.env(parent = parent.frame()))
+    if (method == "hash")
+        .tgs_call("tgs_graph2cluster_multi_hash", graph, knn, min_cluster_size, cooling, burn_in, p_resamp, n_resamp, method, new.env(parent = parent.frame()))
+    else if (method == "full")
+        .tgs_call("tgs_graph2cluster_multi_full", graph, knn, min_cluster_size, cooling, burn_in, p_resamp, n_resamp, method, new.env(parent = parent.frame()))
+    else if (method == "edges")
+        .tgs_call("tgs_graph2cluster_multi_edges", graph, knn, min_cluster_size, cooling, burn_in, p_resamp, n_resamp, method, new.env(parent = parent.frame()))
+    else
+        stop("\"method\" argument must be equal to \"hash\", \"full\" or \"edges\"", call. = F)
 }
 
 tgs_finite <- function(x) {

@@ -9,7 +9,8 @@ Clusters directed graph multiple times with randomized sample subset.
 \usage{
 tgs_graph_cover_resample(graph, knn, min_cluster_size,
                          cooling = 1.05, burn_in = 10,
-                         p_resamp = 0.75, n_resamp = 500)
+                         p_resamp = 0.75, n_resamp = 500,
+                         method = "hash")
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -20,14 +21,19 @@ tgs_graph_cover_resample(graph, knn, min_cluster_size,
   \item{burn_in}{number of node reassignments after which cooling is applied}
   \item{p_resamp}{fraction of total number of nodes used in each sample subset}
   \item{n_resamp}{number iterations the clustering is run on different sample subsets}
+  \item{method}{method for calculating co_cluster and co_sample; valid values: "hash", "full", "edges"}
 }
 \details{
 The algorithm is explained in a separate document.
 }
 \value{
-A list with two members.
+If method == "hash", a list with two members.
 The first member is a data frame with 3 columns: "node1", "node2" and "cnt". "cnt" indicates the number of times "node1" and "node2" appeared in the same cluster.
 The second member of the list is a vector of [number of nodes] length reflecting how many times each node was used in the subset.
+
+If method == "full", a list containing two matrices: co_cluster and co_sample.
+
+If method == "edges", a list containing two data frames: co_cluster and co_sample.
 }
 
 \examples{

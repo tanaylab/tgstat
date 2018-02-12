@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <limits>
+#include <strings.h>
 #include <unordered_map>
 #include <unordered_set>
 #include <unistd.h>
@@ -108,7 +109,10 @@ unsigned graph2cluster(const int *pnode1, const int *pnode2, const double *pweig
 
 //printf("Num clusters: %d\n", num_clusters);
 //for (auto i = node2seed.begin(); i < node2seed.end(); ++i)
-//printf("%d -> %d\n", i - node2seed.begin(), *i);
+//printf("\tnode2seed %d -> %d\n", i - node2seed.begin(), *i);
+//printf("Num clusters: %d\n", num_clusters);
+//for (size_t i = 0; i < num_nodes; ++i)
+//printf("\t%d -> %d\n", i, node2cluster[i]);
 
     // look for the nodes that have not been covered yet and assign them to the seeds
     // that achieve the maximal weight along the d2 path; nodes that cannot reach the seeds within d2 will stay unassigned
@@ -293,16 +297,55 @@ unsigned graph2cluster(const int *pnode1, const int *pnode2, const double *pweig
             printf("\tIN/TOTAL:   %g\n", in_cluster_weights[cluster] / (in_cluster_weights[cluster] + incoming_weights[cluster] + outgoing_weights[cluster]));
         }
     }
-//
-//for (unsigned i = 0; i < num_nodes; ++i)
-//printf("Node %d => %d\n", i, node2cluster[i]);
 
+//for (unsigned i = 0; i < num_nodes; ++i)
+//printf("Node %d => %d\n", i + 1, node2cluster[i] + 1);
 
     return num_clusters;
 }
 
-void launch_kid(const int *pnode1, const int *pnode2, const double *pweight, unsigned num_nodes, unsigned num_edges, unsigned *res, int slot,
-                unsigned knn, double p_resamp, unsigned min_cluster_size, float cooling_rate, unsigned burn_in, uint64_t seed)
+void reassign_weights(const int *pnode1, const int *pnode2, unsigned knn, size_t num_edges,
+                      const vector<bool> &node_selected, vector<int> &nodes1, vector<int> &nodes2, vector<double> &weights)
+{
+    unsigned last_idx = 0;
+    unsigned last_node = pnode1[0] - 1;
+    unsigned num_node_edges = node_selected[pnode2[0] - 1] ? 1 : 0;
+
+    for (size_t i = 1; ; ++i) {
+        if (i == num_edges || last_node != pnode1[i] - 1) {
+            if (node_selected[last_node] && num_node_edges) {
+                double rank = 0;
+                num_node_edges = min(num_node_edges, knn);
+
+                for (size_t j = last_idx; j < i; ++j) {
+                    unsigned pointed_node = pnode2[j] - 1;
+
+                    if (node_selected[pointed_node]) {
+                        nodes1.push_back(last_node + 1);
+                        nodes2.push_back(pointed_node + 1);
+                        weights.push_back(1. - rank / num_node_edges);
+                        ++rank;
+                        if (rank >= knn)
+                            break;
+                    }
+                }
+            }
+
+            if (i == num_edges)
+                break;
+
+            last_idx = i;
+            last_node = pnode1[i] - 1;
+            num_node_edges = 0;
+        }
+
+        if (node_selected[pnode1[i] - 1] && node_selected[pnode2[i] - 1])
+            ++num_node_edges;
+    }
+}
+
+void launch_kid_hash(const int *pnode1, const int *pnode2, const double *pweight, size_t num_nodes, size_t num_edges, unsigned *res, int slot,
+                     unsigned knn, double p_resamp, unsigned min_cluster_size, float cooling_rate, unsigned burn_in, uint64_t seed)
 {
     vdebug("Launching a working process at slot %d\n", slot);
     if (!TGStat::launch_process()) {     // child process
@@ -313,6 +356,7 @@ void launch_kid(const int *pnode1, const int *pnode2, const double *pweight, uns
             nodes[i] = i;
 
         g_tgstat->rnd_seed(seed);
+        vdebug("Random seed: %ld\n", seed);
         random_shuffle(nodes.begin(), nodes.end());
         for (unsigned i = 0; i < num_kid_nodes; ++i)
             node_selected[nodes[i]] = true;
@@ -320,55 +364,103 @@ void launch_kid(const int *pnode1, const int *pnode2, const double *pweight, uns
         vector<int> nodes1;
         vector<int> nodes2;
         vector<double> weights;
-        unsigned last_idx = 0;
-        unsigned last_node = pnode1[0] - 1;
-        unsigned num_node_edges = node_selected[pnode2[0] - 1] ? 1 : 0;
 
-        for (size_t i = 1; ; ++i) {
-            if (i == num_edges || last_node != pnode1[i] - 1) {
-                if (node_selected[last_node] && num_node_edges) {
-                    double rank = 0;
-                    num_node_edges = min(num_node_edges, knn);
-
-                    for (size_t j = last_idx; j < i; ++j) {
-                        unsigned pointed_node = pnode2[j] - 1;
-
-                        if (node_selected[pointed_node]) {
-                            nodes1.push_back(last_node + 1);
-                            nodes2.push_back(pointed_node + 1);
-                            weights.push_back(1. - rank / num_node_edges);
-                            ++rank;
-                            if (rank >= knn)
-                                break;
-                        }
-                    }
-                }
-
-                if (i == num_edges)
-                    break;
-
-                last_idx = i;
-                last_node = pnode1[i] - 1;
-            }
-
-            if (node_selected[pnode1[i] - 1] && node_selected[pnode2[i] - 1])
-                ++num_node_edges;
-        }
+        reassign_weights(pnode1, pnode2, knn, num_edges, node_selected, nodes1, nodes2, weights);
         vdebug("num child edges = %ld, num all edges: %ld\n", nodes1.size(), num_edges);
 
-//for (size_t i = 0; i < nodes1.size(); ++i){
-//printf("[%d] -> [%d], weight: %g\n", nodes1[i] + 1, nodes2[i] + 1, weights[i]);
-//}
-//
         unsigned kid_res_sizeof = sizeof(unsigned) + sizeof(unsigned) + sizeof(unsigned) * num_nodes;
         unsigned *pready = (unsigned *)((char *)res + slot * kid_res_sizeof);
         unsigned *num_clusters = pready + 1;
         unsigned *clusters = num_clusters + 1;
 
+        g_tgstat->rnd_seed(seed);   // this will make the results reproducible by tgs_graph_cover
         *num_clusters = graph2cluster(nodes1.data(), nodes2.data(), weights.data(), nodes1.size(), min_cluster_size, cooling_rate, burn_in, clusters, num_nodes);
 
         for (unsigned i = num_kid_nodes; i < num_nodes; ++i)
             clusters[nodes[i]] = -2;                          // mark nodes that were not selected by -2
+
+        *pready = 1;
+        exit(0);
+    }
+}
+
+void launch_kid_full(const int *pnode1, const int *pnode2, const double *pweight, size_t num_nodes, size_t num_edges, unsigned *pready, unsigned *pco_clust, unsigned *pco_samp,
+                     unsigned knn, double p_resamp, unsigned min_cluster_size, float cooling_rate, unsigned burn_in, uint64_t seed)
+{
+    if (!TGStat::launch_process()) {     // child process
+        unsigned num_kid_nodes = max(1., p_resamp * num_nodes);
+        vector<bool> node_selected(num_nodes, false);
+        vector<unsigned> nodes(num_nodes);
+        for (unsigned i = 0; i < num_nodes; ++i)
+            nodes[i] = i;
+
+        g_tgstat->rnd_seed(seed);
+        vdebug("Random seed: %ld\n", seed);
+        random_shuffle(nodes.begin(), nodes.end());
+        for (unsigned i = 0; i < num_kid_nodes; ++i)
+            node_selected[nodes[i]] = true;
+
+        vector<unsigned> node2cluster(num_nodes, -1);
+        vector<int> nodes1;
+        vector<int> nodes2;
+        vector<double> weights;
+
+        reassign_weights(pnode1, pnode2, knn, num_edges, node_selected, nodes1, nodes2, weights);
+        vdebug("num child edges = %ld, num all edges: %ld\n", nodes1.size(), num_edges);
+
+        g_tgstat->rnd_seed(seed);   // this will make the results reproducible by tgs_graph_cover
+        graph2cluster(nodes1.data(), nodes2.data(), weights.data(), nodes1.size(), min_cluster_size, cooling_rate, burn_in, node2cluster.data(), num_nodes);
+
+        for (size_t i = 0; i < num_kid_nodes; ++i) {
+            for (size_t j = 0; j < num_kid_nodes; ++j) {
+                if (node2cluster[nodes[i]] != -1 && node2cluster[nodes[i]] == node2cluster[nodes[j]])
+                    ++pco_clust[nodes[i] + num_nodes * nodes[j]];
+                ++pco_samp[nodes[i] + num_nodes * nodes[j]];
+            }
+        }
+
+        *pready = 1;
+        exit(0);
+    }
+}
+
+void launch_kid_edges(const int *pnode1, const int *pnode2, const double *pweight, size_t num_nodes, size_t num_edges, unsigned *pready, unsigned *pco_clust, unsigned *pco_samp,
+                      unsigned knn, double p_resamp, unsigned min_cluster_size, float cooling_rate, unsigned burn_in, uint64_t seed)
+{
+    if (!TGStat::launch_process()) {     // child process
+        unsigned num_kid_nodes = max(1., p_resamp * num_nodes);
+        vector<bool> node_selected(num_nodes, false);
+        vector<unsigned> nodes(num_nodes);
+        for (unsigned i = 0; i < num_nodes; ++i)
+            nodes[i] = i;
+
+        g_tgstat->rnd_seed(seed);
+        vdebug("Random seed: %ld\n", seed);
+        random_shuffle(nodes.begin(), nodes.end());
+        for (unsigned i = 0; i < num_kid_nodes; ++i)
+            node_selected[nodes[i]] = true;
+
+        vector<unsigned> node2cluster(num_nodes, -1);
+        vector<int> nodes1;
+        vector<int> nodes2;
+        vector<double> weights;
+
+        reassign_weights(pnode1, pnode2, knn, num_edges, node_selected, nodes1, nodes2, weights);
+        vdebug("num child edges = %ld, num all edges: %ld\n", nodes1.size(), num_edges);
+
+        g_tgstat->rnd_seed(seed);   // this will make the results reproducible by tgs_graph_cover
+        graph2cluster(nodes1.data(), nodes2.data(), weights.data(), nodes1.size(), min_cluster_size, cooling_rate, burn_in, node2cluster.data(), num_nodes);
+
+        for (size_t i = 0; i < num_edges; ++i) {
+            int node1 = pnode1[i] - 1;
+            int node2 = pnode2[i] - 1;
+
+            if (node_selected[node1] && node_selected[node2]) {
+                if (node2cluster[node1] != -1 && node2cluster[node1] == node2cluster[node2])
+                    ++pco_clust[i];
+                ++pco_samp[i];
+            }
+        }
 
         *pready = 1;
         exit(0);
@@ -434,7 +526,7 @@ SEXP tgs_graph2cluster(SEXP _graph, SEXP _min_cluster_size, SEXP _cooling, SEXP 
         enum { NODE, CLUSTER, NUM_COLS };
         const char *COL_NAMES[NUM_COLS] = { "node", "cluster" };
 
-        SEXP ranswer, rnode, rcluster, rrownames, rcolnames;
+        SEXP ranswer, rnode, rcluster, rrownames, rcolnames, rlevels;
 
         rprotect(ranswer = allocVector(VECSXP, NUM_COLS));
         SET_VECTOR_ELT(ranswer, NODE, (rnode = allocVector(INTSXP, num_nodes)));
@@ -453,6 +545,12 @@ SEXP tgs_graph2cluster(SEXP _graph, SEXP _min_cluster_size, SEXP _cooling, SEXP 
             INTEGER(rrownames)[i] = i + 1;
         }
 
+        rlevels = getAttrib(VECTOR_ELT(_graph, 0), R_LevelsSymbol);
+        if (rlevels != R_NilValue) {
+            setAttrib(rnode, R_LevelsSymbol, rlevels);
+            setAttrib(rnode, R_ClassSymbol, mkString("factor"));
+        }
+
         vdebug("Packing the return value - DONE\n");
 
         rreturn(ranswer);
@@ -463,7 +561,7 @@ SEXP tgs_graph2cluster(SEXP _graph, SEXP _min_cluster_size, SEXP _cooling, SEXP 
     rreturn(R_NilValue);
 }
 
-SEXP tgs_graph2cluster_multi(SEXP _graph, SEXP _knn, SEXP _min_cluster_size, SEXP _cooling, SEXP _burn_in, SEXP _p_resamp, SEXP _n_resamp, SEXP _envir)
+SEXP tgs_graph2cluster_multi_hash(SEXP _graph, SEXP _knn, SEXP _min_cluster_size, SEXP _cooling, SEXP _burn_in, SEXP _p_resamp, SEXP _n_resamp, SEXP _envir)
 {
     SEXP answer = R_NilValue;
     unsigned *res = (unsigned *)MAP_FAILED;
@@ -529,7 +627,7 @@ SEXP tgs_graph2cluster_multi(SEXP _graph, SEXP _knn, SEXP _min_cluster_size, SEX
 
         int num_cores = max(1, (int)sysconf(_SC_NPROCESSORS_ONLN));
         int max_num_kids = min((int)n_resamp, num_cores - 1);
-//max_num_kids = 3;
+//max_num_kids = 1;
         int num_kids_launched = 0;
         int num_kids_finished = 0;
 
@@ -540,16 +638,18 @@ SEXP tgs_graph2cluster_multi(SEXP _graph, SEXP _knn, SEXP _min_cluster_size, SEX
         vdebug("Allocating shared memory for results\n");
 
         // shared memory is addressed as following:
-        // [child process 0]
-        //    unsigned - status: 1 when the data is ready for read, otherwise 0
-        //    unsigned - number of clusters
-        //    unsigned - cluster of node 0
+        //    [child process 0]
+        //       unsigned - status: 1 when the data is ready for read, otherwise 0
+        //       unsigned - number of clusters
+        //       unsigned - cluster of node 0
+        //       ...
+        //       unsigned - cluster of node i
         //    ...
-        //    unsigned - cluster of node i
-        // ...
-        // [child process j]
-        //    ...
-        size_t kid_res_sizeof = sizeof(unsigned) + sizeof(unsigned) + sizeof(unsigned) * num_nodes;
+        //    [child process j]
+        //       ...
+
+        size_t kid_res_sizeof = sizeof(unsigned) + sizeof(unsigned) + sizeof(unsigned) * (size_t)num_nodes;
+
         res_sizeof = kid_res_sizeof * max_num_kids;
         res = (unsigned *)mmap(NULL, res_sizeof, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
 
@@ -565,19 +665,9 @@ SEXP tgs_graph2cluster_multi(SEXP _graph, SEXP _knn, SEXP _min_cluster_size, SEX
         for (int i = 0; i < max_num_kids; ++i) {
             unsigned *pready = (unsigned *)((char *)res + i * kid_res_sizeof);
             *pready = 0;
-            launch_kid(pcol1, pcol2, pweight, num_nodes, num_edges, res, i, knn, p_resamp, min_cluster_size, cooling_rate, burn_in, g_tgstat->rnd_seed() + num_kids_launched);
+            launch_kid_hash(pcol1, pcol2, pweight, num_nodes, num_edges, res, i, knn, p_resamp, min_cluster_size, cooling_rate, burn_in, g_tgstat->rnd_seed() + num_kids_launched);
             ++num_kids_launched;
         }
-
-        vector<unsigned> nodes(num_nodes);
-        for (unsigned i = 0; i < num_nodes; ++i)
-            nodes[i] = i;
-
-//unordered_set<pair<unsigned, unsigned>> edges_hash;
-//
-//edges.reserve(num_edges);
-//for (size_t i = 0; i < num_edges; ++i)
-//edges.insert({pcol1[i] - 1, pcol2[i] - 1});
 
         while (num_kids_finished < n_resamp) {
             while (TGStat::wait_for_kid(3000))
@@ -619,10 +709,6 @@ SEXP tgs_graph2cluster_multi(SEXP _graph, SEXP _knn, SEXP _min_cluster_size, SEX
                                 if (node1 > node2)
                                     swap(node1, node2);
                                 co_cluster[{node1, node2}]++;
-//unsigned n1 = min(*i, *j);
-//unsigned n2 = max(*i, *j);
-//if (edges.find({n1, n2}) != edges.end())
-//co_cluster[{n1, n2}]++;
                             }
                         }
                     }
@@ -633,13 +719,12 @@ SEXP tgs_graph2cluster_multi(SEXP _graph, SEXP _knn, SEXP _min_cluster_size, SEX
                     vdebug("Num processes ended: %d\n", num_kids_finished);
 
                     if (num_kids_launched < n_resamp) {
-                        launch_kid(pcol1, pcol2, pweight, num_nodes, num_edges, res, ikid, knn, p_resamp, min_cluster_size, cooling_rate, burn_in, g_tgstat->rnd_seed() + num_kids_launched);
+                        launch_kid_hash(pcol1, pcol2, pweight, num_nodes, num_edges, res, ikid, knn, p_resamp, min_cluster_size, cooling_rate, burn_in, g_tgstat->rnd_seed() + num_kids_launched);
                         ++num_kids_launched;
                     }
                 }
             }
         }
-
 
         while (TGStat::wait_for_kids(3000))
             progress.report(0);
@@ -651,7 +736,7 @@ SEXP tgs_graph2cluster_multi(SEXP _graph, SEXP _knn, SEXP _min_cluster_size, SEX
         enum { NODE1, NODE2, CNT, NUM_COLS };
         const char *COL_NAMES[NUM_COLS] = { "node1", "node2", "cnt" };
 
-        SEXP rco_clust, rsamples, rnode1, rnode2, rcount, rrownames, rcolnames, rnames;
+        SEXP rco_clust, rsamples, rnode1, rnode2, rcount, rrownames, rcolnames, rnames, rlevels;
         unsigned co_cluster_diag_size = 0;
 
         for (auto cnt : co_cluster_diag) {
@@ -700,9 +785,401 @@ SEXP tgs_graph2cluster_multi(SEXP _graph, SEXP _knn, SEXP _min_cluster_size, SEX
         for (unsigned i = 0; i < num_nodes; ++i)
             INTEGER(rsamples)[i] = node2sample_cnt[i];
 
+        rlevels = getAttrib(VECTOR_ELT(_graph, 0), R_LevelsSymbol);
+        if (rlevels != R_NilValue) {
+            setAttrib(rnode1, R_LevelsSymbol, rlevels);
+            setAttrib(rnode1, R_ClassSymbol, mkString("factor"));
+            setAttrib(rnode2, R_LevelsSymbol, rlevels);
+            setAttrib(rnode2, R_ClassSymbol, mkString("factor"));
+            setAttrib(rsamples, R_NamesSymbol, rlevels);
+        }
+
         setAttrib(answer, R_NamesSymbol, (rnames = allocVector(STRSXP, 2)));
         SET_STRING_ELT(rnames, 0, mkChar("co_cluster"));
         SET_STRING_ELT(rnames, 1, mkChar("samples"));
+    } catch (TGLException &e) {
+        if (!TGStat::is_kid() && res != (unsigned *)MAP_FAILED) {
+            munmap(res, res_sizeof);
+            res = (unsigned *)MAP_FAILED;
+        }
+        rerror("%s", e.msg());
+    }
+
+    if (!TGStat::is_kid() && res != (unsigned *)MAP_FAILED) {
+        munmap(res, res_sizeof);
+        res = (unsigned *)MAP_FAILED;
+    }
+    rreturn(answer);
+}
+
+SEXP tgs_graph2cluster_multi_full(SEXP _graph, SEXP _knn, SEXP _min_cluster_size, SEXP _cooling, SEXP _burn_in, SEXP _p_resamp, SEXP _n_resamp, SEXP _envir)
+{
+    SEXP answer = R_NilValue;
+    unsigned *res = (unsigned *)MAP_FAILED;
+    size_t res_sizeof = 0;
+
+    try {
+        TGStat tgstat(_envir);
+
+        int *pcol1;
+        int *pcol2;
+        double *pweight;
+        size_t num_edges;
+
+        {
+            enum { COL1, COL2, WEIGHT, NUM_COLS };
+            const char *COL_NAMES[NUM_COLS] = { "col1", "col2", "weight" };
+
+            SEXP rnames = getAttrib(_graph, R_NamesSymbol);
+
+            if (!isVector(_graph) || xlength(_graph) != NUM_COLS || xlength(rnames) != NUM_COLS ||
+                strcmp(CHAR(STRING_ELT(rnames, COL1)), COL_NAMES[COL1]) || !isInteger(VECTOR_ELT(_graph, COL1)) && !isFactor(VECTOR_ELT(_graph, COL1)) ||
+                strcmp(CHAR(STRING_ELT(rnames, COL2)), COL_NAMES[COL2]) || !isInteger(VECTOR_ELT(_graph, COL2)) && !isFactor(VECTOR_ELT(_graph, COL2)) ||
+                xlength(VECTOR_ELT(_graph, COL2)) != xlength(VECTOR_ELT(_graph, COL1)) ||
+                strcmp(CHAR(STRING_ELT(rnames, WEIGHT)), COL_NAMES[WEIGHT]) || !isReal(VECTOR_ELT(_graph, WEIGHT)) || xlength(VECTOR_ELT(_graph, WEIGHT)) != xlength(VECTOR_ELT(_graph, COL1)))
+                verror("\"graph\" argument must be in the format that is returned by tgs_cor_graph function");
+
+            pcol1 = INTEGER(VECTOR_ELT(_graph, COL1));
+            pcol2 = INTEGER(VECTOR_ELT(_graph, COL2));
+            pweight = REAL(VECTOR_ELT(_graph, WEIGHT));
+            num_edges = xlength(VECTOR_ELT(_graph, COL1));
+        }
+
+        if (!isInteger(_min_cluster_size) && !isReal(_min_cluster_size) || xlength(_min_cluster_size) != 1 || asInteger(_min_cluster_size) < 1)
+            verror("\"min_cluster_size\" argument must be a positive integer");
+
+        if (!isInteger(_cooling) && !isReal(_cooling) || xlength(_cooling) != 1 || asReal(_cooling) < 1)
+            verror("\"cooling\" argument must be a number greater or equal than 1");
+
+        if (!isInteger(_burn_in) && !isReal(_burn_in) || xlength(_burn_in) != 1 || asInteger(_burn_in) < 0)
+            verror("\"burn_in\" argument must be a positive integer");
+
+        if (!isNull(_knn) && (!isReal(_knn) && !isInteger(_knn) || xlength(_knn) != 1) || asInteger(_knn) < 1)
+            verror("\"knn\" argument must be a positive integer");
+
+        if (!isInteger(_n_resamp) && !isReal(_n_resamp) || xlength(_n_resamp) != 1 || asInteger(_n_resamp) < 1)
+            verror("\"n_resamp\" argument must be a positive integer");
+
+        if (!isInteger(_p_resamp) && !isReal(_p_resamp) || xlength(_p_resamp) != 1 || asReal(_p_resamp) > 1 || asReal(_p_resamp) <= 0)
+            verror("\"p_resamp\" argument must be a number in (0,1] range");
+
+        unsigned min_cluster_size = asInteger(_min_cluster_size);
+        float cooling_rate = asReal(_cooling);
+        unsigned burn_in = asInteger(_burn_in);
+        unsigned knn = asInteger(_knn);
+        unsigned n_resamp = asInteger(_n_resamp);
+        double p_resamp = asReal(_p_resamp);
+
+        unsigned num_nodes = 0;
+        for (size_t i = 0; i < num_edges; ++i) {
+            num_nodes = max(num_nodes, (unsigned)pcol1[i]);
+            num_nodes = max(num_nodes, (unsigned)pcol2[i]);
+        }
+
+        int num_cores = max(1, (int)sysconf(_SC_NPROCESSORS_ONLN));
+        int max_num_kids = min((int)n_resamp, num_cores - 1);
+//max_num_kids = 1;
+        int num_kids_launched = 0;
+        int num_kids_finished = 0;
+
+        vdebug("Allocating shared memory for results\n");
+
+        // shared memory is addressed as following:
+        //    [child process 0]
+        //       unsigned - status: 1 when the data is ready for read, otherwise 0
+        //    [child process j]
+        //       ...
+        //    unsigned x num_nodes x num_nodes - co_clust matrix
+        //    unsigned x num_nodes x num_nodes - co_sample matrix
+
+        res_sizeof = sizeof(unsigned) * max_num_kids + 2 * sizeof(unsigned) * (size_t)num_nodes * (size_t)num_nodes;
+        res = (unsigned *)mmap(NULL, res_sizeof, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+        memset(res, 0, res_sizeof);
+
+        unsigned *pready = (unsigned *)res;
+        unsigned *pco_clust = (unsigned *)res + max_num_kids;
+        unsigned *pco_sample = pco_clust + (size_t)num_nodes * (size_t)num_nodes;
+
+        if (res == (unsigned *)MAP_FAILED)
+            verror("Failed to allocate shared memory: %s", strerror(errno));
+
+        ProgressReporter progress;
+        progress.init(n_resamp, 1);
+
+        vdebug("Num cores: %d, num_processes: %d\n", num_cores, max_num_kids);
+        TGStat::prepare4multitasking();
+
+        for (int i = 0; i < max_num_kids; ++i) {
+            pready[i] = 0;
+            vdebug("Launching a working process at slot %d\n", i);
+            launch_kid_full(pcol1, pcol2, pweight, num_nodes, num_edges, pready + i, pco_clust, pco_sample,
+                            knn, p_resamp, min_cluster_size, cooling_rate, burn_in, g_tgstat->rnd_seed() + num_kids_launched);
+            ++num_kids_launched;
+        }
+
+        while (num_kids_finished < n_resamp) {
+            while (TGStat::wait_for_kid(3000))
+                progress.report(0);
+
+            for (int ikid = 0; ikid < max_num_kids; ++ikid) {
+                if (pready[ikid]) {
+                    vdebug("======== Result at slot %d is ready (status: %d)\n", ikid, pready[ikid]);
+                    pready[ikid] = 0;
+                    ++num_kids_finished;
+                    progress.report(1);
+                    vdebug("Num processes ended: %d\n", num_kids_finished);
+
+                    if (num_kids_launched < n_resamp) {
+                        vdebug("Launching a working process at slot %d\n", ikid);
+                        launch_kid_full(pcol1, pcol2, pweight, num_nodes, num_edges, pready + ikid, pco_clust, pco_sample,
+                                        knn, p_resamp, min_cluster_size, cooling_rate, burn_in, g_tgstat->rnd_seed() + num_kids_launched);
+                        ++num_kids_launched;
+                    }
+                }
+            }
+        }
+
+        while (TGStat::wait_for_kids(3000))
+            progress.report(0);
+
+        progress.report_last();
+
+        vdebug("Packing the result...\n");
+
+        SEXP rco_clust, rco_sample, rnames, rdim, rlevels;
+
+        rprotect(answer = allocVector(VECSXP, 2));
+
+        SET_VECTOR_ELT(answer, 0, (rco_clust = allocVector(INTSXP, (size_t)num_nodes * (size_t)num_nodes)));
+        SET_VECTOR_ELT(answer, 1, (rco_sample = allocVector(INTSXP, (size_t)num_nodes * (size_t)num_nodes)));
+
+        memcpy(INTEGER(rco_clust), pco_clust, sizeof(unsigned) * (size_t)num_nodes * (size_t)num_nodes);
+        memcpy(INTEGER(rco_sample), pco_sample, sizeof(unsigned) * (size_t)num_nodes * (size_t)num_nodes);
+
+        rprotect(rdim = allocVector(INTSXP, 2));
+        INTEGER(rdim)[0] = num_nodes;
+        INTEGER(rdim)[1] = num_nodes;
+
+        setAttrib(rco_clust, R_DimSymbol, rdim);
+        setAttrib(rco_sample, R_DimSymbol, rdim);
+
+        rlevels = getAttrib(VECTOR_ELT(_graph, 0), R_LevelsSymbol);
+        if (rlevels != R_NilValue) {
+            SEXP rdimnames;
+            rprotect(rdimnames = allocVector(VECSXP, 2));
+            SET_VECTOR_ELT(rdimnames, 0, rlevels);
+            SET_VECTOR_ELT(rdimnames, 1, rlevels);
+            setAttrib(rco_clust, R_DimNamesSymbol, rdimnames);
+            setAttrib(rco_sample, R_DimNamesSymbol, rdimnames);
+        }
+
+        setAttrib(answer, R_NamesSymbol, (rnames = allocVector(STRSXP, 2)));
+        SET_STRING_ELT(rnames, 0, mkChar("co_cluster"));
+        SET_STRING_ELT(rnames, 1, mkChar("co_sample"));
+    } catch (TGLException &e) {
+        if (!TGStat::is_kid() && res != (unsigned *)MAP_FAILED) {
+            munmap(res, res_sizeof);
+            res = (unsigned *)MAP_FAILED;
+        }
+        rerror("%s", e.msg());
+    }
+
+    if (!TGStat::is_kid() && res != (unsigned *)MAP_FAILED) {
+        munmap(res, res_sizeof);
+        res = (unsigned *)MAP_FAILED;
+    }
+    rreturn(answer);
+}
+
+SEXP tgs_graph2cluster_multi_edges(SEXP _graph, SEXP _knn, SEXP _min_cluster_size, SEXP _cooling, SEXP _burn_in, SEXP _p_resamp, SEXP _n_resamp, SEXP _envir)
+{
+    SEXP answer = R_NilValue;
+    unsigned *res = (unsigned *)MAP_FAILED;
+    size_t res_sizeof = 0;
+
+    try {
+        TGStat tgstat(_envir);
+
+        int *pcol1;
+        int *pcol2;
+        double *pweight;
+        size_t num_edges;
+
+        {
+            enum { COL1, COL2, WEIGHT, NUM_COLS };
+            const char *COL_NAMES[NUM_COLS] = { "col1", "col2", "weight" };
+
+            SEXP rnames = getAttrib(_graph, R_NamesSymbol);
+
+            if (!isVector(_graph) || xlength(_graph) != NUM_COLS || xlength(rnames) != NUM_COLS ||
+                strcmp(CHAR(STRING_ELT(rnames, COL1)), COL_NAMES[COL1]) || !isInteger(VECTOR_ELT(_graph, COL1)) && !isFactor(VECTOR_ELT(_graph, COL1)) ||
+                strcmp(CHAR(STRING_ELT(rnames, COL2)), COL_NAMES[COL2]) || !isInteger(VECTOR_ELT(_graph, COL2)) && !isFactor(VECTOR_ELT(_graph, COL2)) ||
+                xlength(VECTOR_ELT(_graph, COL2)) != xlength(VECTOR_ELT(_graph, COL1)) ||
+                strcmp(CHAR(STRING_ELT(rnames, WEIGHT)), COL_NAMES[WEIGHT]) || !isReal(VECTOR_ELT(_graph, WEIGHT)) || xlength(VECTOR_ELT(_graph, WEIGHT)) != xlength(VECTOR_ELT(_graph, COL1)))
+                verror("\"graph\" argument must be in the format that is returned by tgs_cor_graph function");
+
+            pcol1 = INTEGER(VECTOR_ELT(_graph, COL1));
+            pcol2 = INTEGER(VECTOR_ELT(_graph, COL2));
+            pweight = REAL(VECTOR_ELT(_graph, WEIGHT));
+            num_edges = xlength(VECTOR_ELT(_graph, COL1));
+        }
+
+        if (!isInteger(_min_cluster_size) && !isReal(_min_cluster_size) || xlength(_min_cluster_size) != 1 || asInteger(_min_cluster_size) < 1)
+            verror("\"min_cluster_size\" argument must be a positive integer");
+
+        if (!isInteger(_cooling) && !isReal(_cooling) || xlength(_cooling) != 1 || asReal(_cooling) < 1)
+            verror("\"cooling\" argument must be a number greater or equal than 1");
+
+        if (!isInteger(_burn_in) && !isReal(_burn_in) || xlength(_burn_in) != 1 || asInteger(_burn_in) < 0)
+            verror("\"burn_in\" argument must be a positive integer");
+
+        if (!isNull(_knn) && (!isReal(_knn) && !isInteger(_knn) || xlength(_knn) != 1) || asInteger(_knn) < 1)
+            verror("\"knn\" argument must be a positive integer");
+
+        if (!isInteger(_n_resamp) && !isReal(_n_resamp) || xlength(_n_resamp) != 1 || asInteger(_n_resamp) < 1)
+            verror("\"n_resamp\" argument must be a positive integer");
+
+        if (!isInteger(_p_resamp) && !isReal(_p_resamp) || xlength(_p_resamp) != 1 || asReal(_p_resamp) > 1 || asReal(_p_resamp) <= 0)
+            verror("\"p_resamp\" argument must be a number in (0,1] range");
+
+        unsigned min_cluster_size = asInteger(_min_cluster_size);
+        float cooling_rate = asReal(_cooling);
+        unsigned burn_in = asInteger(_burn_in);
+        unsigned knn = asInteger(_knn);
+        unsigned n_resamp = asInteger(_n_resamp);
+        double p_resamp = asReal(_p_resamp);
+
+        unsigned num_nodes = 0;
+        for (size_t i = 0; i < num_edges; ++i) {
+            num_nodes = max(num_nodes, (unsigned)pcol1[i]);
+            num_nodes = max(num_nodes, (unsigned)pcol2[i]);
+        }
+
+        int num_cores = max(1, (int)sysconf(_SC_NPROCESSORS_ONLN));
+        int max_num_kids = min((int)n_resamp, num_cores - 1);
+//max_num_kids = 1;
+        int num_kids_launched = 0;
+        int num_kids_finished = 0;
+
+        vdebug("Allocating shared memory for results\n");
+
+        // shared memory is addressed as following:
+        //    [child process 0]
+        //       unsigned - status: 1 when the data is ready for read, otherwise 0
+        //    [child process j]
+        //       ...
+        //    unsigned x num_edges - co_clust array
+        //    unsigned x num_edges - co_sample array
+
+        res_sizeof = sizeof(unsigned) * max_num_kids + 2 * sizeof(unsigned) * num_edges;
+        res = (unsigned *)mmap(NULL, res_sizeof, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+        memset(res, 0, res_sizeof);
+
+        unsigned *pready = (unsigned *)res;
+        unsigned *pco_clust = (unsigned *)res + max_num_kids;
+        unsigned *pco_sample = pco_clust + num_edges;
+
+        if (res == (unsigned *)MAP_FAILED)
+            verror("Failed to allocate shared memory: %s", strerror(errno));
+
+        ProgressReporter progress;
+        progress.init(n_resamp, 1);
+
+        vdebug("Num cores: %d, num_processes: %d\n", num_cores, max_num_kids);
+        TGStat::prepare4multitasking();
+
+        for (int i = 0; i < max_num_kids; ++i) {
+            pready[i] = 0;
+            vdebug("Launching a working process at slot %d\n", i);
+            launch_kid_edges(pcol1, pcol2, pweight, num_nodes, num_edges, pready + i, pco_clust, pco_sample,
+                            knn, p_resamp, min_cluster_size, cooling_rate, burn_in, g_tgstat->rnd_seed() + num_kids_launched);
+            ++num_kids_launched;
+        }
+
+        while (num_kids_finished < n_resamp) {
+            while (TGStat::wait_for_kid(3000))
+                progress.report(0);
+
+            for (int ikid = 0; ikid < max_num_kids; ++ikid) {
+                if (pready[ikid]) {
+                    vdebug("======== Result at slot %d is ready (status: %d)\n", ikid, pready[ikid]);
+                    pready[ikid] = 0;
+                    ++num_kids_finished;
+                    progress.report(1);
+                    vdebug("Num processes ended: %d\n", num_kids_finished);
+
+                    if (num_kids_launched < n_resamp) {
+                        vdebug("Launching a working process at slot %d\n", ikid);
+                        launch_kid_edges(pcol1, pcol2, pweight, num_nodes, num_edges, pready + ikid, pco_clust, pco_sample,
+                                         knn, p_resamp, min_cluster_size, cooling_rate, burn_in, g_tgstat->rnd_seed() + num_kids_launched);
+                        ++num_kids_launched;
+                    }
+                }
+            }
+        }
+
+        while (TGStat::wait_for_kids(3000))
+            progress.report(0);
+
+        progress.report_last();
+
+        vdebug("Packing the result...\n");
+
+        enum { NODE1, NODE2, CNT, NUM_COLS };
+        const char *COL_NAMES[NUM_COLS] = { "node1", "node2", "cnt" };
+
+        SEXP rdata, rnode1, rnode2, rcount, rrownames, rcolnames, rnames, rlevels;
+
+        rprotect(answer = allocVector(VECSXP, 2));
+
+        unsigned *pdata[] = { pco_clust, pco_sample };
+
+        for (int data_idx = 0; data_idx < 2; ++data_idx) {
+            size_t num_recs = 0;
+            unsigned *data = pdata[data_idx];
+
+            for (size_t i = 0; i < num_edges; ++i) {
+                if (data[i])
+                    ++num_recs;
+            }
+
+            SET_VECTOR_ELT(answer, data_idx, (rdata = allocVector(VECSXP, NUM_COLS)));
+            SET_VECTOR_ELT(rdata, NODE1, (rnode1 = allocVector(INTSXP, num_recs)));
+            SET_VECTOR_ELT(rdata, NODE2, (rnode2 = allocVector(INTSXP, num_recs)));
+            SET_VECTOR_ELT(rdata, CNT, (rcount = allocVector(INTSXP, num_recs)));
+
+            setAttrib(rdata, R_NamesSymbol, (rcolnames = allocVector(STRSXP, NUM_COLS)));
+            setAttrib(rdata, R_ClassSymbol, mkString("data.frame"));
+            setAttrib(rdata, R_RowNamesSymbol, (rrownames = allocVector(INTSXP, num_recs)));
+
+            {
+                int row = 0;
+                for (size_t i = 0; i < num_edges; ++i) {
+                    if (data[i]) {
+                        INTEGER(rnode1)[row] = pcol1[i];
+                        INTEGER(rnode2)[row] = pcol2[i];
+                        INTEGER(rcount)[row] = data[i];
+                        INTEGER(rrownames)[row] = row + 1;
+                        ++row;
+                    }
+                }
+            }
+
+            for (int i = 0; i < NUM_COLS; i++)
+                SET_STRING_ELT(rcolnames, i, mkChar(COL_NAMES[i]));
+
+            rlevels = getAttrib(VECTOR_ELT(_graph, 0), R_LevelsSymbol);
+            if (rlevels != R_NilValue) {
+                setAttrib(rnode1, R_LevelsSymbol, rlevels);
+                setAttrib(rnode1, R_ClassSymbol, mkString("factor"));
+                setAttrib(rnode2, R_LevelsSymbol, rlevels);
+                setAttrib(rnode2, R_ClassSymbol, mkString("factor"));
+            }
+        }
+
+        setAttrib(answer, R_NamesSymbol, (rnames = allocVector(STRSXP, 2)));
+        SET_STRING_ELT(rnames, 0, mkChar("co_cluster"));
+        SET_STRING_ELT(rnames, 1, mkChar("co_sample"));
     } catch (TGLException &e) {
         if (!TGStat::is_kid() && res != (unsigned *)MAP_FAILED) {
             munmap(res, res_sizeof);

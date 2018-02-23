@@ -19,7 +19,7 @@
 
 extern "C" {
 
-SEXP tgs_cor_graph(SEXP _ranks, SEXP _knn, SEXP _k_expand, SEXP _k_beta, SEXP _rcolnames, SEXP _envir)
+SEXP tgs_cor_graph(SEXP _ranks, SEXP _knn, SEXP _k_expand, SEXP _k_beta, SEXP _envir)
 {
 	try {
         TGStat tgstat(_envir);
@@ -42,9 +42,9 @@ SEXP tgs_cor_graph(SEXP _ranks, SEXP _knn, SEXP _k_expand, SEXP _k_beta, SEXP _r
                 strcmp(CHAR(STRING_ELT(rnames, COL1)), COL_NAMES[COL1]) || !isInteger(VECTOR_ELT(_ranks, COL1)) && !isFactor(VECTOR_ELT(_ranks, COL1)) ||
                 strcmp(CHAR(STRING_ELT(rnames, COL2)), COL_NAMES[COL2]) || !isInteger(VECTOR_ELT(_ranks, COL2)) && !isFactor(VECTOR_ELT(_ranks, COL2)) ||
                 xlength(VECTOR_ELT(_ranks, COL2)) != xlength(VECTOR_ELT(_ranks, COL1)) ||
-                strcmp(CHAR(STRING_ELT(rnames, COR)), COL_NAMES[COR]) || !isReal(VECTOR_ELT(_ranks, COR)) || xlength(VECTOR_ELT(_ranks, COR)) != xlength(VECTOR_ELT(_ranks, COL1)) ||
+                !isReal(VECTOR_ELT(_ranks, COR)) || xlength(VECTOR_ELT(_ranks, COR)) != xlength(VECTOR_ELT(_ranks, COL1)) ||
                 strcmp(CHAR(STRING_ELT(rnames, RANK)), COL_NAMES[RANK]) || !isInteger(VECTOR_ELT(_ranks, RANK)) || xlength(VECTOR_ELT(_ranks, RANK)) != xlength(VECTOR_ELT(_ranks, COL1)))
-    			verror("\"ranks\" argument must be in the format that is returned by tgs_cor_knn function");
+    			verror("\"ranks\" argument must be in the format that is returned by tgs_knn function");
 
             pcol1 = INTEGER(VECTOR_ELT(_ranks, COL1));
             pcol2 = INTEGER(VECTOR_ELT(_ranks, COL2));
@@ -157,7 +157,7 @@ SEXP tgs_cor_graph(SEXP _ranks, SEXP _knn, SEXP _k_expand, SEXP _k_beta, SEXP _r
         const char *COL_NAMES[NUM_COLS] = { "col1", "col2", "weight" };
 
         size_t answer_size = 0;
-        SEXP ranswer, rcol1, rcol2, rweight, rrownames, rcolnames;
+        SEXP ranswer, rcol1, rcol2, rweight, rrownames, rcolnames, rlevels;
 
         for (const auto &edges : outgoing)
             answer_size += min(edges.size(), knn);
@@ -167,10 +167,15 @@ SEXP tgs_cor_graph(SEXP _ranks, SEXP _knn, SEXP _k_expand, SEXP _k_beta, SEXP _r
         SET_VECTOR_ELT(ranswer, COL2, (rcol2 = allocVector(INTSXP, answer_size)));
         SET_VECTOR_ELT(ranswer, WEIGHT, (rweight = allocVector(REALSXP, answer_size)));
 
-        if (_rcolnames != R_NilValue) {
-            setAttrib(rcol1, R_LevelsSymbol, _rcolnames);
+        rlevels = getAttrib(VECTOR_ELT(_ranks, 0), R_LevelsSymbol);
+        if (rlevels != R_NilValue) {
+            setAttrib(rcol1, R_LevelsSymbol, rlevels);
             setAttrib(rcol1, R_ClassSymbol, mkString("factor"));
-            setAttrib(rcol2, R_LevelsSymbol, _rcolnames);
+        }
+
+        rlevels = getAttrib(VECTOR_ELT(_ranks, 1), R_LevelsSymbol);
+        if (rlevels != R_NilValue) {
+            setAttrib(rcol2, R_LevelsSymbol, rlevels);
             setAttrib(rcol2, R_ClassSymbol, mkString("factor"));
         }
 

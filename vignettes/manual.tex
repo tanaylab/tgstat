@@ -1,0 +1,37 @@
+%\VignetteIndexEntry{User manual}
+
+\documentclass{article}
+
+\usepackage{amsmath}
+\usepackage{amscd}
+\usepackage[tableposition=top]{caption}
+\usepackage{ifthen}
+\usepackage[utf8]{inputenc}
+\usepackage[dvips]{epsfig,psfrag}
+\usepackage{listings}
+\usepackage[margin=1in]{geometry} % 1 inch margins all around
+
+\usepackage{Sweave}
+\begin{document}
+\input{manual-concordance}
+
+\title{Package 'tgstat' - User Manual}
+\maketitle
+
+'tgstat' package - Tanay's group statistical utilities.
+
+\tableofcontents
+
+\newpage
+
+\section{Package Configuration}
+
+\emph{tgstat} is written to optimize and / or expand some of R common functionality. Various methods are used to achieve this goal such as multitasking, using of BLAS interface, etc.
+
+BLAS (Basic Linear Algebra Subprograms) is an interface that can tremendeously optimize some of the common mathematical calculations. Various processor vendors (Intel, ...) release their own implementations of BLAS that use specific hardware commands. Unfortunately vendor-specific BLAS might not be installed by default on your system. R comes with its own implementation of BLAS, yet its run-time performance is appalling.
+
+tgstat runs the best if non-default BLAS is installed. Alternatively tgstat implements its own methods (multitasking, etc.) to boost the performance, which is the second best choice. Using the default R's implementation of BLAS is by far the worst choice and one should try to avoid it by all means.
+
+tgstat therefore needs to be instructed whether it should use BLAS interface or not. Use \texttt{options(tgs\_use.blas=T)} if non-default BLAS is installed on your system. If you are not sure, simply run some of the heavy functions with and without BLAS and compare the performance.
+
+\end{document}

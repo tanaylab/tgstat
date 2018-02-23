@@ -1,6 +1,5 @@
 \name{tgs_cor}
 \alias{tgs_cor}
-\alias{tgs_cor_knn}
 \title{
 Calculates correlation between the matrix columns
 }
@@ -10,9 +9,6 @@ Calculates correlation between the matrix columns.
 \usage{
 tgs_cor(x, pairwise.complete.obs = F, spearman = F, tidy = F,
         threshold = 0)
-
-tgs_cor_knn(x, knn, pairwise.complete.obs = F, spearman = F,
-            threshold = 0)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -21,7 +17,6 @@ tgs_cor_knn(x, knn, pairwise.complete.obs = F, spearman = F,
   \item{spearman}{if 'TRUE' Spearman correlation is computed, otherwise Pearson}
   \item{tidy}{if 'TRUE' data is outputed in tidy format}
   \item{threshold}{absolute threshold above which values are outputed in tidy format}
-  \item{knn}{the number of highest correlations returned per matrix column}
 }
 \details{
 'tgs_cor' is very similar to 'package:stats::cor'. Unlike the latter it uses all available CPU cores to compute the correlation in a much faster way. The basic implementation of 'pairwise.complete.obs' is also more efficient giving overall great run-time advantage.
@@ -34,13 +29,9 @@ Unlike 'package:stats::cor' 'tgs_cor' computes the correlation only between matr
 'tgs_cor(x, pairwise.complete.obs = T, spearman = F)' is equivalent to 'cor(x, use = "pairwise.complete.obs", method = "pearson")'
 
 'tgs_cor' can output its result in "tidy" format: a data frame with three columns named 'col1', 'col2' and 'cor'. Only the correlation values which abs are equal or above the 'threshold' are reported. Correlation of column number X with column Y is reported only if X < Y.
-
-'tgs_cor_knn' is essentially 'tgs_cor' with 'tidy=T' that returns only the 'knn' highest absolute correlation values for each matrix column.
 }
 \value{
-'tgs_cor' - if 'tidy' is 'FALSE' - the matrix of correlation values, where val[X,Y] represents the correlation between columns X and Y of the input matrix. If 'tidy' is 'TRUE' - a data frame, where each row represents correlation between two pairs of columns.
-
-'tgs_cor_knn' - a data frame, where each row represents correlation between two pairs of columns - 'col1' and 'col2'. 'rank' column indicates the rank of the correlation relatively to other correlations of 'col1'.
+If 'tidy' is 'FALSE' - the matrix of correlation values, where val[X,Y] represents the correlation between columns X and Y of the input matrix. If 'tidy' is 'TRUE' - a data frame, where each row represents correlation between two pairs of columns.
 }
 
 \examples{
@@ -53,7 +44,6 @@ m[sample(1 : (rows * cols), rows * cols / 1000)] <- NA
 
 r1 <- tgs_cor(m, spearman = F)
 r2 <- tgs_cor(m, pairwise.complete.obs = T, spearman = T)
-r3 <- tgs_cor_knn(m, 3, pairwise.complete.obs = T, spearman = T)
 }
 \keyword{ ~correlation }
 

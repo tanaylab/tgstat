@@ -53,10 +53,10 @@ public:
 	static int64_t file_size(const char *path);
 
 protected:
-	FILE       *m_fp;
+	FILE       *m_fp{NULL};
 	int         m_eof;
 	std::string m_filename;
-	char       *m_buf;
+	char       *m_buf{NULL};
 	unsigned    m_bufsize;
 	int64_t     m_file_size;
 	int64_t     m_virt_pos;
@@ -68,8 +68,8 @@ protected:
 
 private:
 	// restrict copying of class (otherwise need reference counters for m_buf and m_fp)
-	BufferedFile(const BufferedFile &) {}
-	BufferedFile &operator=(const BufferedFile &obj) { return *this; }
+	BufferedFile(const BufferedFile &) = delete;
+	BufferedFile &operator=(const BufferedFile &obj) = delete;
 };
 
 
@@ -84,8 +84,8 @@ public:
 	}
 
 private:
-	BufferedFiles(const BufferedFiles &) {}
-	void operator=(const BufferedFiles &) {}
+	BufferedFiles(const BufferedFiles &) = delete;
+	BufferedFiles &operator=(const BufferedFiles &) = delete;
 };
 
 //--------------------------- IMPLEMENTATION ------------------------------------
@@ -208,7 +208,7 @@ inline size_t BufferedFile::write(const void *ptr, size_t size)
 
 	if (retv) {
 		// if the cached buffer overlaps the written region => trash the buffer
-		if (!std::max(m_virt_pos, m_sbuf_pos) < std::min(m_virt_pos + (long)retv, m_ebuf_pos))
+		if (std::max(m_virt_pos, m_sbuf_pos) < std::min(m_virt_pos + (long)retv, m_ebuf_pos))
 			m_sbuf_pos = m_ebuf_pos = 0;
 
 		m_virt_pos += retv;

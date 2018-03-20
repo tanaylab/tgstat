@@ -30,7 +30,7 @@ struct Segment {
 	}
 
 	// returns distance from point coordinate to the center of segment; returns NaN if the coordinate is outside of segment
-	double dist2center(int64_t coord) const { coord < start || coord >= end ? numeric_limits<double>::quiet_NaN() : fabs(coord - (start + end) / 2); }
+	double dist2center(int64_t coord) const { return coord < start || coord >= end ? numeric_limits<double>::quiet_NaN() : fabs(coord - (start + end) / 2); }
 
 	// returns true if the two segments touch or overlap each other
 	bool do_touch(const Segment &s) const { return max(start, s.start) <= min(end, s.end); }
@@ -43,7 +43,7 @@ struct Segment {
 
 	char *debug_str() const {
 		static char str[200];
-		sprintf(str, "(%ld - %ld)", start, end);
+		sprintf(str, "(%lld - %lld)", start, end);
 		return str;
 	}
 };

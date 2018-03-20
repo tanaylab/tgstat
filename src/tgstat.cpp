@@ -349,10 +349,16 @@ pid_t TGStat::launch_process()
 
 		SEXP r_multitasking_stdout = GetOption(install("tgs_multitasking_stdout"), R_NilValue);
 
-        if (!isLogical(r_multitasking_stdout) || !(int)LOGICAL(r_multitasking_stdout)[0])
-            fclose(stdout);
-		fclose(stderr);
-		fclose(stdin);
+        if (!isLogical(r_multitasking_stdout) || !(int)LOGICAL(r_multitasking_stdout)[0]) {
+            if (!freopen("/dev/null", "w", stdout))
+                verror("Failed to open /dev/null");
+        }
+
+        if (!freopen("/dev/null", "w", stderr))
+            verror("Failed to open /dev/null");
+
+        if (!freopen("/dev/null", "r", stdin))
+            verror("Failed to open /dev/null");
 
         // fifo was open for read by the parent
         close(s_fifo_fd);
@@ -623,18 +629,70 @@ void TGStat::sigchld_handler(int)
 
 void TGStat::get_open_fds(set<int> &fds)
 {
+#if defined(__APPLE__)
+    // This absolutely irrational code with all those funny reallocations and multiplication by 32 (haeh?) was inherited from here:
+    //      https://opensource.apple.com/source/Libc/Libc-825.26/darwin/proc_listpidspath.c.auto.html
+    // 
+    // It would be much more logical to call proc_pidinfo twice: the first time to get buf size and the second time to get the list
+    // of file descriptors. And indeed some internet sources advice to do that. However what is rational does not work and gives some
+    // 240 open file descriptors most of them are not vnodes at all. And even some of those who are vnodes, are complete junk. Smells
+    // like a memory leak. Probably the multiplication by 32 is really needed.
+    //
+    // All these problems come from the simple reason there is not manual for proc_pidinfo. Go figure why...
+	int	buf_used;
+    int fds_size = 0;
+    int num_fds;
+    unique_ptr<char[]> buf;
+
+	// get list of open file descriptors
+	buf_used = proc_pidinfo(getpid(), PROC_PIDLISTFDS, 0, NULL, 0);
+	if (buf_used <= 0)
+        return;
+
+	while (1) {
+		if (buf_used > fds_size) {
+			// if we need to allocate [more] space
+			while (buf_used > fds_size)
+				fds_size += (sizeof(struct proc_fdinfo) * 32);
+
+            buf = unique_ptr<char[]>(new char[fds_size]);
+		}
+
+		buf_used = proc_pidinfo(getpid(), PROC_PIDLISTFDS, 0, buf.get(), fds_size);
+		if (buf_used <= 0)
+            return;
+
+		if ((buf_used + sizeof(struct proc_fdinfo)) >= fds_size) {
+			// if not enough room in the buffer for an extra fd
+			buf_used = fds_size + sizeof(struct proc_fdinfo);
+			continue;
+		}
+
+		num_fds = buf_used / sizeof(struct proc_fdinfo);
+		break;
+	}
+
+    struct proc_fdinfo *fdinfo = (struct proc_fdinfo *)buf.get();
+    for (int i = 0; i < num_fds; ++i) {
+        if (fdinfo[i].proc_fdtype == PROX_FDTYPE_VNODE)
+            fds.insert(fdinfo[i].proc_fd);
+    }
+#else
 	DIR *dir = opendir("/proc/self/fd");
 	struct dirent *dirp;
 
 	fds.clear();
-	while ((dirp = readdir(dir))) {
-		char *endptr;
-		int fd = strtol(dirp->d_name, &endptr, 10);
-		if (!*endptr && fd != dirfd(dir)) // name is a number (it can be also ".", "..", whatever...)
-			fds.insert(fd);
-	}
+    if (dir) {
+    	while ((dirp = readdir(dir))) {
+    		char *endptr;
+    		int fd = strtol(dirp->d_name, &endptr, 10);
+    		if (!*endptr && fd != dirfd(dir)) // name is a number (it can be also ".", "..", whatever...)
+    			fds.insert(fd);
+    	}
 
-	closedir(dir);
+        closedir(dir);
+    }
+#endif
 }
 
 void check_interrupt() throw (TGLException)

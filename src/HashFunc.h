@@ -8,6 +8,10 @@
 #include <sys/endian.h>
 #elif defined(__linux__)
 #include <byteswap.h>
+#elif defined(__APPLE__)
+#include <libkern/OSByteOrder.h>
+#define bswap_64 OSSwapInt64
+#define bswap_32 OSSwapInt32
 #endif
 
 namespace std

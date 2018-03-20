@@ -538,7 +538,7 @@ int64_t StatQuadTreeCached<T, Size>::analyze_n_serialize_subtree(BufferedFile &f
 		size += sizeof(Node);
 	}
 
-	if (m_chunk_size && size > m_chunk_size || &node == &qtree.m_nodes.front()) {
+	if ((m_chunk_size && size > m_chunk_size) || &node == &qtree.m_nodes.front()) {
 		int64_t chunk_start_fpos = file.tell();
 		int64_t top_node_offset = 0;
 
@@ -902,7 +902,7 @@ void StatQuadTreeCached<T, Size>::debug_print_tree()
 {
 	if (!empty())
 		debug_print_tree(m_root_chunk, m_root_chunk.top_node, 0);
-	printf("Objs: %ld\n", m_num_objs);
+	printf("Objs: %llu\n", m_num_objs);
 }
 
 template <class T, class Size>
@@ -911,7 +911,7 @@ void StatQuadTreeCached<T, Size>::debug_print_tree(const Chunk &chunk, NodeBase 
 	Rectangle arena;
 	printf("\n%*sArena: %s\n", depth * 2, "", node_base->arena.debug_str());
 	printf("%*sIs leaf?: %d\n", (depth + 1) * 2, "", node_base->is_leaf);
-	printf("%*sArea occupied: %ld\n", (depth + 1) * 2, "", node_base->stat.occupied_area);
+	printf("%*sArea occupied: %lld\n", (depth + 1) * 2, "", node_base->stat.occupied_area);
 	printf("%*sAvg: %g\tMin: %g\tMax: %g\n", (depth + 1) * 2, "", node_base->stat.occupied_area / (double)node_base->stat.weighted_sum, node_base->stat.min_val, node_base->stat.max_val);
 
 	if (node_base->is_leaf) {

@@ -40,7 +40,7 @@ struct Rectangle_val : public Rectangle {
 
 	char *debug_str() const {
 		static char str[200];
-		sprintf(str, "(%ld - %ld) (%ld - %ld) %g", x1, x2, y1, y2, (double)v);
+		sprintf(str, "(%lld - %lld) (%lld - %lld) %g", x1, x2, y1, y2, (double)v);
 		return str;
 	}
 };
@@ -279,7 +279,7 @@ public:
 
 			// The order in the heap must give preference to objects before nodes.
 			// Otherwise nearest neighbor query that covers the whole arena will cause all the tree nodes to be added to the heap.
-			bool operator<(const Neighbor &obj) const { return dist > obj.dist || dist == obj.dist && node; }
+			bool operator<(const Neighbor &obj) const { return dist > obj.dist || (dist == obj.dist && node); }
 		};
 
 		Rectangle                 m_query;

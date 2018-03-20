@@ -28,7 +28,7 @@ all: $(TGT)
 	$(CC) $(CFLAGS) -c -o $@ $< -MP -MMD
 
 $(TGT): $(OBJS)
-	$(CC) -L$(R_HOME)/lib -lpthread -lrt -shared -o $@ $^ $(USR_LINK_FLAGS)
+	$(CC) -L$(R_HOME)/lib -lpthread -shared -o $@ $^ $(USR_LINK_FLAGS)
 
 clean:
 	rm -f $(OBJS) $(DEPS)

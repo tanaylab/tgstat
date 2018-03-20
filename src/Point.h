@@ -77,7 +77,7 @@ struct Point {
 
 	char *debug_str() const {
 		static char str[200];
-		sprintf(str, "(%ld, %ld)", x, y);
+		sprintf(str, "(%lld, %lld)", x, y);
 		return str;
 	}
 };

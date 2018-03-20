@@ -98,7 +98,7 @@ public:
 
 			// The order in the heap must give preference to objects before nodes.
 			// Otherwise nearest neighbor query that covers the whole arena will cause all the tree nodes to be added to the heap.
-			bool operator<(const Neighbor &obj) const { return dist > obj.dist || dist == obj.dist && node; }
+			bool operator<(const Neighbor &obj) const { return dist > obj.dist || (dist == obj.dist && node); }
 		};
 
 		Segment                   m_query;

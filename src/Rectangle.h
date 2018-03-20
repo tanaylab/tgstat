@@ -93,7 +93,7 @@ struct Rectangle {
 
 	char *debug_str() const {
 		static char str[200];
-		sprintf(str, "(%ld - %ld) (%ld - %ld)", x1, x2, y1, y2);
+		sprintf(str, "(%lld - %lld) (%lld - %lld)", x1, x2, y1, y2);
 		return str;
 	}
 };

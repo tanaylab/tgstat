@@ -11,8 +11,6 @@
 # define FUNCS     DBG_ON
 #endif // FUNCS
 
-using namespace std;
-
 #include <ctype.h>
 #include <fcntl.h>
 #include <float.h>
@@ -32,6 +30,9 @@ using namespace std;
 #include <unistd.h>
 #include <sys/stat.h>
 #include <time.h>
+
+using namespace std;
+
 #include "config.h"
 #include "modes.h"
 #include "error.h"

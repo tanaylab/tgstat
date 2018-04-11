@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <cmath>
+#include <errno.h>
 #include <limits>
 #include <queue>
 #include <sys/mman.h>
@@ -30,7 +31,7 @@ SEXP tgs_cor(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _tidy, S
 	try {
         TGStat tgstat(_envir);
 
-		if (!isReal(_x) && !isInteger(_x) || xlength(_x) < 1)
+		if ((!isReal(_x) && !isInteger(_x)) || xlength(_x) < 1)
 			verror("\"x\" argument must be a matrix of numeric values");
 
         if (!isLogical(_pairwise_complete_obs) || xlength(_pairwise_complete_obs) != 1)
@@ -42,7 +43,7 @@ SEXP tgs_cor(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _tidy, S
         if (!isLogical(_tidy) || xlength(_tidy) != 1)
             verror("\"tidy\" argument must be a logical value");
 
-        if (!isReal(_threshold) && !isInteger(_threshold) || xlength(_threshold) != 1)
+        if ((!isReal(_threshold) && !isInteger(_threshold)) || xlength(_threshold) != 1)
             verror("\"threshold\" argument must be a numeric value");
 
         SEXP rdim = getAttrib(_x, R_DimSymbol);
@@ -79,7 +80,7 @@ SEXP tgs_cor(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _tidy, S
         vals.reserve(num_vals);
 
         for (size_t i = 0; i < num_vals; ++i) {
-            if (isReal(_x) && !R_FINITE(REAL(_x)[i]) || isInteger(_x) && INTEGER(_x)[i] == NA_INTEGER) {
+            if ((isReal(_x) && !R_FINITE(REAL(_x)[i])) || (isInteger(_x) && INTEGER(_x)[i] == NA_INTEGER)) {
                 nan_in_col[i / num_rows] = true;
                 nan_in_vals = true;
                 vals.push_back(numeric_limits<double>::quiet_NaN());
@@ -102,7 +103,7 @@ SEXP tgs_cor(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _tidy, S
                 vector<double *>::iterator last_ival = sival;
 
                 if (nan_in_col[icol])
-                    sort(sival, eival, [](double *p1, double *p2) { return *p1 < *p2 || !std::isnan(*p1) && std::isnan(*p2); });
+                    sort(sival, eival, [](double *p1, double *p2) { return *p1 < *p2 || (!std::isnan(*p1) && std::isnan(*p2)); });
                 else
                     sort(sival, eival, [](double *p1, double *p2) { return *p1 < *p2; });
 
@@ -409,7 +410,7 @@ SEXP tgs_cor_blas(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _ti
 
         TGStat tgstat(_envir);
 
-        if (!isReal(_x) && !isInteger(_x) || xlength(_x) < 1)
+        if ((!isReal(_x) && !isInteger(_x)) || xlength(_x) < 1)
             verror("\"x\" argument must be a matrix of numeric values");
 
         if (!isLogical(_pairwise_complete_obs) || xlength(_pairwise_complete_obs) != 1)
@@ -421,7 +422,7 @@ SEXP tgs_cor_blas(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _ti
         if (!isLogical(_tidy) || xlength(_tidy) != 1)
             verror("\"tidy\" argument must be a logical value");
 
-        if (!isReal(_threshold) && !isInteger(_threshold) || xlength(_threshold) != 1)
+        if ((!isReal(_threshold) && !isInteger(_threshold)) || xlength(_threshold) != 1)
             verror("\"threshold\" argument must be a numeric value");
 
         SEXP rdim = getAttrib(_x, R_DimSymbol);
@@ -448,12 +449,12 @@ SEXP tgs_cor_blas(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _ti
 
         vdebug("START BLAS COR\n");
         // some BLAS implementations ask to align double arrays to 64 for improved efficiency
-        mem.m = (double *)aligned_alloc(64, sizeof(double) * num_vals);
-        mem.mask = (double *)aligned_alloc(64, sizeof(double) * num_vals);
-        mem.res = (double *)aligned_alloc(64, sizeof(double) * res_size);
+        posix_memalign((void **)&mem.m, 64, sizeof(double) * num_vals);
+        posix_memalign((void **)&mem.mask, 64, sizeof(double) * num_vals);
+        posix_memalign((void **)&mem.res, 64, sizeof(double) * res_size);
 
         for (size_t i = 0; i < num_vals; ++i) {
-            if (isReal(_x) && !R_FINITE(REAL(_x)[i]) || isInteger(_x) && INTEGER(_x)[i] == NA_INTEGER) {
+            if ((isReal(_x) && !R_FINITE(REAL(_x)[i])) || (isInteger(_x) && INTEGER(_x)[i] == NA_INTEGER)) {
                 mem.m[i] = mem.mask[i] = 0.;
                 nan_in_vals = true;
                 nan_in_point[i / num_dims] = true;
@@ -507,10 +508,10 @@ SEXP tgs_cor_blas(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _ti
             //     var_n <- (t(mask) %*% (m * m)) - (s_x * s_x) / n
             //     res <- cov_n / sqrt(var_n * t(var_n))
 
-            mem.n = (double *)aligned_alloc(64, sizeof(double) * res_size);
-            mem.s_x = (double *)aligned_alloc(64, sizeof(double) * res_size);
-            mem.cov_n = (double *)aligned_alloc(64, sizeof(double) * res_size);
-            mem.var_n = (double *)aligned_alloc(64, sizeof(double) * res_size);
+            posix_memalign((void **)&mem.n, 64, sizeof(double) * res_size);
+            posix_memalign((void **)&mem.s_x, 64, sizeof(double) * res_size);
+            posix_memalign((void **)&mem.cov_n, 64, sizeof(double) * res_size);
+            posix_memalign((void **)&mem.var_n, 64, sizeof(double) * res_size);
 
             ProgressReporter progress;
             progress.init(6, 1);

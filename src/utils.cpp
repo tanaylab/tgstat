@@ -22,7 +22,7 @@ SEXP tgs_finite(SEXP _x, SEXP _envir)
             verror("\"x\" argument must be numeric or integer");
 
         for (size_t i = 0; i < len; ++i) {
-            if (isReal(_x) && !R_FINITE(REAL(_x)[i]) || isInteger(_x) && INTEGER(_x)[i] == NA_INTEGER)
+            if ((isReal(_x) && !R_FINITE(REAL(_x)[i])) || (isInteger(_x) && INTEGER(_x)[i] == NA_INTEGER))
                 rreturn(ScalarLogical(false));
         }
     } catch (TGLException &e) {

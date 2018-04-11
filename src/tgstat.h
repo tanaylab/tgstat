@@ -157,7 +157,8 @@ public:
 
     static sem_t *shm_sem() { return s_shm_sem; }
 
-protected:
+//protected:
+public:
     struct Shm {
         char          error_msg[10000];
         uint64_t      itr_idx[MAX_KIDS];          // used for progress report
@@ -252,7 +253,7 @@ inline bool is_time_elapsed(int64_t delay_msec, const struct timespec &start_tim
 	struct timespec t2;
 	set_abs_timeout(delay_msec, t1);
 	clock_gettime(CLOCK_REALTIME, &t2);
-	return t2.tv_sec > t1.tv_sec || t2.tv_sec == t1.tv_sec && t2.tv_nsec > t1.tv_nsec;
+	return t2.tv_sec > t1.tv_sec || (t2.tv_sec == t1.tv_sec && t2.tv_nsec > t1.tv_nsec);
 }
 
 inline uint64_t TGStat::itr_idx_sum()

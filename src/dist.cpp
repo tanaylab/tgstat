@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <cmath>
+#include <errno.h>
 #include <limits>
 #include <sys/mman.h>
 #include <unistd.h>
@@ -445,13 +446,13 @@ SEXP tgs_dist(SEXP _x, SEXP _attrs, SEXP _tidy, SEXP _threshold, SEXP _rrownames
 	try {
         TGStat tgstat(_envir);
 
-		if (!isReal(_x) && !isInteger(_x) || xlength(_x) < 1)
+		if ((!isReal(_x) && !isInteger(_x)) || xlength(_x) < 1)
 			verror("\"x\" argument must be a matrix of numeric values");
 
         if (!isLogical(_tidy) || xlength(_tidy) != 1)
             verror("\"tidy\" argument must be a logical value");
 
-        if (!isReal(_threshold) && !isInteger(_threshold) || xlength(_threshold) != 1)
+        if ((!isReal(_threshold) && !isInteger(_threshold)) || xlength(_threshold) != 1)
             verror("\"threshold\" argument must be a numeric value");
 
         SEXP rdim = getAttrib(_x, R_DimSymbol);
@@ -475,7 +476,7 @@ SEXP tgs_dist(SEXP _x, SEXP _attrs, SEXP _tidy, SEXP _threshold, SEXP _rrownames
         vals.reserve(num_vals);
 
         for (size_t i = 0; i < num_vals; ++i) {
-            if (isReal(_x) && !R_FINITE(REAL(_x)[i]) || isInteger(_x) && INTEGER(_x)[i] == NA_INTEGER) {
+            if ((isReal(_x) && !R_FINITE(REAL(_x)[i])) || (isInteger(_x) && INTEGER(_x)[i] == NA_INTEGER)) {
                 vals.push_back(numeric_limits<double>::quiet_NaN());
                 nan_in_vals = true;
             } else
@@ -654,13 +655,13 @@ SEXP tgs_dist_blas(SEXP _x, SEXP _attrs, SEXP _tidy, SEXP _threshold, SEXP _rrow
 
         TGStat tgstat(_envir);
 
-		if (!isReal(_x) && !isInteger(_x) || xlength(_x) < 1)
+		if ((!isReal(_x) && !isInteger(_x)) || xlength(_x) < 1)
 			verror("\"x\" argument must be a matrix of numeric values");
 
         if (!isLogical(_tidy) || xlength(_tidy) != 1)
             verror("\"tidy\" argument must be a logical value");
 
-        if (!isReal(_threshold) && !isInteger(_threshold) || xlength(_threshold) != 1)
+        if ((!isReal(_threshold) && !isInteger(_threshold)) || xlength(_threshold) != 1)
             verror("\"threshold\" argument must be a numeric value");
 
         SEXP rdim = getAttrib(_x, R_DimSymbol);
@@ -684,12 +685,12 @@ SEXP tgs_dist_blas(SEXP _x, SEXP _attrs, SEXP _tidy, SEXP _threshold, SEXP _rrow
         bool nan_in_vals = false;
 
         // some BLAS implementations ask to align double arrays to 64 for improved efficiency
-        mem.m = (double *)aligned_alloc(64, sizeof(double) * num_vals);
-        mem.mask = (double *)aligned_alloc(64, sizeof(double) * num_vals);
-        mem.res = (double *)aligned_alloc(64, sizeof(double) * res_size);
+        posix_memalign((void **)&mem.m, 64, sizeof(double) * num_vals);
+        posix_memalign((void **)&mem.mask, 64, sizeof(double) * num_vals);
+        posix_memalign((void **)&mem.res, 64, sizeof(double) * res_size);
 
         for (size_t i = 0; i < num_vals; ++i) {
-            if (isReal(_x) && !R_FINITE(REAL(_x)[i]) || isInteger(_x) && INTEGER(_x)[i] == NA_INTEGER) {
+            if ((isReal(_x) && !R_FINITE(REAL(_x)[i])) || (isInteger(_x) && INTEGER(_x)[i] == NA_INTEGER)) {
                 mem.m[i] = mem.mask[i] = 0.;
                 nan_in_vals = true;
             } else {
@@ -740,7 +741,7 @@ SEXP tgs_dist_blas(SEXP _x, SEXP _attrs, SEXP _tidy, SEXP _threshold, SEXP _rrow
                 char trans = 'N';
                 double alpha = 1;
                 double beta = 0;
-                mem.n = (double *)aligned_alloc(64, sizeof(double) * res_size);
+                posix_memalign((void **)&mem.n, 64, sizeof(double) * res_size);
                 F77_NAME(dsyrk)(&uplo, &trans, &num_points32, &num_dims32, &alpha, mem.mask, &num_points32, &beta, mem.n, &num_points32);
                 check_interrupt();
                 progress.report(1);

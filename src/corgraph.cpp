@@ -29,7 +29,7 @@ SEXP tgs_cor_graph(SEXP _ranks, SEXP _knn, SEXP _k_expand, SEXP _k_beta, SEXP _e
         int *prank;
         size_t num_ranks;
 
-        if (!isReal(_k_beta) && !isInteger(_k_beta) || xlength(_k_beta) != 1)
+        if ((!isReal(_k_beta) && !isInteger(_k_beta)) || xlength(_k_beta) != 1)
             verror("\"k_beta\" argument must be a numeric value");
 
         {
@@ -39,8 +39,8 @@ SEXP tgs_cor_graph(SEXP _ranks, SEXP _knn, SEXP _k_expand, SEXP _k_beta, SEXP _e
             SEXP rnames = getAttrib(_ranks, R_NamesSymbol);
 
     		if (!isVector(_ranks) || xlength(_ranks) != NUM_COLS || xlength(rnames) != NUM_COLS ||
-                strcmp(CHAR(STRING_ELT(rnames, COL1)), COL_NAMES[COL1]) || !isInteger(VECTOR_ELT(_ranks, COL1)) && !isFactor(VECTOR_ELT(_ranks, COL1)) ||
-                strcmp(CHAR(STRING_ELT(rnames, COL2)), COL_NAMES[COL2]) || !isInteger(VECTOR_ELT(_ranks, COL2)) && !isFactor(VECTOR_ELT(_ranks, COL2)) ||
+                strcmp(CHAR(STRING_ELT(rnames, COL1)), COL_NAMES[COL1]) || (!isInteger(VECTOR_ELT(_ranks, COL1)) && !isFactor(VECTOR_ELT(_ranks, COL1))) ||
+                strcmp(CHAR(STRING_ELT(rnames, COL2)), COL_NAMES[COL2]) || (!isInteger(VECTOR_ELT(_ranks, COL2)) && !isFactor(VECTOR_ELT(_ranks, COL2))) ||
                 xlength(VECTOR_ELT(_ranks, COL2)) != xlength(VECTOR_ELT(_ranks, COL1)) ||
                 !isReal(VECTOR_ELT(_ranks, COR)) || xlength(VECTOR_ELT(_ranks, COR)) != xlength(VECTOR_ELT(_ranks, COL1)) ||
                 strcmp(CHAR(STRING_ELT(rnames, RANK)), COL_NAMES[RANK]) || !isInteger(VECTOR_ELT(_ranks, RANK)) || xlength(VECTOR_ELT(_ranks, RANK)) != xlength(VECTOR_ELT(_ranks, COL1)))
@@ -52,10 +52,10 @@ SEXP tgs_cor_graph(SEXP _ranks, SEXP _knn, SEXP _k_expand, SEXP _k_beta, SEXP _e
             num_ranks = xlength(VECTOR_ELT(_ranks, RANK));
         }
 
-        if (!isNull(_knn) && (!isReal(_knn) && !isInteger(_knn) || xlength(_knn) != 1))
+        if (!isNull(_knn) && ((!isReal(_knn) && !isInteger(_knn)) || xlength(_knn) != 1))
             verror("\"knn\" argument must be a numeric value");
 
-        if (!isNull(_k_expand) && (!isReal(_k_expand) && !isInteger(_k_expand) || xlength(_k_expand) != 1))
+        if (!isNull(_k_expand) && ((!isReal(_k_expand) && !isInteger(_k_expand)) || xlength(_k_expand) != 1))
             verror("\"k_expand\" argument must be a numeric value");
 
         double knn_d = isNull(_knn) ? 0 : asReal(_knn);
@@ -109,7 +109,7 @@ SEXP tgs_cor_graph(SEXP _ranks, SEXP _knn, SEXP _k_expand, SEXP _k_beta, SEXP _e
             unsigned node;
             size_t weight;
             Edge(unsigned _node, unsigned _weight) : node(_node), weight(_weight) {}
-            bool operator<(const Edge &o) const { return weight < o.weight || weight == o.weight && node < o.node; }
+            bool operator<(const Edge &o) const { return weight < o.weight || (weight == o.weight && node < o.node); }
         };
 
         vdebug("Filter out by incoming edges\n");

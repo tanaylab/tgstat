@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <errno.h>
 #include <sys/mman.h>
 #include <unistd.h>
 
@@ -26,13 +27,13 @@ SEXP tgs_knn(SEXP _x, SEXP _knn, SEXP _diag, SEXP _threshold, SEXP _envir)
 	try {
         TGStat tgstat(_envir);
 
-        if (!isReal(_threshold) && !isInteger(_threshold) || xlength(_threshold) != 1)
+        if ((!isReal(_threshold) && !isInteger(_threshold)) || xlength(_threshold) != 1)
             verror("\"threshold\" argument must be a numeric value");
 
         if (!isLogical(_diag) || xlength(_diag) != 1)
             verror("\"diag\" argument must be a logical value");
 
-        if (!isReal(_knn) && !isInteger(_knn) || xlength(_knn) != 1 || asReal(_knn) < 1 || asReal(_knn) != (double)asInteger(_knn))
+        if ((!isReal(_knn) && !isInteger(_knn)) || xlength(_knn) != 1 || asReal(_knn) < 1 || asReal(_knn) != (double)asInteger(_knn))
             verror("\"knn\" argument must be a positive integer");
 
         double threshold = fabs(asReal(_threshold));
@@ -44,7 +45,7 @@ SEXP tgs_knn(SEXP _x, SEXP _knn, SEXP _diag, SEXP _threshold, SEXP _envir)
         int *pcol1 = NULL;
         int *pcol2 = NULL;
         double *data;
-        auto cmp = [&data](size_t idx1, size_t idx2) { return fabs(data[idx1]) > fabs(data[idx2]) || data[idx1] == data[idx2] && idx1 < idx2; };
+        auto cmp = [&data](size_t idx1, size_t idx2) { return fabs(data[idx1]) > fabs(data[idx2]) || (data[idx1] == data[idx2] && idx1 < idx2); };
 
         vector<size_t> sorted_rows;     // contains number of rows of _x sorted by col1
         size_t num_rows;
@@ -108,7 +109,8 @@ SEXP tgs_knn(SEXP _x, SEXP _knn, SEXP _diag, SEXP _threshold, SEXP _envir)
 
             num_rows = xlength(rcol1);
 
-            if (!isInteger(rcol1) && !isFactor(rcol1) || !isInteger(rcol2) && !isFactor(rcol1) || xlength(rcol2) != num_rows || !isInteger(rval) && !isReal(rval) || xlength(rval) != num_rows)
+            if ((!isInteger(rcol1) && !isFactor(rcol1)) || (!isInteger(rcol2) && !isFactor(rcol1)) || xlength(rcol2) != num_rows ||
+                (!isInteger(rval) && !isReal(rval)) || xlength(rval) != num_rows)
                 verror("Invalid format of \"x\" argument");
 
             bool sort_needed = false;
@@ -118,7 +120,7 @@ SEXP tgs_knn(SEXP _x, SEXP _knn, SEXP _diag, SEXP _threshold, SEXP _envir)
             data = REAL(rval);
 
             auto cmp_rows = [&pcol1, &pcol2](size_t idx1, size_t idx2) {
-                                return pcol1[idx1] < pcol1[idx2] || pcol1[idx1] == pcol1[idx2] && pcol2[idx1] < pcol2[idx2];
+                                return pcol1[idx1] < pcol1[idx2] || (pcol1[idx1] == pcol1[idx2] && pcol2[idx1] < pcol2[idx2]);
                             };
 
             sorted_rows.resize(num_rows);

@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <errno.h>
 #include <limits>
 #include <strings.h>
 #include <unordered_map>
@@ -10,6 +11,7 @@
 #include <Rinternals.h>
 
 #include "HashFunc.h"
+#include "RandomShuffle.h"
 
 #ifdef length
 #undef length
@@ -187,7 +189,7 @@ unsigned graph2cluster(const int *pnode1, const int *pnode2, const double *pweig
     while (1) {
         unsigned num_reassignments = 0;
 
-        random_shuffle(candidates.begin(), candidates.end());
+        tgs_random_shuffle(candidates.begin(), candidates.end());
 
         for (auto i : candidates) {
             // find the maximal score
@@ -256,7 +258,7 @@ unsigned graph2cluster(const int *pnode1, const int *pnode2, const double *pweig
 //printf("Cluster[%d], size: %d\n", i, cluster_sizes[i]);
 //}
 //
-    if (g_tgstat->debug()) {
+    if (0 && g_tgstat->debug()) {
         double total_weight = 0;
         double in_cluster_weight = 0;
         double unassigned_weight = 0;
@@ -357,7 +359,7 @@ void launch_kid_hash(const int *pnode1, const int *pnode2, const double *pweight
 
         g_tgstat->rnd_seed(seed);
         vdebug("Random seed: %ld\n", seed);
-        random_shuffle(nodes.begin(), nodes.end());
+        tgs_random_shuffle(nodes.begin(), nodes.end());
         for (unsigned i = 0; i < num_kid_nodes; ++i)
             node_selected[nodes[i]] = true;
 
@@ -396,7 +398,7 @@ void launch_kid_full(const int *pnode1, const int *pnode2, const double *pweight
 
         g_tgstat->rnd_seed(seed);
         vdebug("Random seed: %ld\n", seed);
-        random_shuffle(nodes.begin(), nodes.end());
+        tgs_random_shuffle(nodes.begin(), nodes.end());
         for (unsigned i = 0; i < num_kid_nodes; ++i)
             node_selected[nodes[i]] = true;
 
@@ -414,8 +416,10 @@ void launch_kid_full(const int *pnode1, const int *pnode2, const double *pweight
         for (size_t i = 0; i < num_kid_nodes; ++i) {
             for (size_t j = 0; j < num_kid_nodes; ++j) {
                 if (node2cluster[nodes[i]] != -1 && node2cluster[nodes[i]] == node2cluster[nodes[j]])
-                    ++pco_clust[nodes[i] + num_nodes * nodes[j]];
-                ++pco_samp[nodes[i] + num_nodes * nodes[j]];
+                    __sync_add_and_fetch(pco_clust + nodes[i] + num_nodes * nodes[j], 1);
+//                    ++pco_clust[nodes[i] + num_nodes * nodes[j]];
+                __sync_add_and_fetch(pco_samp + nodes[i] + num_nodes * nodes[j], 1);
+//                ++pco_samp[nodes[i] + num_nodes * nodes[j]];
             }
         }
 
@@ -436,7 +440,7 @@ void launch_kid_edges(const int *pnode1, const int *pnode2, const double *pweigh
 
         g_tgstat->rnd_seed(seed);
         vdebug("Random seed: %ld\n", seed);
-        random_shuffle(nodes.begin(), nodes.end());
+        tgs_random_shuffle(nodes.begin(), nodes.end());
         for (unsigned i = 0; i < num_kid_nodes; ++i)
             node_selected[nodes[i]] = true;
 
@@ -457,8 +461,10 @@ void launch_kid_edges(const int *pnode1, const int *pnode2, const double *pweigh
 
             if (node_selected[node1] && node_selected[node2]) {
                 if (node2cluster[node1] != -1 && node2cluster[node1] == node2cluster[node2])
-                    ++pco_clust[i];
-                ++pco_samp[i];
+                    __sync_add_and_fetch(pco_clust + i, 1);
+//                    ++pco_clust[i];
+                __sync_add_and_fetch(pco_samp + i, 1);
+//                ++pco_samp[i];
             }
         }
 
@@ -486,8 +492,8 @@ SEXP tgs_graph2cluster(SEXP _graph, SEXP _min_cluster_size, SEXP _cooling, SEXP 
             SEXP rnames = getAttrib(_graph, R_NamesSymbol);
 
             if (!isVector(_graph) || xlength(_graph) != NUM_COLS || xlength(rnames) != NUM_COLS ||
-                strcmp(CHAR(STRING_ELT(rnames, COL1)), COL_NAMES[COL1]) || !isInteger(VECTOR_ELT(_graph, COL1)) && !isFactor(VECTOR_ELT(_graph, COL1)) ||
-                strcmp(CHAR(STRING_ELT(rnames, COL2)), COL_NAMES[COL2]) || !isInteger(VECTOR_ELT(_graph, COL2)) && !isFactor(VECTOR_ELT(_graph, COL2)) ||
+                strcmp(CHAR(STRING_ELT(rnames, COL1)), COL_NAMES[COL1]) || (!isInteger(VECTOR_ELT(_graph, COL1)) && !isFactor(VECTOR_ELT(_graph, COL1))) ||
+                strcmp(CHAR(STRING_ELT(rnames, COL2)), COL_NAMES[COL2]) || (!isInteger(VECTOR_ELT(_graph, COL2)) && !isFactor(VECTOR_ELT(_graph, COL2))) ||
                 xlength(VECTOR_ELT(_graph, COL2)) != xlength(VECTOR_ELT(_graph, COL1)) ||
                 strcmp(CHAR(STRING_ELT(rnames, WEIGHT)), COL_NAMES[WEIGHT]) || !isReal(VECTOR_ELT(_graph, WEIGHT)) || xlength(VECTOR_ELT(_graph, WEIGHT)) != xlength(VECTOR_ELT(_graph, COL1)))
                 verror("\"graph\" argument must be in the format that is returned by tgs_cor_graph function");
@@ -498,13 +504,20 @@ SEXP tgs_graph2cluster(SEXP _graph, SEXP _min_cluster_size, SEXP _cooling, SEXP 
             num_edges = xlength(VECTOR_ELT(_graph, COL1));
         }
 
-        if (!isInteger(_min_cluster_size) && !isReal(_min_cluster_size) || xlength(_min_cluster_size) != 1 || asInteger(_min_cluster_size) < 1)
+        SEXP rlevels1 = getAttrib(VECTOR_ELT(_graph, 0), R_LevelsSymbol);
+        SEXP rlevels2 = getAttrib(VECTOR_ELT(_graph, 1), R_LevelsSymbol);
+
+        if ((rlevels1 != R_NilValue && rlevels2 == R_NilValue) || (rlevels1 == R_NilValue && rlevels2 != R_NilValue) ||
+            (rlevels1 != R_NilValue && rlevels2 != R_NilValue && xlength(rlevels1) != xlength(rlevels2)))
+            verror("\"graph\" argument must be in the format that is returned by tgs_graph function");
+
+        if ((!isInteger(_min_cluster_size) && !isReal(_min_cluster_size)) || xlength(_min_cluster_size) != 1 || asInteger(_min_cluster_size) < 1)
             verror("\"min_cluster_size\" argument must be a positive integer");
 
-        if (!isInteger(_cooling) && !isReal(_cooling) || xlength(_cooling) != 1 || asReal(_cooling) < 1)
+        if ((!isInteger(_cooling) && !isReal(_cooling)) || xlength(_cooling) != 1 || asReal(_cooling) < 1)
             verror("\"cooling\" argument must be a number greater or equal than 1");
 
-        if (!isInteger(_burn_in) && !isReal(_burn_in) || xlength(_burn_in) != 1 || asInteger(_burn_in) < 0)
+        if ((!isInteger(_burn_in) && !isReal(_burn_in)) || xlength(_burn_in) != 1 || asInteger(_burn_in) < 0)
             verror("\"burn_in\" argument must be a positive integer");
 
         unsigned min_cluster_size = asInteger(_min_cluster_size);
@@ -512,10 +525,13 @@ SEXP tgs_graph2cluster(SEXP _graph, SEXP _min_cluster_size, SEXP _cooling, SEXP 
         unsigned burn_in = asInteger(_burn_in);
 
         unsigned num_nodes = 0;
-        for (size_t i = 0; i < num_edges; ++i) {
-            num_nodes = max(num_nodes, (unsigned)pcol1[i]);
-            num_nodes = max(num_nodes, (unsigned)pcol2[i]);
-        }
+        if (rlevels1 == R_NilValue) {
+            for (size_t i = 0; i < num_edges; ++i) {
+                num_nodes = max(num_nodes, (unsigned)pcol1[i]);
+                num_nodes = max(num_nodes, (unsigned)pcol2[i]);
+            }
+        } else
+            num_nodes = xlength(rlevels1);
 
         vector<unsigned> node2cluster(num_nodes, -1);
 
@@ -526,7 +542,7 @@ SEXP tgs_graph2cluster(SEXP _graph, SEXP _min_cluster_size, SEXP _cooling, SEXP 
         enum { NODE, CLUSTER, NUM_COLS };
         const char *COL_NAMES[NUM_COLS] = { "node", "cluster" };
 
-        SEXP ranswer, rnode, rcluster, rrownames, rcolnames, rlevels;
+        SEXP ranswer, rnode, rcluster, rrownames, rcolnames;
 
         rprotect(ranswer = allocVector(VECSXP, NUM_COLS));
         SET_VECTOR_ELT(ranswer, NODE, (rnode = allocVector(INTSXP, num_nodes)));
@@ -545,9 +561,8 @@ SEXP tgs_graph2cluster(SEXP _graph, SEXP _min_cluster_size, SEXP _cooling, SEXP 
             INTEGER(rrownames)[i] = i + 1;
         }
 
-        rlevels = getAttrib(VECTOR_ELT(_graph, 0), R_LevelsSymbol);
-        if (rlevels != R_NilValue) {
-            setAttrib(rnode, R_LevelsSymbol, rlevels);
+        if (rlevels1 != R_NilValue) {
+            setAttrib(rnode, R_LevelsSymbol, rlevels1);
             setAttrib(rnode, R_ClassSymbol, mkString("factor"));
         }
 
@@ -582,11 +597,11 @@ SEXP tgs_graph2cluster_multi_hash(SEXP _graph, SEXP _knn, SEXP _min_cluster_size
             SEXP rnames = getAttrib(_graph, R_NamesSymbol);
 
             if (!isVector(_graph) || xlength(_graph) != NUM_COLS || xlength(rnames) != NUM_COLS ||
-                strcmp(CHAR(STRING_ELT(rnames, COL1)), COL_NAMES[COL1]) || !isInteger(VECTOR_ELT(_graph, COL1)) && !isFactor(VECTOR_ELT(_graph, COL1)) ||
-                strcmp(CHAR(STRING_ELT(rnames, COL2)), COL_NAMES[COL2]) || !isInteger(VECTOR_ELT(_graph, COL2)) && !isFactor(VECTOR_ELT(_graph, COL2)) ||
+                strcmp(CHAR(STRING_ELT(rnames, COL1)), COL_NAMES[COL1]) || (!isInteger(VECTOR_ELT(_graph, COL1)) && !isFactor(VECTOR_ELT(_graph, COL1))) ||
+                strcmp(CHAR(STRING_ELT(rnames, COL2)), COL_NAMES[COL2]) || (!isInteger(VECTOR_ELT(_graph, COL2)) && !isFactor(VECTOR_ELT(_graph, COL2))) ||
                 xlength(VECTOR_ELT(_graph, COL2)) != xlength(VECTOR_ELT(_graph, COL1)) ||
                 strcmp(CHAR(STRING_ELT(rnames, WEIGHT)), COL_NAMES[WEIGHT]) || !isReal(VECTOR_ELT(_graph, WEIGHT)) || xlength(VECTOR_ELT(_graph, WEIGHT)) != xlength(VECTOR_ELT(_graph, COL1)))
-                verror("\"graph\" argument must be in the format that is returned by tgs_cor_graph function");
+                verror("\"graph\" argument must be in the format that is returned by tgs_graph function");
 
             pcol1 = INTEGER(VECTOR_ELT(_graph, COL1));
             pcol2 = INTEGER(VECTOR_ELT(_graph, COL2));
@@ -594,22 +609,29 @@ SEXP tgs_graph2cluster_multi_hash(SEXP _graph, SEXP _knn, SEXP _min_cluster_size
             num_edges = xlength(VECTOR_ELT(_graph, COL1));
         }
 
-        if (!isInteger(_min_cluster_size) && !isReal(_min_cluster_size) || xlength(_min_cluster_size) != 1 || asInteger(_min_cluster_size) < 1)
+        SEXP rlevels1 = getAttrib(VECTOR_ELT(_graph, 0), R_LevelsSymbol);
+        SEXP rlevels2 = getAttrib(VECTOR_ELT(_graph, 1), R_LevelsSymbol);
+
+        if ((rlevels1 != R_NilValue && rlevels2 == R_NilValue) || (rlevels1 == R_NilValue && rlevels2 != R_NilValue) ||
+            (rlevels1 != R_NilValue && rlevels2 != R_NilValue && xlength(rlevels1) != xlength(rlevels2)))
+            verror("\"graph\" argument must be in the format that is returned by tgs_graph function");
+
+        if ((!isInteger(_min_cluster_size) && !isReal(_min_cluster_size)) || xlength(_min_cluster_size) != 1 || asInteger(_min_cluster_size) < 1)
             verror("\"min_cluster_size\" argument must be a positive integer");
 
-        if (!isInteger(_cooling) && !isReal(_cooling) || xlength(_cooling) != 1 || asReal(_cooling) < 1)
+        if ((!isInteger(_cooling) && !isReal(_cooling)) || xlength(_cooling) != 1 || asReal(_cooling) < 1)
             verror("\"cooling\" argument must be a number greater or equal than 1");
 
-        if (!isInteger(_burn_in) && !isReal(_burn_in) || xlength(_burn_in) != 1 || asInteger(_burn_in) < 0)
+        if ((!isInteger(_burn_in) && !isReal(_burn_in)) || xlength(_burn_in) != 1 || asInteger(_burn_in) < 0)
             verror("\"burn_in\" argument must be a positive integer");
 
-        if (!isNull(_knn) && (!isReal(_knn) && !isInteger(_knn) || xlength(_knn) != 1) || asInteger(_knn) < 1)
+        if ((!isNull(_knn) && ((!isReal(_knn) && !isInteger(_knn)) || xlength(_knn) != 1)) || asInteger(_knn) < 1)
             verror("\"knn\" argument must be a positive integer");
 
-        if (!isInteger(_n_resamp) && !isReal(_n_resamp) || xlength(_n_resamp) != 1 || asInteger(_n_resamp) < 1)
+        if ((!isInteger(_n_resamp) && !isReal(_n_resamp)) || xlength(_n_resamp) != 1 || asInteger(_n_resamp) < 1)
             verror("\"n_resamp\" argument must be a positive integer");
 
-        if (!isInteger(_p_resamp) && !isReal(_p_resamp) || xlength(_p_resamp) != 1 || asReal(_p_resamp) > 1 || asReal(_p_resamp) <= 0)
+        if ((!isInteger(_p_resamp) && !isReal(_p_resamp)) || xlength(_p_resamp) != 1 || asReal(_p_resamp) > 1 || asReal(_p_resamp) <= 0)
             verror("\"p_resamp\" argument must be a number in (0,1] range");
 
         unsigned min_cluster_size = asInteger(_min_cluster_size);
@@ -618,12 +640,15 @@ SEXP tgs_graph2cluster_multi_hash(SEXP _graph, SEXP _knn, SEXP _min_cluster_size
         unsigned knn = asInteger(_knn);
         unsigned n_resamp = asInteger(_n_resamp);
         double p_resamp = asReal(_p_resamp);
-
         unsigned num_nodes = 0;
-        for (size_t i = 0; i < num_edges; ++i) {
-            num_nodes = max(num_nodes, (unsigned)pcol1[i]);
-            num_nodes = max(num_nodes, (unsigned)pcol2[i]);
-        }
+
+        if (rlevels1 == R_NilValue) {
+            for (size_t i = 0; i < num_edges; ++i) {
+                num_nodes = max(num_nodes, (unsigned)pcol1[i]);
+                num_nodes = max(num_nodes, (unsigned)pcol2[i]);
+            }
+        } else
+            num_nodes = xlength(rlevels1);
 
         int num_cores = max(1, (int)sysconf(_SC_NPROCESSORS_ONLN));
         int max_num_kids = min((int)n_resamp, num_cores - 1);
@@ -736,7 +761,7 @@ SEXP tgs_graph2cluster_multi_hash(SEXP _graph, SEXP _knn, SEXP _min_cluster_size
         enum { NODE1, NODE2, CNT, NUM_COLS };
         const char *COL_NAMES[NUM_COLS] = { "node1", "node2", "cnt" };
 
-        SEXP rco_clust, rsamples, rnode1, rnode2, rcount, rrownames, rcolnames, rnames, rlevels;
+        SEXP rco_clust, rsamples, rnode1, rnode2, rcount, rrownames, rcolnames, rnames;
         unsigned co_cluster_diag_size = 0;
 
         for (auto cnt : co_cluster_diag) {
@@ -785,13 +810,12 @@ SEXP tgs_graph2cluster_multi_hash(SEXP _graph, SEXP _knn, SEXP _min_cluster_size
         for (unsigned i = 0; i < num_nodes; ++i)
             INTEGER(rsamples)[i] = node2sample_cnt[i];
 
-        rlevels = getAttrib(VECTOR_ELT(_graph, 0), R_LevelsSymbol);
-        if (rlevels != R_NilValue) {
-            setAttrib(rnode1, R_LevelsSymbol, rlevels);
+        if (rlevels1 != R_NilValue) {
+            setAttrib(rnode1, R_LevelsSymbol, rlevels1);
             setAttrib(rnode1, R_ClassSymbol, mkString("factor"));
-            setAttrib(rnode2, R_LevelsSymbol, rlevels);
+            setAttrib(rnode2, R_LevelsSymbol, rlevels1);
             setAttrib(rnode2, R_ClassSymbol, mkString("factor"));
-            setAttrib(rsamples, R_NamesSymbol, rlevels);
+            setAttrib(rsamples, R_NamesSymbol, rlevels1);
         }
 
         setAttrib(answer, R_NamesSymbol, (rnames = allocVector(STRSXP, 2)));
@@ -833,8 +857,8 @@ SEXP tgs_graph2cluster_multi_full(SEXP _graph, SEXP _knn, SEXP _min_cluster_size
             SEXP rnames = getAttrib(_graph, R_NamesSymbol);
 
             if (!isVector(_graph) || xlength(_graph) != NUM_COLS || xlength(rnames) != NUM_COLS ||
-                strcmp(CHAR(STRING_ELT(rnames, COL1)), COL_NAMES[COL1]) || !isInteger(VECTOR_ELT(_graph, COL1)) && !isFactor(VECTOR_ELT(_graph, COL1)) ||
-                strcmp(CHAR(STRING_ELT(rnames, COL2)), COL_NAMES[COL2]) || !isInteger(VECTOR_ELT(_graph, COL2)) && !isFactor(VECTOR_ELT(_graph, COL2)) ||
+                strcmp(CHAR(STRING_ELT(rnames, COL1)), COL_NAMES[COL1]) || (!isInteger(VECTOR_ELT(_graph, COL1)) && !isFactor(VECTOR_ELT(_graph, COL1))) ||
+                strcmp(CHAR(STRING_ELT(rnames, COL2)), COL_NAMES[COL2]) || (!isInteger(VECTOR_ELT(_graph, COL2)) && !isFactor(VECTOR_ELT(_graph, COL2))) ||
                 xlength(VECTOR_ELT(_graph, COL2)) != xlength(VECTOR_ELT(_graph, COL1)) ||
                 strcmp(CHAR(STRING_ELT(rnames, WEIGHT)), COL_NAMES[WEIGHT]) || !isReal(VECTOR_ELT(_graph, WEIGHT)) || xlength(VECTOR_ELT(_graph, WEIGHT)) != xlength(VECTOR_ELT(_graph, COL1)))
                 verror("\"graph\" argument must be in the format that is returned by tgs_cor_graph function");
@@ -845,22 +869,29 @@ SEXP tgs_graph2cluster_multi_full(SEXP _graph, SEXP _knn, SEXP _min_cluster_size
             num_edges = xlength(VECTOR_ELT(_graph, COL1));
         }
 
-        if (!isInteger(_min_cluster_size) && !isReal(_min_cluster_size) || xlength(_min_cluster_size) != 1 || asInteger(_min_cluster_size) < 1)
+        SEXP rlevels1 = getAttrib(VECTOR_ELT(_graph, 0), R_LevelsSymbol);
+        SEXP rlevels2 = getAttrib(VECTOR_ELT(_graph, 1), R_LevelsSymbol);
+
+        if ((rlevels1 != R_NilValue && rlevels2 == R_NilValue) || (rlevels1 == R_NilValue && rlevels2 != R_NilValue) ||
+            (rlevels1 != R_NilValue && rlevels2 != R_NilValue && xlength(rlevels1) != xlength(rlevels2)))
+            verror("\"graph\" argument must be in the format that is returned by tgs_graph function");
+
+        if ((!isInteger(_min_cluster_size) && !isReal(_min_cluster_size)) || xlength(_min_cluster_size) != 1 || asInteger(_min_cluster_size) < 1)
             verror("\"min_cluster_size\" argument must be a positive integer");
 
-        if (!isInteger(_cooling) && !isReal(_cooling) || xlength(_cooling) != 1 || asReal(_cooling) < 1)
+        if ((!isInteger(_cooling) && !isReal(_cooling)) || xlength(_cooling) != 1 || asReal(_cooling) < 1)
             verror("\"cooling\" argument must be a number greater or equal than 1");
 
-        if (!isInteger(_burn_in) && !isReal(_burn_in) || xlength(_burn_in) != 1 || asInteger(_burn_in) < 0)
+        if ((!isInteger(_burn_in) && !isReal(_burn_in)) || xlength(_burn_in) != 1 || asInteger(_burn_in) < 0)
             verror("\"burn_in\" argument must be a positive integer");
 
-        if (!isNull(_knn) && (!isReal(_knn) && !isInteger(_knn) || xlength(_knn) != 1) || asInteger(_knn) < 1)
+        if ((!isNull(_knn) && ((!isReal(_knn) && !isInteger(_knn)) || xlength(_knn) != 1)) || asInteger(_knn) < 1)
             verror("\"knn\" argument must be a positive integer");
 
-        if (!isInteger(_n_resamp) && !isReal(_n_resamp) || xlength(_n_resamp) != 1 || asInteger(_n_resamp) < 1)
+        if ((!isInteger(_n_resamp) && !isReal(_n_resamp)) || xlength(_n_resamp) != 1 || asInteger(_n_resamp) < 1)
             verror("\"n_resamp\" argument must be a positive integer");
 
-        if (!isInteger(_p_resamp) && !isReal(_p_resamp) || xlength(_p_resamp) != 1 || asReal(_p_resamp) > 1 || asReal(_p_resamp) <= 0)
+        if ((!isInteger(_p_resamp) && !isReal(_p_resamp)) || xlength(_p_resamp) != 1 || asReal(_p_resamp) > 1 || asReal(_p_resamp) <= 0)
             verror("\"p_resamp\" argument must be a number in (0,1] range");
 
         unsigned min_cluster_size = asInteger(_min_cluster_size);
@@ -871,14 +902,17 @@ SEXP tgs_graph2cluster_multi_full(SEXP _graph, SEXP _knn, SEXP _min_cluster_size
         double p_resamp = asReal(_p_resamp);
 
         unsigned num_nodes = 0;
-        for (size_t i = 0; i < num_edges; ++i) {
-            num_nodes = max(num_nodes, (unsigned)pcol1[i]);
-            num_nodes = max(num_nodes, (unsigned)pcol2[i]);
-        }
+        if (rlevels1 == R_NilValue) {
+            for (size_t i = 0; i < num_edges; ++i) {
+                num_nodes = max(num_nodes, (unsigned)pcol1[i]);
+                num_nodes = max(num_nodes, (unsigned)pcol2[i]);
+            }
+        } else
+            num_nodes = xlength(rlevels1);
 
         int num_cores = max(1, (int)sysconf(_SC_NPROCESSORS_ONLN));
         int max_num_kids = min((int)n_resamp, num_cores - 1);
-//max_num_kids = 1;
+//max_num_kids = 2;
         int num_kids_launched = 0;
         int num_kids_finished = 0;
 
@@ -946,7 +980,7 @@ SEXP tgs_graph2cluster_multi_full(SEXP _graph, SEXP _knn, SEXP _min_cluster_size
 
         vdebug("Packing the result...\n");
 
-        SEXP rco_clust, rco_sample, rnames, rdim, rlevels;
+        SEXP rco_clust, rco_sample, rnames, rdim;
 
         rprotect(answer = allocVector(VECSXP, 2));
 
@@ -963,12 +997,11 @@ SEXP tgs_graph2cluster_multi_full(SEXP _graph, SEXP _knn, SEXP _min_cluster_size
         setAttrib(rco_clust, R_DimSymbol, rdim);
         setAttrib(rco_sample, R_DimSymbol, rdim);
 
-        rlevels = getAttrib(VECTOR_ELT(_graph, 0), R_LevelsSymbol);
-        if (rlevels != R_NilValue) {
+        if (rlevels1 != R_NilValue) {
             SEXP rdimnames;
             rprotect(rdimnames = allocVector(VECSXP, 2));
-            SET_VECTOR_ELT(rdimnames, 0, rlevels);
-            SET_VECTOR_ELT(rdimnames, 1, rlevels);
+            SET_VECTOR_ELT(rdimnames, 0, rlevels1);
+            SET_VECTOR_ELT(rdimnames, 1, rlevels1);
             setAttrib(rco_clust, R_DimNamesSymbol, rdimnames);
             setAttrib(rco_sample, R_DimNamesSymbol, rdimnames);
         }
@@ -1012,8 +1045,8 @@ SEXP tgs_graph2cluster_multi_edges(SEXP _graph, SEXP _knn, SEXP _min_cluster_siz
             SEXP rnames = getAttrib(_graph, R_NamesSymbol);
 
             if (!isVector(_graph) || xlength(_graph) != NUM_COLS || xlength(rnames) != NUM_COLS ||
-                strcmp(CHAR(STRING_ELT(rnames, COL1)), COL_NAMES[COL1]) || !isInteger(VECTOR_ELT(_graph, COL1)) && !isFactor(VECTOR_ELT(_graph, COL1)) ||
-                strcmp(CHAR(STRING_ELT(rnames, COL2)), COL_NAMES[COL2]) || !isInteger(VECTOR_ELT(_graph, COL2)) && !isFactor(VECTOR_ELT(_graph, COL2)) ||
+                strcmp(CHAR(STRING_ELT(rnames, COL1)), COL_NAMES[COL1]) || (!isInteger(VECTOR_ELT(_graph, COL1)) && !isFactor(VECTOR_ELT(_graph, COL1))) ||
+                strcmp(CHAR(STRING_ELT(rnames, COL2)), COL_NAMES[COL2]) || (!isInteger(VECTOR_ELT(_graph, COL2)) && !isFactor(VECTOR_ELT(_graph, COL2))) ||
                 xlength(VECTOR_ELT(_graph, COL2)) != xlength(VECTOR_ELT(_graph, COL1)) ||
                 strcmp(CHAR(STRING_ELT(rnames, WEIGHT)), COL_NAMES[WEIGHT]) || !isReal(VECTOR_ELT(_graph, WEIGHT)) || xlength(VECTOR_ELT(_graph, WEIGHT)) != xlength(VECTOR_ELT(_graph, COL1)))
                 verror("\"graph\" argument must be in the format that is returned by tgs_cor_graph function");
@@ -1024,22 +1057,29 @@ SEXP tgs_graph2cluster_multi_edges(SEXP _graph, SEXP _knn, SEXP _min_cluster_siz
             num_edges = xlength(VECTOR_ELT(_graph, COL1));
         }
 
-        if (!isInteger(_min_cluster_size) && !isReal(_min_cluster_size) || xlength(_min_cluster_size) != 1 || asInteger(_min_cluster_size) < 1)
+        SEXP rlevels1 = getAttrib(VECTOR_ELT(_graph, 0), R_LevelsSymbol);
+        SEXP rlevels2 = getAttrib(VECTOR_ELT(_graph, 1), R_LevelsSymbol);
+
+        if ((rlevels1 != R_NilValue && rlevels2 == R_NilValue) || (rlevels1 == R_NilValue && rlevels2 != R_NilValue) ||
+            (rlevels1 != R_NilValue && rlevels2 != R_NilValue && xlength(rlevels1) != xlength(rlevels2)))
+            verror("\"graph\" argument must be in the format that is returned by tgs_graph function");
+
+        if ((!isInteger(_min_cluster_size) && !isReal(_min_cluster_size)) || xlength(_min_cluster_size) != 1 || asInteger(_min_cluster_size) < 1)
             verror("\"min_cluster_size\" argument must be a positive integer");
 
-        if (!isInteger(_cooling) && !isReal(_cooling) || xlength(_cooling) != 1 || asReal(_cooling) < 1)
+        if ((!isInteger(_cooling) && !isReal(_cooling)) || xlength(_cooling) != 1 || asReal(_cooling) < 1)
             verror("\"cooling\" argument must be a number greater or equal than 1");
 
-        if (!isInteger(_burn_in) && !isReal(_burn_in) || xlength(_burn_in) != 1 || asInteger(_burn_in) < 0)
+        if ((!isInteger(_burn_in) && !isReal(_burn_in)) || xlength(_burn_in) != 1 || asInteger(_burn_in) < 0)
             verror("\"burn_in\" argument must be a positive integer");
 
-        if (!isNull(_knn) && (!isReal(_knn) && !isInteger(_knn) || xlength(_knn) != 1) || asInteger(_knn) < 1)
+        if ((!isNull(_knn) && ((!isReal(_knn) && !isInteger(_knn)) || xlength(_knn) != 1)) || asInteger(_knn) < 1)
             verror("\"knn\" argument must be a positive integer");
 
-        if (!isInteger(_n_resamp) && !isReal(_n_resamp) || xlength(_n_resamp) != 1 || asInteger(_n_resamp) < 1)
+        if ((!isInteger(_n_resamp) && !isReal(_n_resamp)) || xlength(_n_resamp) != 1 || asInteger(_n_resamp) < 1)
             verror("\"n_resamp\" argument must be a positive integer");
 
-        if (!isInteger(_p_resamp) && !isReal(_p_resamp) || xlength(_p_resamp) != 1 || asReal(_p_resamp) > 1 || asReal(_p_resamp) <= 0)
+        if ((!isInteger(_p_resamp) && !isReal(_p_resamp)) || xlength(_p_resamp) != 1 || asReal(_p_resamp) > 1 || asReal(_p_resamp) <= 0)
             verror("\"p_resamp\" argument must be a number in (0,1] range");
 
         unsigned min_cluster_size = asInteger(_min_cluster_size);
@@ -1050,10 +1090,13 @@ SEXP tgs_graph2cluster_multi_edges(SEXP _graph, SEXP _knn, SEXP _min_cluster_siz
         double p_resamp = asReal(_p_resamp);
 
         unsigned num_nodes = 0;
-        for (size_t i = 0; i < num_edges; ++i) {
-            num_nodes = max(num_nodes, (unsigned)pcol1[i]);
-            num_nodes = max(num_nodes, (unsigned)pcol2[i]);
-        }
+        if (rlevels1 == R_NilValue) {
+            for (size_t i = 0; i < num_edges; ++i) {
+                num_nodes = max(num_nodes, (unsigned)pcol1[i]);
+                num_nodes = max(num_nodes, (unsigned)pcol2[i]);
+            }
+        } else
+            num_nodes = xlength(rlevels1);
 
         int num_cores = max(1, (int)sysconf(_SC_NPROCESSORS_ONLN));
         int max_num_kids = min((int)n_resamp, num_cores - 1);
@@ -1128,7 +1171,7 @@ SEXP tgs_graph2cluster_multi_edges(SEXP _graph, SEXP _knn, SEXP _min_cluster_siz
         enum { NODE1, NODE2, CNT, NUM_COLS };
         const char *COL_NAMES[NUM_COLS] = { "node1", "node2", "cnt" };
 
-        SEXP rdata, rnode1, rnode2, rcount, rrownames, rcolnames, rnames, rlevels;
+        SEXP rdata, rnode1, rnode2, rcount, rrownames, rcolnames, rnames;
 
         rprotect(answer = allocVector(VECSXP, 2));
 
@@ -1168,11 +1211,10 @@ SEXP tgs_graph2cluster_multi_edges(SEXP _graph, SEXP _knn, SEXP _min_cluster_siz
             for (int i = 0; i < NUM_COLS; i++)
                 SET_STRING_ELT(rcolnames, i, mkChar(COL_NAMES[i]));
 
-            rlevels = getAttrib(VECTOR_ELT(_graph, 0), R_LevelsSymbol);
-            if (rlevels != R_NilValue) {
-                setAttrib(rnode1, R_LevelsSymbol, rlevels);
+            if (rlevels1 != R_NilValue) {
+                setAttrib(rnode1, R_LevelsSymbol, rlevels1);
                 setAttrib(rnode1, R_ClassSymbol, mkString("factor"));
-                setAttrib(rnode2, R_LevelsSymbol, rlevels);
+                setAttrib(rnode2, R_LevelsSymbol, rlevels1);
                 setAttrib(rnode2, R_ClassSymbol, mkString("factor"));
             }
         }

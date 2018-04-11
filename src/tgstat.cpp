@@ -1,9 +1,3 @@
-#ifndef _POSIX_C_SOURCE
-	#define _POSIX_C_SOURCE 199309
-	#include <time.h>
-	#undef _POSIX_C_SOURCE
-#endif
-
 #include <ctype.h>
 #include <dirent.h>
 #include <errno.h>
@@ -18,6 +12,17 @@
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+
+#ifndef _POSIX_C_SOURCE
+	#define _POSIX_C_SOURCE 199309
+	#include <time.h>
+	#undef _POSIX_C_SOURCE
+#endif
+
+#if defined(__APPLE__)
+    #include <libproc.h>
+    #include <sys/proc_info.h>
+#endif
 
 #include <R.h>
 #include <Rinternals.h>
@@ -521,7 +526,7 @@ void TGStat::handle_error(const char *msg)
 			SemLocker sl(s_shm_sem);
 			if (!s_shm->error_msg[0]) { // write an error message only if there were no error messages before
 				strncpy(s_shm->error_msg, msg, sizeof(s_shm->error_msg));
-				s_shm->error_msg[sizeof(s_shm->error_msg)] = '\0';
+				s_shm->error_msg[sizeof(s_shm->error_msg) - 1] = '\0';
 			}
 		}
 		exit(1);
@@ -737,7 +742,10 @@ void vdebug(const char *fmt, ...)
         gettimeofday(&tmnow, NULL);
         tm = localtime(&tmnow.tv_sec);
         strftime(buf, sizeof(buf), "%H:%M:%S", tm);
-        printf("[DEBUG %s.%03d] ", buf, (int)(tmnow.tv_usec / 1000));
+        if (TGStat::is_kid())
+            printf("[DEBUG pid %d %s.%03d] ", getpid(), buf, (int)(tmnow.tv_usec / 1000));
+        else
+            printf("[DEBUG %s.%03d] ", buf, (int)(tmnow.tv_usec / 1000));
 
         va_list ap;
     	va_start(ap, fmt);
@@ -920,9 +928,7 @@ SEXP get_rvector_col(SEXP v, const char *colname, const char *varname, bool erro
 {
 	SEXP colnames = getAttrib(v, R_NamesSymbol);
 
-	if (!isVector(v) ||
-		Rf_length(v) && (!isString(colnames) || Rf_length(colnames) != Rf_length(v)) ||
-		!Rf_length(v) && !isNull(colnames))
+	if (!isVector(v) || (Rf_length(v) && (!isString(colnames) || Rf_length(colnames) != Rf_length(v))) || (!Rf_length(v) && !isNull(colnames)))
 		verror("Invalid format of %s", varname);
 
 	int numcols = isNull(colnames) ? 0 : Rf_length(colnames);

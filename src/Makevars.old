@@ -1,0 +1,2 @@
+PKG_CXXFLAGS = -O3 -std=c++0x -DNDEBUG -fpic
+PKG_LIBS = $(BLAS_LIBS)

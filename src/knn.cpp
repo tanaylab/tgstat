@@ -36,7 +36,7 @@ SEXP tgs_knn(SEXP _x, SEXP _knn, SEXP _diag, SEXP _threshold, SEXP _envir)
         if ((!isReal(_knn) && !isInteger(_knn)) || xlength(_knn) != 1 || asReal(_knn) < 1 || asReal(_knn) != (double)asInteger(_knn))
             verror("\"knn\" argument must be a positive integer");
 
-        double threshold = fabs(asReal(_threshold));
+        double threshold = asReal(_threshold);
         size_t knn = asInteger(_knn);
         bool diag = asLogical(_diag);
         bool tidy;
@@ -45,7 +45,7 @@ SEXP tgs_knn(SEXP _x, SEXP _knn, SEXP _diag, SEXP _threshold, SEXP _envir)
         int *pcol1 = NULL;
         int *pcol2 = NULL;
         double *data;
-        auto cmp = [&data](size_t idx1, size_t idx2) { return fabs(data[idx1]) > fabs(data[idx2]) || (data[idx1] == data[idx2] && idx1 < idx2); };
+        auto cmp = [&data](size_t idx1, size_t idx2) { return data[idx1] > data[idx2] || (data[idx1] == data[idx2] && idx1 < idx2); };
 
         vector<size_t> sorted_rows;     // contains number of rows of _x sorted by col1
         size_t num_rows;
@@ -70,7 +70,7 @@ SEXP tgs_knn(SEXP _x, SEXP _knn, SEXP _diag, SEXP _threshold, SEXP _envir)
                 size_t idx = 0;
                 for (size_t icol = 0; icol < num_cols; ++icol) {
                     for (size_t irow = 0; irow < num_rows; ++irow) {
-                        if ((irow != icol || diag) && R_FINITE(data[idx]) && fabs(data[idx]) >= threshold) {
+                        if ((irow != icol || diag) && R_FINITE(data[idx]) && data[idx] >= threshold) {
                             ++point2size[icol];
                             ++num_pairs;
                         }
@@ -92,7 +92,7 @@ SEXP tgs_knn(SEXP _x, SEXP _knn, SEXP _diag, SEXP _threshold, SEXP _envir)
 
                     for (size_t icol = 0; icol < num_cols; ++icol) {
                         for (size_t irow = 0; irow < num_rows; ++irow) {
-                            if ((irow != icol || diag) && R_FINITE(data[idx1]) && fabs(data[idx1]) >= threshold)
+                            if ((irow != icol || diag) && R_FINITE(data[idx1]) && data[idx1] >= threshold)
                                 res[idx2++] = idx1;
                             ++idx1;
                         }
@@ -141,7 +141,7 @@ SEXP tgs_knn(SEXP _x, SEXP _knn, SEXP _diag, SEXP _threshold, SEXP _envir)
                 if (irow == sorted_rows.begin() || pcol1[*irow] != pcol1[*(irow - 1)])
                     point2size.push_back(0);
 
-                if (R_FINITE(data[*irow]) && fabs(data[*irow]) >= threshold) {
+                if (R_FINITE(data[*irow]) && data[*irow] >= threshold) {
                     ++point2size.back();
                     ++num_pairs;
                 }
@@ -156,7 +156,7 @@ SEXP tgs_knn(SEXP _x, SEXP _knn, SEXP _diag, SEXP _threshold, SEXP _envir)
 
                 size_t idx = 0;
                 for (auto irow = sorted_rows.begin(); irow != sorted_rows.end(); ++irow) {
-                    if (R_FINITE(data[*irow]) && fabs(data[*irow]) >= threshold)
+                    if (R_FINITE(data[*irow]) && data[*irow] >= threshold)
                         res[idx++] = *irow;
                 }
             }

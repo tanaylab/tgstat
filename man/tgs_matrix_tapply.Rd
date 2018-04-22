@@ -1,0 +1,39 @@
+\name{tgs_matrix_apply}
+\alias{tgs_matrix_apply}
+\title{
+For each matrix row apply a function over a ragged array
+}
+\description{
+For each matrix row apply a function to each cell of a ragged array, that is to each (non-empty) group of values given by a unique combination of the levels of certain factors.
+}
+\usage{
+tgs_matrix_apply(x, index, fun)
+}
+%- maybe also 'usage' for other objects documented here.
+\arguments{
+  \item{x}{a matrix or a sparse matrix of 'dgCMatrix' type}
+  \item{index}{a ‘list’ of one or more ‘factor’s, each of same length as the number of columns in 'x'. The elements are coerced to factors by ‘as.factor’.}
+  \item{fun}{the function to be applied}
+}
+\details{
+'tgs_matrix_apply(x, index, fun)' is essentialy an efficient implementation of 'apply(mat, 1, function(x) tapply(x, index, fun))'.
+}
+\value{
+A matrix of nrow(x) X length(index) size. Each [i,j] element represents the result of applying 'fun' to x[i,which(index==levels(index)[j])].
+}
+
+\examples{
+set.seed(seed = 1)
+nr <- 6
+nc <- 10
+mat <- matrix(sample(c(rep(0,6), 1:3),nr*nc, replace=T), nrow=nr, ncol=nc)
+index <-factor(rep_len(1:3, ncol(mat)), levels=0:5)
+r1 <- apply(mat, 1, function(x) tapply(x, index, sum))
+r2 <- tgs_matrix_tapply(mat, index, sum)
+
+library("Matrix")
+Mat <- as(mat, "dgCMatrix")
+r3 <- tgs_matrix_tapply(mat, index, sum)
+}
+\keyword{ ~knn }
+

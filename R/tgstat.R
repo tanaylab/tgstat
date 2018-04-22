@@ -110,3 +110,11 @@ tgs_finite <- function(x) {
     .tgs_call("tgs_finite", x, new.env(parent = parent.frame()))
 }
 
+tgs_matrix_tapply <- function(x, index, fun) {
+    if (missing(x) || missing(index) || missing(fun))
+        stop("Usage: tgs_matrix_tapply(x, index, fun)", call. = F)
+
+    if (!is.factor(index))
+        index <- factor(index)
+    .tgs_call("tgs_matrix_tapply", x, index, fun, new.env(parent = parent.frame()))
+}

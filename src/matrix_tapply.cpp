@@ -59,7 +59,7 @@ SEXP tgs_matrix_tapply(SEXP _x, SEXP _index, SEXP _fn, SEXP _envir)
         if (res == (double *)MAP_FAILED)
             verror("Failed to allocate shared memory: %s", strerror(errno));
 
-        fill_n(res, num_rows * num_groups, NA_REAL);//numeric_limits<double>::quiet_NaN());
+        fill_n(res, num_rows * num_groups, NA_REAL);
 
         vector<vector<int>> group2cols(num_groups);
 

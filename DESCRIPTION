@@ -1,14 +1,14 @@
 Package: tgstat
 Type: Package
 Title: Tanay's group statistical utilities
-Version: 2.2.2
+Version: 2.2.3
 Depends: utils
 SystemRequirements: C++11
-Date: 2018-04-21
+Date: 2018-04-30
 Author: Misha Hoichman
 Maintainer: Misha Hoichman <misha@hoichman.com>
 Description: Tanay's group statistical utilities
 License: GPL-2
 LazyLoad: yes
 NeedsCompilation: yes
-Packaged: 2018-04-21 10:01:53 UTC; hoichman
+Packaged: 2018-04-30 19:45:54 UTC; hoichman

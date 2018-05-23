@@ -65,7 +65,7 @@ unsigned graph2cluster(const int *pnode1, const int *pnode2, const double *pweig
 
     while (max_weight >= min_weight) {
         // select the next seed randomly with weight = node2weight
-        float v = drand48() * weights_sum;
+        float v = unif_rand() * weights_sum;
         float sum = 0;
         unsigned seed;
 
@@ -189,7 +189,7 @@ unsigned graph2cluster(const int *pnode1, const int *pnode2, const double *pweig
     while (1) {
         unsigned num_reassignments = 0;
 
-        tgs_random_shuffle(candidates.begin(), candidates.end());
+        tgs_random_shuffle(candidates.begin(), candidates.end(), unif_rand);
 
         for (auto i : candidates) {
             // find the maximal score
@@ -359,7 +359,7 @@ void launch_kid_hash(const int *pnode1, const int *pnode2, const double *pweight
 
         g_tgstat->rnd_seed(seed);
         vdebug("Random seed: %ld\n", seed);
-        tgs_random_shuffle(nodes.begin(), nodes.end());
+        tgs_random_shuffle(nodes.begin(), nodes.end(), unif_rand);
         sort(nodes.begin(), nodes.begin() + num_kid_nodes);   // this helps to reduce memory cache misses later
         for (unsigned i = 0; i < num_kid_nodes; ++i)
             node_selected[nodes[i]] = true;
@@ -383,7 +383,7 @@ void launch_kid_hash(const int *pnode1, const int *pnode2, const double *pweight
             clusters[nodes[i]] = -2;                          // mark nodes that were not selected by -2
 
         *pready = 1;
-        exit(0);
+        rexit();
     }
 }
 
@@ -399,7 +399,7 @@ void launch_kid_full(const int *pnode1, const int *pnode2, const double *pweight
 
         g_tgstat->rnd_seed(seed);
         vdebug("Random seed: %ld\n", seed);
-        tgs_random_shuffle(nodes.begin(), nodes.end());
+        tgs_random_shuffle(nodes.begin(), nodes.end(), unif_rand);
         sort(nodes.begin(), nodes.begin() + num_kid_nodes);   // this helps to reduce memory cache misses later
         for (unsigned i = 0; i < num_kid_nodes; ++i) {
             node_selected[nodes[i]] = true;
@@ -435,7 +435,7 @@ void launch_kid_full(const int *pnode1, const int *pnode2, const double *pweight
         }
 
         *pready = 1;
-        exit(0);
+        rexit();
     }
 }
 
@@ -451,7 +451,7 @@ void launch_kid_edges(const int *pnode1, const int *pnode2, const double *pweigh
 
         g_tgstat->rnd_seed(seed);
         vdebug("Random seed: %ld\n", seed);
-        tgs_random_shuffle(nodes.begin(), nodes.end());
+        tgs_random_shuffle(nodes.begin(), nodes.end(), unif_rand);
         sort(nodes.begin(), nodes.begin() + num_kid_nodes);   // this helps to reduce memory cache misses later
         for (unsigned i = 0; i < num_kid_nodes; ++i) {
             node_selected[nodes[i]] = true;
@@ -478,7 +478,7 @@ void launch_kid_edges(const int *pnode1, const int *pnode2, const double *pweigh
         }
 
         *pready = 1;
-        exit(0);
+        rexit();
     }
 }
 
@@ -637,8 +637,8 @@ SEXP tgs_graph2cluster_multi_hash(SEXP _graph, SEXP _knn, SEXP _min_cluster_size
         if ((!isNull(_knn) && ((!isReal(_knn) && !isInteger(_knn)) || xlength(_knn) != 1)) || asInteger(_knn) < 1)
             verror("\"knn\" argument must be a positive integer");
 
-        if ((!isInteger(_n_resamp) && !isReal(_n_resamp)) || xlength(_n_resamp) != 1 || asInteger(_n_resamp) < 1)
-            verror("\"n_resamp\" argument must be a positive integer");
+        if ((!isInteger(_n_resamp) && !isReal(_n_resamp)) || xlength(_n_resamp) != 1 || asInteger(_n_resamp) < 1 || asInteger(_n_resamp) > 0xffff)
+            verror("\"n_resamp\" argument must be a positive integer withn [1, %d] range", 0xffff);
 
         if ((!isInteger(_p_resamp) && !isReal(_p_resamp)) || xlength(_p_resamp) != 1 || asReal(_p_resamp) > 1 || asReal(_p_resamp) <= 0)
             verror("\"p_resamp\" argument must be a number in (0,1] range");
@@ -699,7 +699,7 @@ SEXP tgs_graph2cluster_multi_hash(SEXP _graph, SEXP _knn, SEXP _min_cluster_size
         for (int i = 0; i < max_num_kids; ++i) {
             unsigned *pready = (unsigned *)((char *)res + i * kid_res_sizeof);
             *pready = 0;
-            launch_kid_hash(pcol1, pcol2, pweight, num_nodes, num_edges, res, i, knn, p_resamp, min_cluster_size, cooling_rate, burn_in, g_tgstat->rnd_seed() + num_kids_launched);
+            launch_kid_hash(pcol1, pcol2, pweight, num_nodes, num_edges, res, i, knn, p_resamp, min_cluster_size, cooling_rate, burn_in, unif_rand() * 0xffff);
             ++num_kids_launched;
         }
 
@@ -753,7 +753,7 @@ SEXP tgs_graph2cluster_multi_hash(SEXP _graph, SEXP _knn, SEXP _min_cluster_size
                     vdebug("Num processes ended: %d\n", num_kids_finished);
 
                     if (num_kids_launched < n_resamp) {
-                        launch_kid_hash(pcol1, pcol2, pweight, num_nodes, num_edges, res, ikid, knn, p_resamp, min_cluster_size, cooling_rate, burn_in, g_tgstat->rnd_seed() + num_kids_launched);
+                        launch_kid_hash(pcol1, pcol2, pweight, num_nodes, num_edges, res, ikid, knn, p_resamp, min_cluster_size, cooling_rate, burn_in, unif_rand() * 0xffff);
                         ++num_kids_launched;
                     }
                 }
@@ -907,8 +907,8 @@ SEXP tgs_graph2cluster_multi_full(SEXP _graph, SEXP _knn, SEXP _min_cluster_size
         if ((!isNull(_knn) && ((!isReal(_knn) && !isInteger(_knn)) || xlength(_knn) != 1)) || asInteger(_knn) < 1)
             verror("\"knn\" argument must be a positive integer");
 
-        if ((!isInteger(_n_resamp) && !isReal(_n_resamp)) || xlength(_n_resamp) != 1 || asInteger(_n_resamp) < 1)
-            verror("\"n_resamp\" argument must be a positive integer");
+        if ((!isInteger(_n_resamp) && !isReal(_n_resamp)) || xlength(_n_resamp) != 1 || asInteger(_n_resamp) < 1 || asInteger(_n_resamp) > 0xffff)
+            verror("\"n_resamp\" argument must be a positive integer withn [1, %d] range", 0xffff);
 
         if ((!isInteger(_p_resamp) && !isReal(_p_resamp)) || xlength(_p_resamp) != 1 || asReal(_p_resamp) > 1 || asReal(_p_resamp) <= 0)
             verror("\"p_resamp\" argument must be a number in (0,1] range");
@@ -967,7 +967,7 @@ SEXP tgs_graph2cluster_multi_full(SEXP _graph, SEXP _knn, SEXP _min_cluster_size
             pready[i] = 0;
             vdebug("Launching a working process at slot %d\n", i);
             launch_kid_full(pcol1, pcol2, pweight, num_nodes, num_edges, pready + i, pco_clust, psamples,
-                            knn, p_resamp, min_cluster_size, cooling_rate, burn_in, g_tgstat->rnd_seed() + num_kids_launched);
+                            knn, p_resamp, min_cluster_size, cooling_rate, burn_in, unif_rand() * 0xffff);
             ++num_kids_launched;
         }
 
@@ -986,7 +986,7 @@ SEXP tgs_graph2cluster_multi_full(SEXP _graph, SEXP _knn, SEXP _min_cluster_size
                     if (num_kids_launched < n_resamp) {
                         vdebug("Launching a working process at slot %d\n", ikid);
                         launch_kid_full(pcol1, pcol2, pweight, num_nodes, num_edges, pready + ikid, pco_clust, psamples,
-                                        knn, p_resamp, min_cluster_size, cooling_rate, burn_in, g_tgstat->rnd_seed() + num_kids_launched);
+                                        knn, p_resamp, min_cluster_size, cooling_rate, burn_in, unif_rand() * 0xffff);
                         ++num_kids_launched;
                     }
                 }
@@ -1135,8 +1135,8 @@ SEXP tgs_graph2cluster_multi_edges(SEXP _graph, SEXP _knn, SEXP _min_cluster_siz
         if ((!isNull(_knn) && ((!isReal(_knn) && !isInteger(_knn)) || xlength(_knn) != 1)) || asInteger(_knn) < 1)
             verror("\"knn\" argument must be a positive integer");
 
-        if ((!isInteger(_n_resamp) && !isReal(_n_resamp)) || xlength(_n_resamp) != 1 || asInteger(_n_resamp) < 1)
-            verror("\"n_resamp\" argument must be a positive integer");
+        if ((!isInteger(_n_resamp) && !isReal(_n_resamp)) || xlength(_n_resamp) != 1 || asInteger(_n_resamp) < 1 || asInteger(_n_resamp) > 0xffff)
+            verror("\"n_resamp\" argument must be a positive integer withn [1, %d] range", 0xffff);
 
         if ((!isInteger(_p_resamp) && !isReal(_p_resamp)) || xlength(_p_resamp) != 1 || asReal(_p_resamp) > 1 || asReal(_p_resamp) <= 0)
             verror("\"p_resamp\" argument must be a number in (0,1] range");
@@ -1194,7 +1194,7 @@ SEXP tgs_graph2cluster_multi_edges(SEXP _graph, SEXP _knn, SEXP _min_cluster_siz
             pready[i] = 0;
             vdebug("Launching a working process at slot %d\n", i);
             launch_kid_edges(pcol1, pcol2, pweight, num_nodes, num_edges, pready + i, pco_clust, psamples,
-                            knn, p_resamp, min_cluster_size, cooling_rate, burn_in, g_tgstat->rnd_seed() + num_kids_launched);
+                            knn, p_resamp, min_cluster_size, cooling_rate, burn_in, unif_rand() * 0xffff);
             ++num_kids_launched;
         }
 
@@ -1213,7 +1213,7 @@ SEXP tgs_graph2cluster_multi_edges(SEXP _graph, SEXP _knn, SEXP _min_cluster_siz
                     if (num_kids_launched < n_resamp) {
                         vdebug("Launching a working process at slot %d\n", ikid);
                         launch_kid_edges(pcol1, pcol2, pweight, num_nodes, num_edges, pready + ikid, pco_clust, psamples,
-                                         knn, p_resamp, min_cluster_size, cooling_rate, burn_in, g_tgstat->rnd_seed() + num_kids_launched);
+                                         knn, p_resamp, min_cluster_size, cooling_rate, burn_in, unif_rand() * 0xffff);
                         ++num_kids_launched;
                     }
                 }

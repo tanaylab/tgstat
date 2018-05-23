@@ -1,6 +1,3 @@
-#include "port.h"
-BASE_CC_FILE
-
 #include "TGLException.h"
 
 // ------------------- TGLThrow ------------------
@@ -26,13 +23,13 @@ void TGLError(int errcode, const char *format, ...)
 
 // ------------------- TGLException --------------
 
-TGLException::Error_handler TGLException::s_error_handler = TGLException::base_error_handler;
+TGLException::Error_handler TGLException::s_error_handler = TGLException::throw_error_handler;
 
-void TGLException::base_error_handler(TGLException &e)
-{
-	BaseError(e.msg());
-}
-
+//void TGLException::base_error_handler(TGLException &e)
+//{
+//    BaseError(e.msg());
+//}
+//
 void TGLException::throw_error_handler(TGLException &e)
 {
 	throw(e);

@@ -167,7 +167,7 @@ SEXP tgs_matrix_tapply(SEXP _x, SEXP _index, SEXP _fn, SEXP _envir)
                     runprotect(2);
                 }
 
-                exit(0);
+                rexit();
             }
         }
 

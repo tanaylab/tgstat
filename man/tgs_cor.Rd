@@ -42,8 +42,8 @@ vals <- sample(1 : (rows * cols / 2), rows * cols, replace = TRUE)
 m <- matrix(vals, nrow = rows, ncol = cols)
 m[sample(1 : (rows * cols), rows * cols / 1000)] <- NA
 
-r1 <- tgs_cor(m, spearman = F)
-r2 <- tgs_cor(m, pairwise.complete.obs = T, spearman = T)
+r1 <- tgs_cor(m, spearman = FALSE)
+r2 <- tgs_cor(m, pairwise.complete.obs = TRUE, spearman = TRUE)
 }
 \keyword{ ~correlation }
 

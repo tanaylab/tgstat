@@ -274,7 +274,7 @@ SEXP tgs_cor(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _tidy, S
                         }
                     }
                 }
-                exit(0);
+                rexit();
             }
         }
 

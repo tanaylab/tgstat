@@ -13,8 +13,8 @@ tgs_graph(x, knn, k_expand, k_beta = 3)
 \arguments{
   \item{x}{see below}
   \item{knn}{maximal node degree}
-  \item{knn_expand}{see below}
-  \item{knn_beta}{see below}
+  \item{k_expand}{see below}
+  \item{k_beta}{see below}
 }
 \details{
 This function builds a directed graph based on the edges in 'x' and their ranks.
@@ -44,8 +44,9 @@ cols <- 1000
 vals <- sample(1 : (rows * cols / 2), rows * cols, replace = TRUE)
 m <- matrix(vals, nrow = rows, ncol = cols)
 m[sample(1 : (rows * cols), rows * cols / 1000)] <- NA
-r1 <- tgs_cor(m, pairwise.complete.obs = F, spearman = T)
-r2 <- tgs_knn(r1, knn = 30, diag = F)
+
+r1 <- tgs_cor(m, pairwise.complete.obs = FALSE, spearman = TRUE)
+r2 <- tgs_knn(r1, knn = 30, diag = FALSE)
 r3 <- tgs_graph(r2, knn = 3, k_expand = 10)
 }
 \keyword{ ~graph }

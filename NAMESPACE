@@ -1,4 +1,3 @@
-useDynLib(tgstat)
+useDynLib(tgstat, .registration = TRUE)
 exportPattern("^[[:alpha:]]+")
-exportPattern("^[\\.[:alpha:]]+")
 

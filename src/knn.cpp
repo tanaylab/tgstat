@@ -193,7 +193,7 @@ SEXP tgs_knn(SEXP _x, SEXP _knn, SEXP _diag, SEXP _threshold, SEXP _envir)
                     idx += point2size[ipoint];
                     TGStat::itr_idx(ipoint - spoint + 1);
                 }
-                exit(0);
+                rexit();
             }
         }
 

@@ -102,7 +102,7 @@
 //    if (random_seeds) {
 //        // randomly draw seeds from the existing points
 //        for (int i = 0; i < num_anchors; ++i) {
-//            int idx = drand48() * seed_candidates.size();
+//            int idx = unif_rand() * seed_candidates.size();
 //            seeds.push_back(seed_candidates[idx]);
 //            swap(seed_candidates[idx], seed_candidates.back());
 //            seed_candidates.pop_back();
@@ -139,7 +139,7 @@
 //        }
 //    } else {
 //        // first seed is chosen randomly
-//        int idx = drand48() * seed_candidates.size();
+//        int idx = unif_rand() * seed_candidates.size();
 //        seeds.push_back(seed_candidates[idx]);
 //        swap(seed_candidates[idx], seed_candidates.back());
 //        seed_candidates.pop_back();
@@ -185,7 +185,7 @@
 ////printf("Seed candidates:\n");
 ////for (auto sss : seed_candidates)
 ////printf("\tseed %d, anchor: %d, dist: %g\n", sss, anchors[sss], d(anchors[sss], sss));
-//            idx = (drand48() + 8.) * seed_candidates.size() / 10.;
+//            idx = (unif_rand() + 8.) * seed_candidates.size() / 10.;
 ////printf("selected: %d\n", seed_candidates[idx]);
 //            seeds.push_back(seed_candidates[idx]);
 //            swap(seed_candidates[idx], seed_candidates.back());
@@ -343,7 +343,7 @@
 //                    TGStat::itr_idx(++itr_idx);
 //                }
 //            }
-//            exit(0);
+//            R_Suicide("Exit from child process");
 //        }
 //    }
 //
@@ -546,7 +546,7 @@ SEXP tgs_dist(SEXP _x, SEXP _attrs, SEXP _tidy, SEXP _threshold, SEXP _rrownames
                         }
                     }
                 }
-                exit(0);
+                rexit();
             }
         }
 
@@ -865,7 +865,7 @@ SEXP tgs_dist_blas(SEXP _x, SEXP _attrs, SEXP _tidy, SEXP _threshold, SEXP _rrow
 		rerror("%s", e.msg());
 	}
 
-	rreturn(answer);
+    rreturn(answer);
 }
 
 }

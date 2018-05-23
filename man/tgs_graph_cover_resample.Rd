@@ -14,7 +14,7 @@ tgs_graph_cover_resample(graph, knn, min_cluster_size,
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
-  \item{graph}{directed graph in the format returned by tgs_cor_graph}
+  \item{graph}{directed graph in the format returned by tgs_graph}
   \item{knn}{maximal number of edges used per node for each sample subset}
   \item{min_cluster_size}{used to determine the candidates for seeding (= min weight)}
   \item{cooling}{factor that is used to gradually increase the chance of a node to stay in the cluster}
@@ -36,15 +36,21 @@ If method == "full", a list containing two matrices: co_cluster and co_sample.
 If method == "edges", a list containing two data frames: co_cluster and co_sample.
 }
 
+\seealso{
+\code{\link{tgs_graph}}
+}
+
 \examples{
 set.seed(seed = 0)
-rows <- 1000
-cols <- 2000
-vals <- sample(1 : (rows * cols / 2), rows * cols, replace = T)
+rows <- 100
+cols <- 200
+vals <- sample(1 : (rows * cols / 2), rows * cols, replace = TRUE)
 m <- matrix(vals, nrow = rows, ncol = cols)
 
-r1 <- tgs_cor_graph(m, 50, 10, spearman = F)
-r2 <- tgs_graph_cover_resample(r1, 10, 1)
+r1 <- tgs_cor(m, pairwise.complete.obs = FALSE, spearman = TRUE)
+r2 <- tgs_knn(r1, knn = 20, diag = FALSE)
+r3 <- tgs_graph(r2, knn = 3, k_expand = 10)
+r4 <- tgs_graph_cover_resample(r3, 10, 1)
 }
 \keyword{ ~cluster }
 

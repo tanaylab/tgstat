@@ -42,40 +42,6 @@
 
 using namespace std;
 
-// A hack into R to change the default error report mechanism.
-//
-// Surely this an ugly hack! R_GlobalContext is an internal object managed by R. Its type is not even exposed. RCNTXT structure is defined
-// in an internal header file (src/include/Defn.h) that we cannot access. We copied the definition of it from there and changed it a bit
-// to compile.
-
-typedef struct RCNTXT {
-    struct RCNTXT *nextcontext;	/* The next context up the chain */
-    int callflag;		/* The context "type" */
-    sigjmp_buf cjmpbuf;		/* C stack and register information */
-    int cstacktop;		/* Top of the pointer protection stack */
-    int evaldepth;	        /* evaluation depth at inception */
-    SEXP promargs;		/* Promises supplied to closure */
-    SEXP callfun;		/* The closure called */
-    SEXP sysparent;		/* environment the closure was called from */
-    SEXP call;			/* The call that effected this context*/
-    SEXP cloenv;		/* The environment */
-    SEXP conexit;		/* Interpreted "on.exit" code */
-    void (*cend)(void *);	/* C "on.exit" thunk */
-    void *cenddata;		/* data for C "on.exit" thunk */
-    void *vmax;		        /* top of R_alloc stack */
-    int intsusp;                /* interrupts are suspended */
-    SEXP handlerstack;          /* condition handler stack */
-    SEXP restartstack;          /* stack of available restarts */
-    struct RPRSTACK *prstack;   /* stack of pending promises */
-#ifdef BYTECODE
-    SEXP *nodestack;
-# ifdef BC_INT_STACK
-    IStackval *intstack;
-# endif
-#endif
-    SEXP srcref;	        /* The source line in effect */
-} RCNTXT, *context;
-
 struct sigaction         TGStat::s_old_sigint_act;
 struct sigaction         TGStat::s_old_sigalrm_act;
 struct sigaction         TGStat::s_old_sigchld_act;
@@ -100,6 +66,8 @@ TGStat::TGStat(SEXP _env) :
 // disable R check stack limit: required if eval is called not from the main thread
 //R_CStackLimit=-1;
 	if (!s_ref_count) {
+        GetRNGstate();
+
 		m_old_umask = umask(07);
 
         s_sigint_fired = 0;
@@ -145,16 +113,6 @@ TGStat::TGStat(SEXP _env) :
 		load_options();
 	}
 
-	// Default error message that error() function generates includes the caller ("Error in long-blalalalalalala: ...")
-	// To prevent the caller to be printed we simply screw it up.
-	// (This ugly hack was made after learning verrorcall_dflt() function in R source code (error.c).)
-	RCNTXT *c = (RCNTXT *)R_GlobalContext;
-	if (c) {
-		c->call = R_NilValue;
-		if (c->nextcontext)
-			c->nextcontext->call = R_NilValue;
-	}
-
 	s_ref_count++;
 
 	// deal with PROTECT / UNPROTECT
@@ -173,6 +131,8 @@ TGStat::~TGStat()
         // if exception is thrown ~RdbInitializer is called first and then the child might need
         // to write the error into the shared memory
         if (!s_is_kid) {
+            PutRNGstate();
+
             if (s_shm_sem != SEM_FAILED) {
                 SemLocker sl(s_shm_sem);
                 SigBlocker sb;
@@ -353,17 +313,17 @@ pid_t TGStat::launch_process()
 		sigaction(SIGCHLD, &s_old_sigchld_act, NULL);
 
 		SEXP r_multitasking_stdout = GetOption(install("tgs_multitasking_stdout"), R_NilValue);
+        int devnull;
 
-        if (!isLogical(r_multitasking_stdout) || !(int)LOGICAL(r_multitasking_stdout)[0]) {
-            if (!freopen("/dev/null", "w", stdout))
-                verror("Failed to open /dev/null");
-        }
-
-        if (!freopen("/dev/null", "w", stderr))
+        if ((devnull = open("/dev/null", O_RDWR)) == -1)
             verror("Failed to open /dev/null");
 
-        if (!freopen("/dev/null", "r", stdin))
-            verror("Failed to open /dev/null");
+        if (!isLogical(r_multitasking_stdout) || !(int)LOGICAL(r_multitasking_stdout)[0])
+            dup2(devnull, STDOUT_FILENO);
+
+        dup2(devnull, STDIN_FILENO);
+        dup2(devnull, STDERR_FILENO);
+        close(devnull);
 
         // fifo was open for read by the parent
         close(s_fifo_fd);
@@ -387,7 +347,7 @@ void TGStat::check_kids_state(bool ignore_errors)
                 vdebug("pid %d was identified as a child process\n", pid);
                 swap(*ipid, s_running_pids.back());
                 s_running_pids.pop_back();
-                if (!ignore_errors && !WIFEXITED(status))
+                if (!ignore_errors && !WIFEXITED(status) && WIFSIGNALED(status) && WTERMSIG(status) != TGS_EXIT_SIG)
                     verror("Child process %d ended unexpectedly", (int)pid);
                 break;
             }
@@ -529,9 +489,9 @@ void TGStat::handle_error(const char *msg)
 				s_shm->error_msg[sizeof(s_shm->error_msg) - 1] = '\0';
 			}
 		}
-		exit(1);
+		rexit();
 	} else
-		Rf_error(msg);
+        errorcall(R_NilValue, msg);
 }
 
 void TGStat::verify_max_data_size(uint64_t data_size, const char *data_name)
@@ -579,32 +539,14 @@ void TGStat::load_options()
         m_debug = (int)LOGICAL(rvar)[0];
     else
         m_debug = false;
-
-	SEXP r_rnd_seed = GetOption(install("tgs_rnd.seed"), R_NilValue);
-
-	if (isReal(r_rnd_seed))
-		m_rnd_seed = (uint64_t)REAL(r_rnd_seed)[0];
-	else if (isInteger(r_rnd_seed))
-		m_rnd_seed = INTEGER(r_rnd_seed)[0];
-	else
-		m_rnd_seed = 0;
-
-	if (!m_rnd_seed) {
-		struct timeval tv;
-		gettimeofday(&tv, NULL);
-		// for better randomness combine global time in seconds with the lower 12 bits of current microseconds
-		m_rnd_seed = (time(NULL) << 12) | (tv.tv_usec & 0xfff);
-	}
-
-	srand48(m_rnd_seed);
-    std::srand(m_rnd_seed);
 }
 
 void TGStat::rnd_seed(uint64_t seed)
 {
-    m_rnd_seed = seed;
-    srand48(m_rnd_seed);
-    std::srand(m_rnd_seed);
+    char buf[100];
+    sprintf(buf, "set.seed(%ld)", seed);
+    run_in_R(buf, m_env);
+    GetRNGstate();
 }
 
 void TGStat::out_of_memory()
@@ -620,7 +562,7 @@ void TGStat::sigint_handler(int)
     // Normally this condition should be always true since the kid installs the default handler for SIGINT.
     // However due to race condition the old handler might still be in use.
     if (getpid() == s_parent_pid)
-        printf("CTL-C!\n");
+        Rprintf("CTL-C!\n");
 }
 
 void TGStat::sigalrm_handler(int)
@@ -712,7 +654,7 @@ void rerror(const char *fmt, ...)
 	char buf[1000];
 
 	va_start(ap, fmt);
-	vsprintf(buf, fmt, ap);
+	vsnprintf(buf, sizeof(buf), fmt, ap);
 	va_end(ap);
 
 	TGStat::handle_error(buf);
@@ -724,7 +666,7 @@ void verror(const char *fmt, ...)
 	char buf[1000];
 
 	va_start(ap, fmt);
-	vsprintf(buf, fmt, ap);
+	vsnprintf(buf, sizeof(buf), fmt, ap);
 	va_end(ap);
 
 	if (TGStat::s_ref_count)
@@ -738,19 +680,21 @@ void vdebug(const char *fmt, ...)
     if (g_tgstat->debug()) {
         struct timeval tmnow;
         struct tm *tm;
-        char buf[30], usec_buf[6];
+        char buf[1000], usec_buf[6];
+
         gettimeofday(&tmnow, NULL);
         tm = localtime(&tmnow.tv_sec);
         strftime(buf, sizeof(buf), "%H:%M:%S", tm);
         if (TGStat::is_kid())
-            printf("[DEBUG pid %d %s.%03d] ", getpid(), buf, (int)(tmnow.tv_usec / 1000));
+            Rprintf("[DEBUG pid %d %s.%03d] ", getpid(), buf, (int)(tmnow.tv_usec / 1000));
         else
-            printf("[DEBUG %s.%03d] ", buf, (int)(tmnow.tv_usec / 1000));
+            Rprintf("[DEBUG %s.%03d] ", buf, (int)(tmnow.tv_usec / 1000));
 
         va_list ap;
     	va_start(ap, fmt);
-    	vprintf(fmt, ap);
+    	vsnprintf(buf, sizeof(buf), fmt, ap);
         va_end(ap);
+        Rprintf(buf);
     }
 }
 
@@ -766,7 +710,7 @@ SEXP rprotect(SEXP &expr)
 void runprotect(int count)
 {
 	if (TGStat::s_protect_counter < count)
-		Rf_error("Number of calls to unprotect exceeds the number of calls to protect\n");
+		errorcall(R_NilValue, "Number of calls to unprotect exceeds the number of calls to protect\n");
 	UNPROTECT(count);
 	TGStat::s_protect_counter -= count;
 }
@@ -775,7 +719,7 @@ void runprotect(SEXP &expr)
 {
 	if (expr != R_NilValue) {
 		if (TGStat::s_protect_counter < 1)
-			Rf_error("Number of calls to unprotect exceeds the number of calls to protect\n");
+			errorcall(R_NilValue, "Number of calls to unprotect exceeds the number of calls to protect\n");
 		UNPROTECT_PTR(expr);
 		expr = R_NilValue;
 		TGStat::s_protect_counter--;

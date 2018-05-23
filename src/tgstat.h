@@ -8,9 +8,12 @@
 #include <semaphore.h>
 #include <signal.h>
 #include <time.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 #include <R.h>
 #include <Rinternals.h>
+#include <Rinterface.h>
 
 #include "Thread.h"
 
@@ -20,6 +23,8 @@
 #ifdef error
 #undef error
 #endif
+
+#define TGS_EXIT_SIG SIGTERM
 
 #include "TGLException.h"
 
@@ -98,7 +103,10 @@ template<typename T> void unpack_data(void *&ptr, T &data, size_t n) {
 
 
 #define MAX_KIDS 1000
-#define rreturn(retv) { if (TGStat::is_kid()) exit(0); return(retv); }
+
+#define rreturn(retv) { if (TGStat::is_kid()) kill(getpid(), TGS_EXIT_SIG); return(retv); }
+
+void rexit();
 
 // Define TGStat instance in your main function that is called by R.
 // TGStat should be defined inside "try-catch" statement that catches TGLException.
@@ -125,8 +133,7 @@ public:
     // Returns the upper limit for data size
 	uint64_t max_data_size() const { return m_max_data_size; }
 
-    uint64_t rnd_seed() const { return m_rnd_seed; }
-    void rnd_seed(uint64_t seed);
+    void rnd_seed(uint64_t seed);    // sets new random seed in R (set.seed)
 
     static void set_alarm(int msecs);   // time is given in milliseconds
     static void reset_alarm();
@@ -202,7 +209,6 @@ public:
 	unsigned                    m_old_protect_count;
 	set<int>                    m_old_open_fds;
 
-    uint64_t                    m_rnd_seed;
     bool                        m_debug;
 	uint64_t                    m_max_data_size;
 
@@ -233,6 +239,18 @@ extern TGStat *g_tgstat;
 
 
 // ------------------------------- IMPLEMENTATION --------------------------------
+
+inline void rexit()
+{
+    if (TGStat::is_kid())
+        // Normally we should have called exit() here. However "R CMD check" doesn't like calls to exit/abort/etc because they end R session itself.
+        // It prints a warning message and packages with warning messages cannot be submitted to CRAN.
+        // Yet the child process MUST end the R sessions, that's the whole point.
+        // Solution? Send a signal to itself. Fortunately "R CMD check" allows signals.
+        kill(getpid(), TGS_EXIT_SIG);
+    else
+        verror("rexit is called from parent process");
+}
 
 inline void set_abs_timeout(int64_t delay_msec, struct timespec &req)
 {

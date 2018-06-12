@@ -544,7 +544,7 @@ void TGStat::load_options()
 void TGStat::rnd_seed(uint64_t seed)
 {
     char buf[100];
-    sprintf(buf, "set.seed(%ld)", seed);
+    sprintf(buf, "set.seed(%llu)", seed);
     run_in_R(buf, m_env);
     GetRNGstate();
 }
@@ -680,7 +680,7 @@ void vdebug(const char *fmt, ...)
     if (g_tgstat->debug()) {
         struct timeval tmnow;
         struct tm *tm;
-        char buf[1000], usec_buf[6];
+        char buf[1000];
 
         gettimeofday(&tmnow, NULL);
         tm = localtime(&tmnow.tv_sec);

@@ -200,7 +200,7 @@ unsigned graph2cluster(const int *pnode1, const int *pnode2, const double *pweig
             vector<Score> &cluster2score = node2cluster_score[i];
             for (int cluster = 0; cluster < num_clusters; ++cluster) {
                 const Score &cscore = cluster2score[cluster];
-                if (cscore.votes_in && cscore.votes_out){
+                if (cscore.votes_in && cscore.votes_out) {
                     float score = cluster == old_cluster ?
                         cooling_rates[i] * cscore.votes_in * cscore.votes_out / (cluster_sizes[cluster] * (float)cluster_sizes[cluster]) :
                         cscore.votes_in * cscore.votes_out / ((cluster_sizes[cluster] + 1) * (float)(cluster_sizes[cluster] + 1));
@@ -1295,56 +1295,6 @@ SEXP tgs_graph2cluster_multi_edges(SEXP _graph, SEXP _knn, SEXP _min_cluster_siz
 
         SET_VECTOR_ELT(answer, 0, rco_clust);
         SET_VECTOR_ELT(answer, 1, rsamples);
-//
-//
-//
-//
-//      unsigned *pdata[] = { pco_clust, pco_sample };
-//
-//      size_t num_recs = 0;
-//      unsigned *data = pdata[data_idx];
-//
-//      for (size_t i = 0; i < num_edges; ++i) {
-//          if (data[i])
-//              ++num_recs;
-//      }
-//
-//          SET_VECTOR_ELT(answer, data_idx, (rdata = allocVector(VECSXP, NUM_COLS)));
-//          SET_VECTOR_ELT(rdata, NODE1, (rnode1 = allocVector(INTSXP, num_recs)));
-//          SET_VECTOR_ELT(rdata, NODE2, (rnode2 = allocVector(INTSXP, num_recs)));
-//          SET_VECTOR_ELT(rdata, CNT, (rcount = allocVector(INTSXP, num_recs)));
-//
-//          setAttrib(rdata, R_NamesSymbol, (rcolnames = allocVector(STRSXP, NUM_COLS)));
-//          setAttrib(rdata, R_ClassSymbol, mkString("data.frame"));
-//          setAttrib(rdata, R_RowNamesSymbol, (rrownames = allocVector(INTSXP, num_recs)));
-//
-//          {
-//              int row = 0;
-//              for (size_t i = 0; i < num_edges; ++i) {
-//                  if (data[i]) {
-//                      INTEGER(rnode1)[row] = pcol1[i];
-//                      INTEGER(rnode2)[row] = pcol2[i];
-//                      INTEGER(rcount)[row] = data[i];
-//                      INTEGER(rrownames)[row] = row + 1;
-//                      ++row;
-//                  }
-//              }
-//          }
-//
-//          for (int i = 0; i < NUM_COLS; i++)
-//              SET_STRING_ELT(rcolnames, i, mkChar(COL_NAMES[i]));
-//
-//          if (rlevels1 != R_NilValue) {
-//              setAttrib(rnode1, R_LevelsSymbol, rlevels1);
-//              setAttrib(rnode1, R_ClassSymbol, mkString("factor"));
-//              setAttrib(rnode2, R_LevelsSymbol, rlevels1);
-//              setAttrib(rnode2, R_ClassSymbol, mkString("factor"));
-//          }
-//      }
-//
-//      setAttrib(answer, R_NamesSymbol, (rnames = allocVector(STRSXP, 2)));
-//      SET_STRING_ELT(rnames, 0, mkChar("co_cluster"));
-//      SET_STRING_ELT(rnames, 1, mkChar("co_sample"));
     } catch (TGLException &e) {
         if (!TGStat::is_kid() && res != (unsigned *)MAP_FAILED) {
             munmap(res, res_sizeof);

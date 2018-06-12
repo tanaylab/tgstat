@@ -29,6 +29,13 @@ tgs_cor <- function(x, pairwise.complete.obs = F, spearman = F, tidy = F, thresh
         .Call("tgs_cor_blas", x, pairwise.complete.obs, spearman, tidy, threshold, new.env(parent = parent.frame()))
 }
 
+tgs_cor_knn <- function(x, knn, pairwise.complete.obs = F, spearman = F, threshold = 0) {
+    if (missing(x) || missing(knn))
+        stop("Usage: tgs_cor_knn(x, knn, pairwise.complete.obs = F, spearman = F, threshold = 0)", call. = F)
+
+    .Call("tgs_cor_knn_blas", x, knn, pairwise.complete.obs, spearman, threshold, new.env(parent = parent.frame()))
+}
+
 tgs_dist <- function(x, diag = F, upper = F, tidy = F, threshold = Inf) {
     if (missing(x))
         stop("Usage: tgs_dist(x, diag = F, upper = F, tidy = F, threshold = Inf)", call. = F)

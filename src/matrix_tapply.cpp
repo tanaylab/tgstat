@@ -1,5 +1,6 @@
 #include <iterator>
 #include <limits>
+#include <errno.h>
 #include <sys/mman.h>
 #include <unistd.h>
 #include <vector>
@@ -21,7 +22,7 @@ SEXP tgs_matrix_tapply(SEXP _x, SEXP _index, SEXP _fn, SEXP _envir)
     try {
         TGStat tgstat(_envir);
 
-        SEXP _rdims;
+        SEXP _rdims = R_NilValue;
         SEXP _xclass = getAttrib(_x, R_ClassSymbol);
         SEXP _xx = getAttrib(_x, install("x"));   // non zero values of sparse matrix
         SEXP _xi = getAttrib(_x, install("i"));   // row number within sparse matrix
@@ -38,7 +39,6 @@ SEXP tgs_matrix_tapply(SEXP _x, SEXP _index, SEXP _fn, SEXP _envir)
 
         size_t num_rows = INTEGER(_rdims)[0];   // do not use nrows(): it doesn't work for sparse (i.e. dgCMatrix) matrix
         size_t num_cols = INTEGER(_rdims)[1];
-        SEXP rindex = _index;
 
         if (!isFactor(_index) || xlength(_index) < 1)
             verror("\"index\" argument must be a factor");

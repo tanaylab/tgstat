@@ -247,13 +247,13 @@ SEXP tgs_cor(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _tidy, S
                                 if (num_finite_pairs) {
                                     mean1 = sum1 / num_finite_pairs;
                                     mean2 = sum2 / num_finite_pairs;
-                                    stddev1 = sqrt(sum_square1 / num_finite_pairs - mean1 * mean1);
-                                    stddev2 = sqrt(sum_square2 / num_finite_pairs - mean2 * mean2);
+                                    double var1 = sum_square1 / num_finite_pairs - mean1 * mean1;
+                                    double var2 = sum_square2 / num_finite_pairs - mean2 * mean2;
 
                                     // calculate correlation
                                     res[idx] /= num_finite_pairs;          // => mean(X*Y)
                                     res[idx] -= mean1 * mean2;         // => covariance(X,Y)
-                                    res[idx] /= stddev1 * stddev2;     // => correlation(X,Y)
+                                    res[idx] /= sqrt(var1 * var2);     // => correlation(X,Y)
                                 } else
                                     res[idx] = numeric_limits<double>::quiet_NaN();
                             } else if (!nan_in_col[icol1] && !nan_in_col[icol2]) {
@@ -466,7 +466,7 @@ SEXP tgs_cor_blas(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _ti
         }
 
         if (spearman && pairwise_complete_obs && nan_in_vals)
-            verror("BLAS implementation of tgs_cor does not support spearman with pairwise.complete.obs with x contains NA / NaN / Inf");
+            verror("BLAS implementation of tgs_cor does not support spearman with pairwise.complete.obs when x contains NA / NaN / Inf");
 
         // replace values with ranks if spearman=T
         if (spearman) {
@@ -501,7 +501,7 @@ SEXP tgs_cor_blas(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _ti
         }
 
         if (pairwise_complete_obs && nan_in_vals) {
-            // correlation with pairwise complete obs is calculated as:
+            // correlation with pairwise complete jobs is calculated as:
             //     n <- t(mask) %*% mask
             //     s_x <- t(mask) %*% m
             //     cov_n <- (t(m) %*% m) - (s_x * t(s_x)) / n

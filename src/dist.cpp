@@ -685,9 +685,14 @@ SEXP tgs_dist_blas(SEXP _x, SEXP _attrs, SEXP _tidy, SEXP _threshold, SEXP _rrow
         bool nan_in_vals = false;
 
         // some BLAS implementations ask to align double arrays to 64 for improved efficiency
-        posix_memalign((void **)&mem.m, 64, sizeof(double) * num_vals);
-        posix_memalign((void **)&mem.mask, 64, sizeof(double) * num_vals);
-        posix_memalign((void **)&mem.res, 64, sizeof(double) * res_size);
+        if (posix_memalign((void **)&mem.m, 64, sizeof(double) * num_vals))
+            verror("%s", strerror(errno));
+
+        if (posix_memalign((void **)&mem.mask, 64, sizeof(double) * num_vals))
+            verror("%s", strerror(errno));
+
+        if (posix_memalign((void **)&mem.res, 64, sizeof(double) * res_size))
+            verror("%s", strerror(errno));
 
         for (size_t i = 0; i < num_vals; ++i) {
             if ((isReal(_x) && !R_FINITE(REAL(_x)[i])) || (isInteger(_x) && INTEGER(_x)[i] == NA_INTEGER)) {
@@ -741,7 +746,8 @@ SEXP tgs_dist_blas(SEXP _x, SEXP _attrs, SEXP _tidy, SEXP _threshold, SEXP _rrow
                 char trans = 'N';
                 double alpha = 1;
                 double beta = 0;
-                posix_memalign((void **)&mem.n, 64, sizeof(double) * res_size);
+                if (posix_memalign((void **)&mem.n, 64, sizeof(double) * res_size))
+                    verror("%s", strerror(errno));
                 F77_NAME(dsyrk)(&uplo, &trans, &num_points32, &num_dims32, &alpha, mem.mask, &num_points32, &beta, mem.n, &num_points32);
                 check_interrupt();
                 progress.report(1);

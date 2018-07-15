@@ -449,9 +449,14 @@ SEXP tgs_cor_blas(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _ti
 
         vdebug("START BLAS COR\n");
         // some BLAS implementations ask to align double arrays to 64 for improved efficiency
-        posix_memalign((void **)&mem.m, 64, sizeof(double) * num_vals);
-        posix_memalign((void **)&mem.mask, 64, sizeof(double) * num_vals);
-        posix_memalign((void **)&mem.res, 64, sizeof(double) * res_size);
+        if (posix_memalign((void **)&mem.m, 64, sizeof(double) * num_vals))
+            verror("%s", strerror(errno));
+
+        if (posix_memalign((void **)&mem.mask, 64, sizeof(double) * num_vals))
+            verror("%s", strerror(errno));
+
+        if (posix_memalign((void **)&mem.res, 64, sizeof(double) * res_size))
+            verror("%s", strerror(errno));
 
         for (size_t i = 0; i < num_vals; ++i) {
             if ((isReal(_x) && !R_FINITE(REAL(_x)[i])) || (isInteger(_x) && INTEGER(_x)[i] == NA_INTEGER)) {
@@ -508,10 +513,17 @@ SEXP tgs_cor_blas(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _ti
             //     var_n <- (t(mask) %*% (m * m)) - (s_x * s_x) / n
             //     res <- cov_n / sqrt(var_n * t(var_n))
 
-            posix_memalign((void **)&mem.n, 64, sizeof(double) * res_size);
-            posix_memalign((void **)&mem.s_x, 64, sizeof(double) * res_size);
-            posix_memalign((void **)&mem.cov_n, 64, sizeof(double) * res_size);
-            posix_memalign((void **)&mem.var_n, 64, sizeof(double) * res_size);
+            if (posix_memalign((void **)&mem.n, 64, sizeof(double) * res_size))
+                verror("%s", strerror(errno));
+
+            if (posix_memalign((void **)&mem.s_x, 64, sizeof(double) * res_size))
+                verror("%s", strerror(errno));
+
+            if (posix_memalign((void **)&mem.cov_n, 64, sizeof(double) * res_size))
+                verror("%s", strerror(errno));
+
+            if (posix_memalign((void **)&mem.var_n, 64, sizeof(double) * res_size))
+                verror("%s", strerror(errno));
 
             ProgressReporter progress;
             progress.init(6, 1);

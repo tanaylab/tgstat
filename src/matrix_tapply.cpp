@@ -63,8 +63,12 @@ SEXP tgs_matrix_tapply(SEXP _x, SEXP _index, SEXP _fn, SEXP _envir)
 
         vector<vector<int>> group2cols(num_groups);
 
-        for (int i = 0; i < num_cols; ++i)
-            group2cols[INTEGER(_index)[i] - 1].push_back(i);
+        for (int i = 0; i < num_cols; ++i) {
+            int group = INTEGER(_index)[i] - 1;
+            if (group < 0 || group >= num_groups)
+                verror("Invalid group index %d, must be in [0, %d] range", group, (int)num_groups);
+            group2cols[group].push_back(i);
+        }
 
         vdebug("Preparing for multitasking...\n");
         int num_cores = max(1, (int)sysconf(_SC_NPROCESSORS_ONLN));
@@ -74,7 +78,7 @@ SEXP tgs_matrix_tapply(SEXP _x, SEXP _index, SEXP _fn, SEXP _envir)
             num_processes = max(num_processes, 1);
 
         ProgressReporter progress;
-        progress.init(num_rows, 1);
+        progress.init(num_rows * num_groups, 1);
 
         vdebug("Num cores: %d, num_processes: %d\n", num_cores, num_processes);
         TGStat::prepare4multitasking();
@@ -161,8 +165,8 @@ SEXP tgs_matrix_tapply(SEXP _x, SEXP _index, SEXP _fn, SEXP _envir)
                             verror("Evaluation returned not a scalar");
 
                         runprotect(1);
-                        TGStat::itr_idx(irow - srow + 1);
                     }
+                    TGStat::itr_idx((erow - srow) * (igroup + 1));
 
                     runprotect(2);
                 }

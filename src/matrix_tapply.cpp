@@ -71,8 +71,7 @@ SEXP tgs_matrix_tapply(SEXP _x, SEXP _index, SEXP _fn, SEXP _envir)
         }
 
         vdebug("Preparing for multitasking...\n");
-        int num_cores = max(1, (int)sysconf(_SC_NPROCESSORS_ONLN));
-        int num_processes = (int)min(num_rows / 10, (size_t)num_cores);
+        int num_processes = (int)min(num_rows / 10, (size_t)g_tgstat->num_processes());
 
         if (num_rows)
             num_processes = max(num_processes, 1);
@@ -80,7 +79,7 @@ SEXP tgs_matrix_tapply(SEXP _x, SEXP _index, SEXP _fn, SEXP _envir)
         ProgressReporter progress;
         progress.init(num_rows * num_groups, 1);
 
-        vdebug("Num cores: %d, num_processes: %d\n", num_cores, num_processes);
+        vdebug("num_processes: %d\n", num_processes);
         TGStat::prepare4multitasking();
 
         for (int iprocess = 0; iprocess < num_processes; ++iprocess) {
@@ -104,10 +103,10 @@ SEXP tgs_matrix_tapply(SEXP _x, SEXP _index, SEXP _fn, SEXP _envir)
                     double *dbl_group = NULL;
 
                     if ((_xclass == R_NilValue && isReal(_x)) || (_xclass != R_NilValue && isReal(_xx))) {
-                        rprotect(rgroup = allocVector(REALSXP, group_cols.size()));
+                        rprotect(rgroup = RSaneAllocVector(REALSXP, group_cols.size()));
                         dbl_group = REAL(rgroup);
                     } else {
-                        rprotect(rgroup = allocVector(INTSXP, group_cols.size()));
+                        rprotect(rgroup = RSaneAllocVector(INTSXP, group_cols.size()));
                         int_group = INTEGER(rgroup);
                     }
 
@@ -183,15 +182,15 @@ SEXP tgs_matrix_tapply(SEXP _x, SEXP _index, SEXP _fn, SEXP _envir)
         // assemble the answer
         SEXP dim, dimnames;
 
-        rprotect(answer = allocVector(REALSXP, num_rows * num_groups));
+        rprotect(answer = RSaneAllocVector(REALSXP, num_rows * num_groups));
         memcpy(REAL(answer), res, res_sizeof);
 
-        rprotect(dim = allocVector(INTSXP, 2));
+        rprotect(dim = RSaneAllocVector(INTSXP, 2));
         INTEGER(dim)[0] = num_groups;
         INTEGER(dim)[1] = num_rows;
         setAttrib(answer, R_DimSymbol, dim);
 
-        rprotect(dimnames = allocVector(VECSXP, 2));
+        rprotect(dimnames = RSaneAllocVector(VECSXP, 2));
         SET_VECTOR_ELT(dimnames, 0, rindex_levels);
         SET_VECTOR_ELT(dimnames, 1, R_NilValue);
         setAttrib(answer, R_DimNamesSymbol, dimnames);
@@ -201,6 +200,8 @@ SEXP tgs_matrix_tapply(SEXP _x, SEXP _index, SEXP _fn, SEXP _envir)
             res = (double *)MAP_FAILED;
         }
         rerror("%s", e.msg());
+    } catch (const bad_alloc &e) {
+        rerror("Out of memory");
     }
 
     if (!TGStat::is_kid() && res != (double *)MAP_FAILED) {

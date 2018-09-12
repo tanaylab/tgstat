@@ -162,10 +162,10 @@ SEXP tgs_cor_graph(SEXP _ranks, SEXP _knn, SEXP _k_expand, SEXP _k_beta, SEXP _e
         for (const auto &edges : outgoing)
             answer_size += min(edges.size(), knn);
 
-        rprotect(ranswer = allocVector(VECSXP, NUM_COLS));
-        SET_VECTOR_ELT(ranswer, COL1, (rcol1 = allocVector(INTSXP, answer_size)));
-        SET_VECTOR_ELT(ranswer, COL2, (rcol2 = allocVector(INTSXP, answer_size)));
-        SET_VECTOR_ELT(ranswer, WEIGHT, (rweight = allocVector(REALSXP, answer_size)));
+        rprotect(ranswer = RSaneAllocVector(VECSXP, NUM_COLS));
+        SET_VECTOR_ELT(ranswer, COL1, (rcol1 = RSaneAllocVector(INTSXP, answer_size)));
+        SET_VECTOR_ELT(ranswer, COL2, (rcol2 = RSaneAllocVector(INTSXP, answer_size)));
+        SET_VECTOR_ELT(ranswer, WEIGHT, (rweight = RSaneAllocVector(REALSXP, answer_size)));
 
         rlevels = getAttrib(VECTOR_ELT(_ranks, 0), R_LevelsSymbol);
         if (rlevels != R_NilValue) {
@@ -179,9 +179,9 @@ SEXP tgs_cor_graph(SEXP _ranks, SEXP _knn, SEXP _k_expand, SEXP _k_beta, SEXP _e
             setAttrib(rcol2, R_ClassSymbol, mkString("factor"));
         }
 
-        setAttrib(ranswer, R_NamesSymbol, (rcolnames = allocVector(STRSXP, NUM_COLS)));
+        setAttrib(ranswer, R_NamesSymbol, (rcolnames = RSaneAllocVector(STRSXP, NUM_COLS)));
         setAttrib(ranswer, R_ClassSymbol, mkString("data.frame"));
-        setAttrib(ranswer, R_RowNamesSymbol, (rrownames = allocVector(INTSXP, answer_size)));
+        setAttrib(ranswer, R_RowNamesSymbol, (rrownames = RSaneAllocVector(INTSXP, answer_size)));
 
         for (int i = 0; i < NUM_COLS; i++)
             SET_STRING_ELT(rcolnames, i, mkChar(COL_NAMES[i]));
@@ -214,7 +214,9 @@ SEXP tgs_cor_graph(SEXP _ranks, SEXP _knn, SEXP _k_expand, SEXP _k_beta, SEXP _e
         rreturn(ranswer);
     } catch (TGLException &e) {
 		rerror("%s", e.msg());
-	}
+    } catch (const bad_alloc &e) {
+        rerror("Out of memory");
+    }
 
     rreturn(R_NilValue);
 }

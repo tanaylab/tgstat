@@ -84,9 +84,6 @@ TGStat::TGStat(SEXP _env) :
 
 		m_old_error_handler = TGLException::set_error_handler(TGLException::throw_error_handler);
 
-		// install out of memory handler
-		m_old_new_handler = set_new_handler(out_of_memory);
-
 		struct sigaction new_act;
 
 		// install a new SIGINT handler
@@ -171,10 +168,6 @@ TGStat::~TGStat()
             close(s_fifo_fd);
 
         TGLException::set_error_handler(m_old_error_handler);
-
-		// install old out of memory handler
-		if (m_old_new_handler)
-			set_new_handler(m_old_new_handler);
 
         // reset alarm, otherwise it might fire later when we exit from the library
         alarm(0);
@@ -494,14 +487,6 @@ void TGStat::handle_error(const char *msg)
         errorcall(R_NilValue, msg);
 }
 
-void TGStat::verify_max_data_size(uint64_t data_size, const char *data_name)
-{
-	if (data_size > max_data_size())
-		verror("%s size exceeded the maximal allowed (%ld).\n"
-               "Note: the maximum data size is controlled via tgs_max.data.size option (see options, getOptions).",
-			   data_name, max_data_size());
-}
-
 void TGStat::set_alarm(int msecs)
 {
     struct itimerval timer;
@@ -539,6 +524,15 @@ void TGStat::load_options()
         m_debug = (int)LOGICAL(rvar)[0];
     else
         m_debug = false;
+
+    int num_cores = max(1, (int)sysconf(_SC_NPROCESSORS_ONLN));
+    rvar = GetOption(install("tgs_max.processes"), R_NilValue);
+    if (xlength(rvar) && (isNumeric(rvar) || isInteger(rvar))) {
+        m_num_processes = asInteger(rvar);
+        m_num_processes = max(m_num_processes, 1);
+        m_num_processes = min(m_num_processes, num_cores);
+    } else
+        m_num_processes = num_cores;
 }
 
 void TGStat::rnd_seed(uint64_t seed)
@@ -547,12 +541,6 @@ void TGStat::rnd_seed(uint64_t seed)
     sprintf(buf, "set.seed(%llu)", seed);
     run_in_R(buf, m_env);
     GetRNGstate();
-}
-
-void TGStat::out_of_memory()
-{
-    Rprintf("\nOut of memory\n");
-    verror("Out of memory\n");
 }
 
 void TGStat::sigint_handler(int)
@@ -778,7 +766,7 @@ SEXP run_in_R(const char *command, SEXP envir)
 	SEXP parsed_expr;
 	ParseStatus status;
 
-	rprotect(expr = allocVector(STRSXP, 1));
+	rprotect(expr = RSaneAllocVector(STRSXP, 1));
 	SET_STRING_ELT(expr, 0, mkChar(command));
 	rprotect(parsed_expr = R_ParseVector(expr, -1, &status, R_NilValue));
 	if (status != PARSE_OK)
@@ -792,7 +780,7 @@ struct RSaneSerializeData {
 	FILE *fp;
 };
 
-static void RSaneSeserializeCallback(void *_data)
+static void RSaneSerializeCallback(void *_data)
 {
 	RSaneSerializeData *data = (RSaneSerializeData *)_data;
 	struct R_outpstream_st out;
@@ -806,7 +794,7 @@ void RSaneSerialize(SEXP rexp, FILE *fp)
 
 	data.rexp = rexp;
 	data.fp = fp;
-    Rboolean ok = R_ToplevelExec(RSaneSeserializeCallback, &data);
+    Rboolean ok = R_ToplevelExec(RSaneSerializeCallback, &data);
 	if (ok == FALSE)
 		// We would like to print now the error contained in R_curErrorBuf(), however this error is automatically printed by R_ToplevelExec
 		// and there's no way to prevent it without heavy hacking. On the other hand we want to abort the execution on error.
@@ -866,6 +854,30 @@ SEXP RSaneUnserialize(const char *fname)
 
 	fclose(fp);
 	return retv;
+}
+
+struct RSaneAllocVectorData {
+    SEXPTYPE type;
+    R_xlen_t len;
+    SEXP     retv;
+};
+
+static void RSaneAllocVectorCallback(void *_data)
+{
+	RSaneAllocVectorData *data = (RSaneAllocVectorData *)_data;
+    data->retv = allocVector(data->type, data->len);
+}
+
+SEXP RSaneAllocVector(SEXPTYPE type, R_xlen_t len)
+{
+    RSaneAllocVectorData data;
+
+    data.type = type;
+    data.len = len;
+    Rboolean ok = R_ToplevelExec(RSaneAllocVectorCallback, &data);
+    if (!ok)
+        verror("Allocation failed");
+    return data.retv;
 }
 
 SEXP get_rvector_col(SEXP v, const char *colname, const char *varname, bool error_if_missing)

@@ -553,13 +553,13 @@ SEXP tgs_graph2cluster(SEXP _graph, SEXP _min_cluster_size, SEXP _cooling, SEXP 
 
         SEXP ranswer, rnode, rcluster, rrownames, rcolnames;
 
-        rprotect(ranswer = allocVector(VECSXP, NUM_COLS));
-        SET_VECTOR_ELT(ranswer, NODE, (rnode = allocVector(INTSXP, num_nodes)));
-        SET_VECTOR_ELT(ranswer, CLUSTER, (rcluster = allocVector(INTSXP, num_nodes)));
+        rprotect(ranswer = RSaneAllocVector(VECSXP, NUM_COLS));
+        SET_VECTOR_ELT(ranswer, NODE, (rnode = RSaneAllocVector(INTSXP, num_nodes)));
+        SET_VECTOR_ELT(ranswer, CLUSTER, (rcluster = RSaneAllocVector(INTSXP, num_nodes)));
 
-        setAttrib(ranswer, R_NamesSymbol, (rcolnames = allocVector(STRSXP, NUM_COLS)));
+        setAttrib(ranswer, R_NamesSymbol, (rcolnames = RSaneAllocVector(STRSXP, NUM_COLS)));
         setAttrib(ranswer, R_ClassSymbol, mkString("data.frame"));
-        setAttrib(ranswer, R_RowNamesSymbol, (rrownames = allocVector(INTSXP, num_nodes)));
+        setAttrib(ranswer, R_RowNamesSymbol, (rrownames = RSaneAllocVector(INTSXP, num_nodes)));
 
         for (int i = 0; i < NUM_COLS; i++)
             SET_STRING_ELT(rcolnames, i, mkChar(COL_NAMES[i]));
@@ -580,7 +580,9 @@ SEXP tgs_graph2cluster(SEXP _graph, SEXP _min_cluster_size, SEXP _cooling, SEXP 
         rreturn(ranswer);
     } catch (TGLException &e) {
 		rerror("%s", e.msg());
-	}
+    } catch (const bad_alloc &e) {
+        rerror("Out of memory");
+    }
 
     rreturn(R_NilValue);
 }
@@ -659,8 +661,7 @@ SEXP tgs_graph2cluster_multi_hash(SEXP _graph, SEXP _knn, SEXP _min_cluster_size
         } else
             num_nodes = xlength(rlevels1);
 
-        int num_cores = max(1, (int)sysconf(_SC_NPROCESSORS_ONLN));
-        int max_num_kids = min((int)n_resamp, num_cores - 1);
+        int max_num_kids = min((int)n_resamp, max(g_tgstat->num_processes() - 1, 1));
 //max_num_kids = 1;
         int num_kids_launched = 0;
         int num_kids_finished = 0;
@@ -693,7 +694,7 @@ SEXP tgs_graph2cluster_multi_hash(SEXP _graph, SEXP _knn, SEXP _min_cluster_size
         ProgressReporter progress;
         progress.init(n_resamp, 1);
 
-        vdebug("Num cores: %d, num_processes: %d\n", num_cores, max_num_kids);
+        vdebug("num_processes: %d\n", max_num_kids);
         TGStat::prepare4multitasking();
 
         for (int i = 0; i < max_num_kids; ++i) {
@@ -778,14 +779,14 @@ SEXP tgs_graph2cluster_multi_hash(SEXP _graph, SEXP _knn, SEXP _min_cluster_size
                 ++co_cluster_diag_size;
         }
 
-        rprotect(answer = allocVector(VECSXP, 2));
+        rprotect(answer = RSaneAllocVector(VECSXP, 2));
 
-        rprotect(rco_clust = allocVector(VECSXP, NUM_COLS));
-        rprotect(rnode1 = allocVector(INTSXP, co_cluster_diag_size + co_cluster.size()));
-        rprotect(rnode2 = allocVector(INTSXP, co_cluster_diag_size + co_cluster.size()));
-        rprotect(rcount = allocVector(INTSXP, co_cluster_diag_size + co_cluster.size()));
-        rprotect(rcolnames = allocVector(STRSXP, NUM_COLS));
-        rprotect(rrownames = allocVector(INTSXP, co_cluster_diag_size + co_cluster.size()));
+        rprotect(rco_clust = RSaneAllocVector(VECSXP, NUM_COLS));
+        rprotect(rnode1 = RSaneAllocVector(INTSXP, co_cluster_diag_size + co_cluster.size()));
+        rprotect(rnode2 = RSaneAllocVector(INTSXP, co_cluster_diag_size + co_cluster.size()));
+        rprotect(rcount = RSaneAllocVector(INTSXP, co_cluster_diag_size + co_cluster.size()));
+        rprotect(rcolnames = RSaneAllocVector(STRSXP, NUM_COLS));
+        rprotect(rrownames = RSaneAllocVector(INTSXP, co_cluster_diag_size + co_cluster.size()));
 
         {
             int i = 0;
@@ -812,7 +813,7 @@ SEXP tgs_graph2cluster_multi_hash(SEXP _graph, SEXP _knn, SEXP _min_cluster_size
         for (int i = 0; i < NUM_COLS; i++)
             SET_STRING_ELT(rcolnames, i, mkChar(COL_NAMES[i]));
 
-        rprotect(rsamples = allocVector(INTSXP, num_nodes));
+        rprotect(rsamples = RSaneAllocVector(INTSXP, num_nodes));
 
         for (size_t i = 0; i < num_nodes; ++i)
             INTEGER(rsamples)[i] = node2sample_cnt[i];
@@ -833,7 +834,7 @@ SEXP tgs_graph2cluster_multi_hash(SEXP _graph, SEXP _knn, SEXP _min_cluster_size
         setAttrib(rco_clust, R_ClassSymbol, mkString("data.frame"));
         setAttrib(rco_clust, R_RowNamesSymbol, rrownames);
 
-        rprotect(rnames = allocVector(STRSXP, 2));
+        rprotect(rnames = RSaneAllocVector(STRSXP, 2));
         SET_STRING_ELT(rnames, 0, mkChar("co_cluster"));
         SET_STRING_ELT(rnames, 1, mkChar("samples"));
         setAttrib(answer, R_NamesSymbol, rnames);
@@ -846,6 +847,8 @@ SEXP tgs_graph2cluster_multi_hash(SEXP _graph, SEXP _knn, SEXP _min_cluster_size
             res = (unsigned *)MAP_FAILED;
         }
         rerror("%s", e.msg());
+    } catch (const bad_alloc &e) {
+        rerror("Out of memory");
     }
 
     if (!TGStat::is_kid() && res != (unsigned *)MAP_FAILED) {
@@ -929,8 +932,7 @@ SEXP tgs_graph2cluster_multi_full(SEXP _graph, SEXP _knn, SEXP _min_cluster_size
         } else
             num_nodes = xlength(rlevels1);
 
-        int num_cores = max(1, (int)sysconf(_SC_NPROCESSORS_ONLN));
-        int max_num_kids = min((int)n_resamp, num_cores - 1);
+        int max_num_kids = min((int)n_resamp, max(g_tgstat->num_processes() - 1, 1));
 //max_num_kids = 2;
         int num_kids_launched = 0;
         int num_kids_finished = 0;
@@ -960,7 +962,7 @@ SEXP tgs_graph2cluster_multi_full(SEXP _graph, SEXP _knn, SEXP _min_cluster_size
         ProgressReporter progress;
         progress.init(n_resamp, 1);
 
-        vdebug("Num cores: %d, num_processes: %d\n", num_cores, max_num_kids);
+        vdebug("num_processes: %d\n", max_num_kids);
         TGStat::prepare4multitasking();
 
         for (int i = 0; i < max_num_kids; ++i) {
@@ -1011,14 +1013,14 @@ SEXP tgs_graph2cluster_multi_full(SEXP _graph, SEXP _knn, SEXP _min_cluster_size
                 ++co_clust_nz_size;
         }
 
-        rprotect(answer = allocVector(VECSXP, 2));
+        rprotect(answer = RSaneAllocVector(VECSXP, 2));
 
-        rprotect(rco_clust = allocVector(VECSXP, NUM_COLS));
-        rprotect(rnode1 = allocVector(INTSXP, co_clust_nz_size));
-        rprotect(rnode2 = allocVector(INTSXP, co_clust_nz_size));
-        rprotect(rcount = allocVector(INTSXP, co_clust_nz_size));
-        rprotect(rcolnames = allocVector(STRSXP, NUM_COLS));
-        rprotect(rrownames = allocVector(INTSXP, co_clust_nz_size));
+        rprotect(rco_clust = RSaneAllocVector(VECSXP, NUM_COLS));
+        rprotect(rnode1 = RSaneAllocVector(INTSXP, co_clust_nz_size));
+        rprotect(rnode2 = RSaneAllocVector(INTSXP, co_clust_nz_size));
+        rprotect(rcount = RSaneAllocVector(INTSXP, co_clust_nz_size));
+        rprotect(rcolnames = RSaneAllocVector(STRSXP, NUM_COLS));
+        rprotect(rrownames = RSaneAllocVector(INTSXP, co_clust_nz_size));
 
         {
             size_t row = 0;
@@ -1048,7 +1050,7 @@ SEXP tgs_graph2cluster_multi_full(SEXP _graph, SEXP _knn, SEXP _min_cluster_size
         setAttrib(rco_clust, R_ClassSymbol, mkString("data.frame"));
         setAttrib(rco_clust, R_RowNamesSymbol, rrownames);
 
-        rprotect(rsamples = allocVector(INTSXP, num_nodes));
+        rprotect(rsamples = RSaneAllocVector(INTSXP, num_nodes));
 
         for (size_t i = 0; i < num_nodes; ++i)
             INTEGER(rsamples)[i] = psamples[i];
@@ -1061,7 +1063,7 @@ SEXP tgs_graph2cluster_multi_full(SEXP _graph, SEXP _knn, SEXP _min_cluster_size
             setAttrib(rsamples, R_NamesSymbol, rlevels1);
         }
 
-        rprotect(rnames = allocVector(STRSXP, 2));
+        rprotect(rnames = RSaneAllocVector(STRSXP, 2));
         SET_STRING_ELT(rnames, 0, mkChar("co_cluster"));
         SET_STRING_ELT(rnames, 1, mkChar("samples"));
         setAttrib(answer, R_NamesSymbol, rnames);
@@ -1074,6 +1076,8 @@ SEXP tgs_graph2cluster_multi_full(SEXP _graph, SEXP _knn, SEXP _min_cluster_size
             res = (unsigned *)MAP_FAILED;
         }
         rerror("%s", e.msg());
+    } catch (const bad_alloc &e) {
+        rerror("Out of memory");
     }
 
     if (!TGStat::is_kid() && res != (unsigned *)MAP_FAILED) {
@@ -1157,8 +1161,7 @@ SEXP tgs_graph2cluster_multi_edges(SEXP _graph, SEXP _knn, SEXP _min_cluster_siz
         } else
             num_nodes = xlength(rlevels1);
 
-        int num_cores = max(1, (int)sysconf(_SC_NPROCESSORS_ONLN));
-        int max_num_kids = min((int)n_resamp, num_cores - 1);
+        int max_num_kids = min((int)n_resamp, max(g_tgstat->num_processes() - 1, 1));
 //max_num_kids = 1;
         int num_kids_launched = 0;
         int num_kids_finished = 0;
@@ -1187,7 +1190,7 @@ SEXP tgs_graph2cluster_multi_edges(SEXP _graph, SEXP _knn, SEXP _min_cluster_siz
         ProgressReporter progress;
         progress.init(n_resamp, 1);
 
-        vdebug("Num cores: %d, num_processes: %d\n", num_cores, max_num_kids);
+        vdebug("num_processes: %d\n", max_num_kids);
         TGStat::prepare4multitasking();
 
         for (int i = 0; i < max_num_kids; ++i) {
@@ -1232,7 +1235,7 @@ SEXP tgs_graph2cluster_multi_edges(SEXP _graph, SEXP _knn, SEXP _min_cluster_siz
 
         SEXP rco_clust, rsamples, rnode1, rnode2, rcount, rrownames, rcolnames, rnames;
 
-        rprotect(answer = allocVector(VECSXP, 2));
+        rprotect(answer = RSaneAllocVector(VECSXP, 2));
 
         size_t co_clust_nz_size = 0;
 
@@ -1241,14 +1244,14 @@ SEXP tgs_graph2cluster_multi_edges(SEXP _graph, SEXP _knn, SEXP _min_cluster_siz
                 ++co_clust_nz_size;
         }
 
-        rprotect(answer = allocVector(VECSXP, 2));
+        rprotect(answer = RSaneAllocVector(VECSXP, 2));
 
-        rprotect(rco_clust = allocVector(VECSXP, NUM_COLS));
-        rprotect(rnode1 = allocVector(INTSXP, co_clust_nz_size));
-        rprotect(rnode2 = allocVector(INTSXP, co_clust_nz_size));
-        rprotect(rcount = allocVector(INTSXP, co_clust_nz_size));
-        rprotect(rcolnames = allocVector(STRSXP, NUM_COLS));
-        rprotect(rrownames = allocVector(INTSXP, co_clust_nz_size));
+        rprotect(rco_clust = RSaneAllocVector(VECSXP, NUM_COLS));
+        rprotect(rnode1 = RSaneAllocVector(INTSXP, co_clust_nz_size));
+        rprotect(rnode2 = RSaneAllocVector(INTSXP, co_clust_nz_size));
+        rprotect(rcount = RSaneAllocVector(INTSXP, co_clust_nz_size));
+        rprotect(rcolnames = RSaneAllocVector(STRSXP, NUM_COLS));
+        rprotect(rrownames = RSaneAllocVector(INTSXP, co_clust_nz_size));
 
         {
             size_t row = 0;
@@ -1275,7 +1278,7 @@ SEXP tgs_graph2cluster_multi_edges(SEXP _graph, SEXP _knn, SEXP _min_cluster_siz
         setAttrib(rco_clust, R_ClassSymbol, mkString("data.frame"));
         setAttrib(rco_clust, R_RowNamesSymbol, rrownames);
 
-        rprotect(rsamples = allocVector(INTSXP, num_nodes));
+        rprotect(rsamples = RSaneAllocVector(INTSXP, num_nodes));
 
         for (size_t i = 0; i < num_nodes; ++i)
             INTEGER(rsamples)[i] = psamples[i];
@@ -1288,7 +1291,7 @@ SEXP tgs_graph2cluster_multi_edges(SEXP _graph, SEXP _knn, SEXP _min_cluster_siz
             setAttrib(rsamples, R_NamesSymbol, rlevels1);
         }
 
-        rprotect(rnames = allocVector(STRSXP, 2));
+        rprotect(rnames = RSaneAllocVector(STRSXP, 2));
         SET_STRING_ELT(rnames, 0, mkChar("co_cluster"));
         SET_STRING_ELT(rnames, 1, mkChar("samples"));
         setAttrib(answer, R_NamesSymbol, rnames);
@@ -1301,6 +1304,8 @@ SEXP tgs_graph2cluster_multi_edges(SEXP _graph, SEXP _knn, SEXP _min_cluster_siz
             res = (unsigned *)MAP_FAILED;
         }
         rerror("%s", e.msg());
+    } catch (const bad_alloc &e) {
+        rerror("Out of memory");
     }
 
     if (!TGStat::is_kid() && res != (unsigned *)MAP_FAILED) {

@@ -27,6 +27,8 @@ SEXP tgs_finite(SEXP _x, SEXP _envir)
         }
     } catch (TGLException &e) {
         rerror("%s", e.msg());
+    } catch (const bad_alloc &e) {
+        rerror("Out of memory");
     }
 
     rreturn(ScalarLogical(true));

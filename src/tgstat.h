@@ -85,6 +85,9 @@ void RSaneSerialize(SEXP rexp, const char *fname);
 SEXP RSaneUnserialize(FILE *fp);
 SEXP RSaneUnserialize(const char *fname);
 
+// Same as above: replaces allocVector which can fail on memory allocation and then R makes a longmp, skipping all the destructors
+SEXP RSaneAllocVector(SEXPTYPE type, R_xlen_t len);
+
 SEXP get_rvector_col(SEXP v, const char *colname, const char *varname, bool error_if_missing);
 
 string get_bound_colname(const char *str, unsigned maxlen = 40);
@@ -124,14 +127,10 @@ public:
 
 	SEXP env() const { return m_env; }
 
-    // Verifies that the data size does not exceed the maximum allowed.
-    void verify_max_data_size(uint64_t data_size, const char *data_name = "Result");
+    int num_processes() const { return m_num_processes; }
 
     // true if debug prints are allowed
     bool debug() const { return m_debug; }
-
-    // Returns the upper limit for data size
-	uint64_t max_data_size() const { return m_max_data_size; }
 
     void rnd_seed(uint64_t seed);    // sets new random seed in R (set.seed)
 
@@ -205,12 +204,11 @@ public:
 	SEXP                        m_env;
 	mode_t                      m_old_umask;
 	TGLException::Error_handler m_old_error_handler;
-	new_handler                 m_old_new_handler;
 	unsigned                    m_old_protect_count;
 	set<int>                    m_old_open_fds;
 
+    int                         m_num_processes;
     bool                        m_debug;
-	uint64_t                    m_max_data_size;
 
 	void load_options();
 
@@ -218,7 +216,6 @@ public:
     static string  get_fifo_sem_name();
     static string  get_fifo_name();
     static void    handle_error(const char *msg);
-	static void    out_of_memory();
 	static void    sigint_handler(int);
     static void    sigalrm_handler(int);
     static void    sigchld_handler(int);

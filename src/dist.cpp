@@ -359,7 +359,7 @@
 //        enum { ROW1, ROW2, DIST, num_dims };
 //        const char *COL_NAMES[num_dims] = { "row1", "row2", "dist" };
 //
-//        rprotect(answer = allocVector(VECSXP, num_dims));
+//        rprotect(answer = RSaneAllocVector(VECSXP, num_dims));
 //
 //        size_t answer_size = 0;
 //
@@ -375,9 +375,9 @@
 //
 //        SEXP rcol1, rcol2, rdist, rrownames, rcolnames;
 //
-//        SET_VECTOR_ELT(answer, ROW1, (rcol1 = allocVector(INTSXP, answer_size)));
-//        SET_VECTOR_ELT(answer, ROW2, (rcol2 = allocVector(INTSXP, answer_size)));
-//        SET_VECTOR_ELT(answer, DIST, (rdist = allocVector(REALSXP, answer_size)));
+//        SET_VECTOR_ELT(answer, ROW1, (rcol1 = RSaneAllocVector(INTSXP, answer_size)));
+//        SET_VECTOR_ELT(answer, ROW2, (rcol2 = RSaneAllocVector(INTSXP, answer_size)));
+//        SET_VECTOR_ELT(answer, DIST, (rdist = RSaneAllocVector(REALSXP, answer_size)));
 //
 //        if (_rrownames != R_NilValue) {
 //            setAttrib(rcol1, R_LevelsSymbol, _rrownames);
@@ -386,9 +386,9 @@
 //            setAttrib(rcol2, R_ClassSymbol, mkString("factor"));
 //        }
 //
-//        setAttrib(answer, R_NamesSymbol, (rcolnames = allocVector(STRSXP, num_dims)));
+//        setAttrib(answer, R_NamesSymbol, (rcolnames = RSaneAllocVector(STRSXP, num_dims)));
 //        setAttrib(answer, R_ClassSymbol, mkString("data.frame"));
-//        setAttrib(answer, R_RowNamesSymbol, (rrownames = allocVector(INTSXP, answer_size)));
+//        setAttrib(answer, R_RowNamesSymbol, (rrownames = RSaneAllocVector(INTSXP, answer_size)));
 //
 //        for (int i = 0; i < num_dims; i++)
 //            SET_STRING_ELT(rcolnames, i, mkChar(COL_NAMES[i]));
@@ -408,7 +408,7 @@
 //            }
 //        }
 //    } else {
-//        rprotect(answer = allocVector(REALSXP, (size_t)num_points * (num_points - 1) / 2));
+//        rprotect(answer = RSaneAllocVector(REALSXP, (size_t)num_points * (num_points - 1) / 2));
 //
 //        size_t idx1 = 0;
 //        double *d = REAL(answer);
@@ -493,13 +493,13 @@ SEXP tgs_dist(SEXP _x, SEXP _attrs, SEXP _tidy, SEXP _threshold, SEXP _rrownames
 
         double *res = (double *)shm;
 
-        int num_cores = max(1, (int)sysconf(_SC_NPROCESSORS_ONLN));
-        int num_processes = (int)min(num_points / 2, (size_t)num_cores);
+        int num_processes = (int)min(num_points / 2, (size_t)g_tgstat->num_processes());
         double num_row4process = num_points / (double)num_processes;
 
         ProgressReporter progress;
         progress.init(num_points * num_points / 2 - num_points, 1);
 
+        vdebug("num_processes: %d\n", num_processes);
         TGStat::prepare4multitasking();
 
         for (int iprocess = 0; iprocess < num_processes; ++iprocess) {
@@ -560,7 +560,7 @@ SEXP tgs_dist(SEXP _x, SEXP _attrs, SEXP _tidy, SEXP _threshold, SEXP _rrownames
             enum { ROW1, ROW2, DIST, num_dims };
             const char *COL_NAMES[num_dims] = { "row1", "row2", "dist" };
 
-            rprotect(answer = allocVector(VECSXP, num_dims));
+            rprotect(answer = RSaneAllocVector(VECSXP, num_dims));
 
             size_t answer_size = 0;
 
@@ -575,9 +575,9 @@ SEXP tgs_dist(SEXP _x, SEXP _attrs, SEXP _tidy, SEXP _threshold, SEXP _rrownames
 
             SEXP rcol1, rcol2, rdist, rrownames, rcolnames;
 
-            SET_VECTOR_ELT(answer, ROW1, (rcol1 = allocVector(INTSXP, answer_size)));
-            SET_VECTOR_ELT(answer, ROW2, (rcol2 = allocVector(INTSXP, answer_size)));
-            SET_VECTOR_ELT(answer, DIST, (rdist = allocVector(REALSXP, answer_size)));
+            SET_VECTOR_ELT(answer, ROW1, (rcol1 = RSaneAllocVector(INTSXP, answer_size)));
+            SET_VECTOR_ELT(answer, ROW2, (rcol2 = RSaneAllocVector(INTSXP, answer_size)));
+            SET_VECTOR_ELT(answer, DIST, (rdist = RSaneAllocVector(REALSXP, answer_size)));
 
             if (_rrownames != R_NilValue) {
                 setAttrib(rcol1, R_LevelsSymbol, _rrownames);
@@ -586,9 +586,9 @@ SEXP tgs_dist(SEXP _x, SEXP _attrs, SEXP _tidy, SEXP _threshold, SEXP _rrownames
                 setAttrib(rcol2, R_ClassSymbol, mkString("factor"));
             }
 
-            setAttrib(answer, R_NamesSymbol, (rcolnames = allocVector(STRSXP, num_dims)));
+            setAttrib(answer, R_NamesSymbol, (rcolnames = RSaneAllocVector(STRSXP, num_dims)));
             setAttrib(answer, R_ClassSymbol, mkString("data.frame"));
-            setAttrib(answer, R_RowNamesSymbol, (rrownames = allocVector(INTSXP, answer_size)));
+            setAttrib(answer, R_RowNamesSymbol, (rrownames = RSaneAllocVector(INTSXP, answer_size)));
 
             for (size_t i = 0; i < num_dims; i++)
                 SET_STRING_ELT(rcolnames, i, mkChar(COL_NAMES[i]));
@@ -608,7 +608,7 @@ SEXP tgs_dist(SEXP _x, SEXP _attrs, SEXP _tidy, SEXP _threshold, SEXP _rrownames
                 }
             }
         } else {
-            rprotect(answer = allocVector(REALSXP, (size_t)num_points * (num_points - 1) / 2));
+            rprotect(answer = RSaneAllocVector(REALSXP, (size_t)num_points * (num_points - 1) / 2));
 
             size_t idx1 = 0;
             double *d = REAL(answer);
@@ -631,7 +631,9 @@ SEXP tgs_dist(SEXP _x, SEXP _attrs, SEXP _tidy, SEXP _threshold, SEXP _rrownames
             shm = (double *)MAP_FAILED;
         }
 		rerror("%s", e.msg());
-	}
+    } catch (const bad_alloc &e) {
+        rerror("Out of memory");
+    }
 
     if (!TGStat::is_kid() && shm != (double *)MAP_FAILED) {
         munmap(shm, shm_sizeof);
@@ -788,8 +790,8 @@ SEXP tgs_dist_blas(SEXP _x, SEXP _attrs, SEXP _tidy, SEXP _threshold, SEXP _rrow
         
 //{
 //SEXP rdims;
-//rprotect(answer = allocVector(REALSXP, num_points * num_points));
-//rprotect(rdims = allocVector(INTSXP, 2));
+//rprotect(answer = RSaneAllocVector(REALSXP, num_points * num_points));
+//rprotect(rdims = RSaneAllocVector(INTSXP, 2));
 //INTEGER(rdims)[0] = INTEGER(rdims)[1] = num_points;
 //setAttrib(answer, R_DimSymbol, rdims);
 //memcpy(REAL(answer), mem.res, xlength(answer) * sizeof(REAL(answer)[0]));
@@ -801,7 +803,7 @@ SEXP tgs_dist_blas(SEXP _x, SEXP _attrs, SEXP _tidy, SEXP _threshold, SEXP _rrow
             enum { ROW1, ROW2, DIST, num_dims };
             const char *COL_NAMES[num_dims] = { "row1", "row2", "dist" };
 
-            rprotect(answer = allocVector(VECSXP, num_dims));
+            rprotect(answer = RSaneAllocVector(VECSXP, num_dims));
 
             size_t answer_size = 0;
 
@@ -816,9 +818,9 @@ SEXP tgs_dist_blas(SEXP _x, SEXP _attrs, SEXP _tidy, SEXP _threshold, SEXP _rrow
 
             SEXP rcol1, rcol2, rdist, rrownames, rcolnames;
 
-            SET_VECTOR_ELT(answer, ROW1, (rcol1 = allocVector(INTSXP, answer_size)));
-            SET_VECTOR_ELT(answer, ROW2, (rcol2 = allocVector(INTSXP, answer_size)));
-            SET_VECTOR_ELT(answer, DIST, (rdist = allocVector(REALSXP, answer_size)));
+            SET_VECTOR_ELT(answer, ROW1, (rcol1 = RSaneAllocVector(INTSXP, answer_size)));
+            SET_VECTOR_ELT(answer, ROW2, (rcol2 = RSaneAllocVector(INTSXP, answer_size)));
+            SET_VECTOR_ELT(answer, DIST, (rdist = RSaneAllocVector(REALSXP, answer_size)));
 
             if (_rrownames != R_NilValue) {
                 setAttrib(rcol1, R_LevelsSymbol, _rrownames);
@@ -827,9 +829,9 @@ SEXP tgs_dist_blas(SEXP _x, SEXP _attrs, SEXP _tidy, SEXP _threshold, SEXP _rrow
                 setAttrib(rcol2, R_ClassSymbol, mkString("factor"));
             }
 
-            setAttrib(answer, R_NamesSymbol, (rcolnames = allocVector(STRSXP, num_dims)));
+            setAttrib(answer, R_NamesSymbol, (rcolnames = RSaneAllocVector(STRSXP, num_dims)));
             setAttrib(answer, R_ClassSymbol, mkString("data.frame"));
-            setAttrib(answer, R_RowNamesSymbol, (rrownames = allocVector(INTSXP, answer_size)));
+            setAttrib(answer, R_RowNamesSymbol, (rrownames = RSaneAllocVector(INTSXP, answer_size)));
 
             for (size_t i = 0; i < num_dims; i++)
                 SET_STRING_ELT(rcolnames, i, mkChar(COL_NAMES[i]));
@@ -851,7 +853,7 @@ SEXP tgs_dist_blas(SEXP _x, SEXP _attrs, SEXP _tidy, SEXP _threshold, SEXP _rrow
                 }
             }
         } else {
-            rprotect(answer = allocVector(REALSXP, (size_t)num_points * (num_points - 1) / 2));
+            rprotect(answer = RSaneAllocVector(REALSXP, (size_t)num_points * (num_points - 1) / 2));
 
             size_t idx1 = 0;
             size_t idx2 = 0;
@@ -869,7 +871,9 @@ SEXP tgs_dist_blas(SEXP _x, SEXP _attrs, SEXP _tidy, SEXP _threshold, SEXP _rrow
         }
     } catch (TGLException &e) {
 		rerror("%s", e.msg());
-	}
+    } catch (const bad_alloc &e) {
+        rerror("Out of memory");
+    }
 
     rreturn(answer);
 }

@@ -220,22 +220,12 @@ SEXP tgs_knn(SEXP _x, SEXP _knn, SEXP _diag, SEXP _threshold, SEXP _envir)
         }
 
         rprotect(answer = RSaneAllocVector(VECSXP, NUM_COLS));
-
-        SET_VECTOR_ELT(answer, COL1, (rcol1 = RSaneAllocVector(INTSXP, answer_size)));
-        SET_VECTOR_ELT(answer, COL2, (rcol2 = RSaneAllocVector(INTSXP, answer_size)));
-        SET_VECTOR_ELT(answer, VAL, (rval = RSaneAllocVector(REALSXP, answer_size)));
-        SET_VECTOR_ELT(answer, RANK, (rrank = RSaneAllocVector(INTSXP, answer_size)));
-
-        if (rold_colnames != R_NilValue) {
-            setAttrib(rcol1, R_LevelsSymbol, rold_colnames);
-            setAttrib(rcol1, R_ClassSymbol, mkString("factor"));
-            setAttrib(rcol2, R_LevelsSymbol, rold_colnames);
-            setAttrib(rcol2, R_ClassSymbol, mkString("factor"));
-        }
-
-        setAttrib(answer, R_NamesSymbol, (rcolnames = RSaneAllocVector(STRSXP, NUM_COLS)));
-        setAttrib(answer, R_ClassSymbol, mkString("data.frame"));
-        setAttrib(answer, R_RowNamesSymbol, (rrownames = RSaneAllocVector(INTSXP, answer_size)));
+        rprotect(rcol1 = RSaneAllocVector(INTSXP, answer_size));
+        rprotect(rcol2 = RSaneAllocVector(INTSXP, answer_size));
+        rprotect(rval = RSaneAllocVector(REALSXP, answer_size));
+        rprotect(rrank = RSaneAllocVector(INTSXP, answer_size));
+        rprotect(rcolnames = RSaneAllocVector(STRSXP, NUM_COLS));
+        rprotect(rrownames = RSaneAllocVector(INTSXP, answer_size));
 
         for (int i = 0; i < NUM_COLS; i++)
             SET_STRING_ELT(rcolnames, i, mkChar(COL_NAMES[i]));
@@ -289,6 +279,23 @@ SEXP tgs_knn(SEXP _x, SEXP _knn, SEXP _diag, SEXP _threshold, SEXP _envir)
                 idx += point2size[icol];
             }
         }
+
+        if (rold_colnames != R_NilValue) {
+            setAttrib(rcol1, R_LevelsSymbol, rold_colnames);
+            setAttrib(rcol1, R_ClassSymbol, mkString("factor"));
+            setAttrib(rcol2, R_LevelsSymbol, rold_colnames);
+            setAttrib(rcol2, R_ClassSymbol, mkString("factor"));
+        }
+
+        SET_VECTOR_ELT(answer, COL1, rcol1);
+        SET_VECTOR_ELT(answer, COL2, rcol2);
+        SET_VECTOR_ELT(answer, VAL, rval);
+        SET_VECTOR_ELT(answer, RANK, rrank);
+
+        setAttrib(answer, R_NamesSymbol, rcolnames);
+        setAttrib(answer, R_ClassSymbol, mkString("data.frame"));
+        setAttrib(answer, R_RowNamesSymbol, rrownames);
+
         vdebug("END\n");
     } catch (TGLException &e) {
         if (!TGStat::is_kid() && res != (size_t *)MAP_FAILED) {

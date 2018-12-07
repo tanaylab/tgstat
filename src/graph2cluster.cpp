@@ -554,12 +554,10 @@ SEXP tgs_graph2cluster(SEXP _graph, SEXP _min_cluster_size, SEXP _cooling, SEXP 
         SEXP ranswer, rnode, rcluster, rrownames, rcolnames;
 
         rprotect(ranswer = RSaneAllocVector(VECSXP, NUM_COLS));
-        SET_VECTOR_ELT(ranswer, NODE, (rnode = RSaneAllocVector(INTSXP, num_nodes)));
-        SET_VECTOR_ELT(ranswer, CLUSTER, (rcluster = RSaneAllocVector(INTSXP, num_nodes)));
-
-        setAttrib(ranswer, R_NamesSymbol, (rcolnames = RSaneAllocVector(STRSXP, NUM_COLS)));
-        setAttrib(ranswer, R_ClassSymbol, mkString("data.frame"));
-        setAttrib(ranswer, R_RowNamesSymbol, (rrownames = RSaneAllocVector(INTSXP, num_nodes)));
+        rprotect(rnode = RSaneAllocVector(INTSXP, num_nodes));
+        rprotect(rcluster = RSaneAllocVector(INTSXP, num_nodes));
+        rprotect(rcolnames = RSaneAllocVector(STRSXP, NUM_COLS));
+        rprotect(rrownames = RSaneAllocVector(INTSXP, num_nodes));
 
         for (int i = 0; i < NUM_COLS; i++)
             SET_STRING_ELT(rcolnames, i, mkChar(COL_NAMES[i]));
@@ -574,6 +572,13 @@ SEXP tgs_graph2cluster(SEXP _graph, SEXP _min_cluster_size, SEXP _cooling, SEXP 
             setAttrib(rnode, R_LevelsSymbol, rlevels1);
             setAttrib(rnode, R_ClassSymbol, mkString("factor"));
         }
+
+        SET_VECTOR_ELT(ranswer, NODE, rnode);
+        SET_VECTOR_ELT(ranswer, CLUSTER, rcluster);
+
+        setAttrib(ranswer, R_NamesSymbol, rcolnames);
+        setAttrib(ranswer, R_ClassSymbol, mkString("data.frame"));
+        setAttrib(ranswer, R_RowNamesSymbol, rrownames);
 
         vdebug("Packing the return value - DONE\n");
 

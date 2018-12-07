@@ -575,20 +575,11 @@ SEXP tgs_dist(SEXP _x, SEXP _attrs, SEXP _tidy, SEXP _threshold, SEXP _rrownames
 
             SEXP rcol1, rcol2, rdist, rrownames, rcolnames;
 
-            SET_VECTOR_ELT(answer, ROW1, (rcol1 = RSaneAllocVector(INTSXP, answer_size)));
-            SET_VECTOR_ELT(answer, ROW2, (rcol2 = RSaneAllocVector(INTSXP, answer_size)));
-            SET_VECTOR_ELT(answer, DIST, (rdist = RSaneAllocVector(REALSXP, answer_size)));
-
-            if (_rrownames != R_NilValue) {
-                setAttrib(rcol1, R_LevelsSymbol, _rrownames);
-                setAttrib(rcol1, R_ClassSymbol, mkString("factor"));
-                setAttrib(rcol2, R_LevelsSymbol, _rrownames);
-                setAttrib(rcol2, R_ClassSymbol, mkString("factor"));
-            }
-
-            setAttrib(answer, R_NamesSymbol, (rcolnames = RSaneAllocVector(STRSXP, num_dims)));
-            setAttrib(answer, R_ClassSymbol, mkString("data.frame"));
-            setAttrib(answer, R_RowNamesSymbol, (rrownames = RSaneAllocVector(INTSXP, answer_size)));
+            rprotect(rcol1 = RSaneAllocVector(INTSXP, answer_size));
+            rprotect(rcol2 = RSaneAllocVector(INTSXP, answer_size));
+            rprotect(rdist = RSaneAllocVector(REALSXP, answer_size));
+            rprotect(rcolnames = RSaneAllocVector(STRSXP, num_dims));
+            rprotect(rrownames = RSaneAllocVector(INTSXP, answer_size));
 
             for (size_t i = 0; i < num_dims; i++)
                 SET_STRING_ELT(rcolnames, i, mkChar(COL_NAMES[i]));
@@ -607,6 +598,21 @@ SEXP tgs_dist(SEXP _x, SEXP _attrs, SEXP _tidy, SEXP _threshold, SEXP _rrownames
                     idx2 += num_points;
                 }
             }
+
+            if (_rrownames != R_NilValue) {
+                setAttrib(rcol1, R_LevelsSymbol, _rrownames);
+                setAttrib(rcol1, R_ClassSymbol, mkString("factor"));
+                setAttrib(rcol2, R_LevelsSymbol, _rrownames);
+                setAttrib(rcol2, R_ClassSymbol, mkString("factor"));
+            }
+
+            SET_VECTOR_ELT(answer, ROW1, rcol1);
+            SET_VECTOR_ELT(answer, ROW2, rcol2);
+            SET_VECTOR_ELT(answer, DIST, rdist);
+
+            setAttrib(answer, R_NamesSymbol, rcolnames);
+            setAttrib(answer, R_ClassSymbol, mkString("data.frame"));
+            setAttrib(answer, R_RowNamesSymbol, rrownames);
         } else {
             rprotect(answer = RSaneAllocVector(REALSXP, (size_t)num_points * (num_points - 1) / 2));
 
@@ -818,20 +824,11 @@ SEXP tgs_dist_blas(SEXP _x, SEXP _attrs, SEXP _tidy, SEXP _threshold, SEXP _rrow
 
             SEXP rcol1, rcol2, rdist, rrownames, rcolnames;
 
-            SET_VECTOR_ELT(answer, ROW1, (rcol1 = RSaneAllocVector(INTSXP, answer_size)));
-            SET_VECTOR_ELT(answer, ROW2, (rcol2 = RSaneAllocVector(INTSXP, answer_size)));
-            SET_VECTOR_ELT(answer, DIST, (rdist = RSaneAllocVector(REALSXP, answer_size)));
-
-            if (_rrownames != R_NilValue) {
-                setAttrib(rcol1, R_LevelsSymbol, _rrownames);
-                setAttrib(rcol1, R_ClassSymbol, mkString("factor"));
-                setAttrib(rcol2, R_LevelsSymbol, _rrownames);
-                setAttrib(rcol2, R_ClassSymbol, mkString("factor"));
-            }
-
-            setAttrib(answer, R_NamesSymbol, (rcolnames = RSaneAllocVector(STRSXP, num_dims)));
-            setAttrib(answer, R_ClassSymbol, mkString("data.frame"));
-            setAttrib(answer, R_RowNamesSymbol, (rrownames = RSaneAllocVector(INTSXP, answer_size)));
+            rprotect(rcol1 = RSaneAllocVector(INTSXP, answer_size));
+            rprotect(rcol2 = RSaneAllocVector(INTSXP, answer_size));
+            rprotect(rdist = RSaneAllocVector(REALSXP, answer_size));
+            rprotect(rcolnames = RSaneAllocVector(STRSXP, num_dims));
+            rprotect(rrownames = RSaneAllocVector(INTSXP, answer_size));
 
             for (size_t i = 0; i < num_dims; i++)
                 SET_STRING_ELT(rcolnames, i, mkChar(COL_NAMES[i]));
@@ -852,6 +849,21 @@ SEXP tgs_dist_blas(SEXP _x, SEXP _attrs, SEXP _tidy, SEXP _threshold, SEXP _rrow
                     ++idx2;
                 }
             }
+
+            if (_rrownames != R_NilValue) {
+                setAttrib(rcol1, R_LevelsSymbol, _rrownames);
+                setAttrib(rcol1, R_ClassSymbol, mkString("factor"));
+                setAttrib(rcol2, R_LevelsSymbol, _rrownames);
+                setAttrib(rcol2, R_ClassSymbol, mkString("factor"));
+            }
+
+            SET_VECTOR_ELT(answer, ROW1, rcol1);
+            SET_VECTOR_ELT(answer, ROW2, rcol2);
+            SET_VECTOR_ELT(answer, DIST, rdist);
+
+            setAttrib(answer, R_NamesSymbol, rcolnames);
+            setAttrib(answer, R_ClassSymbol, mkString("data.frame"));
+            setAttrib(answer, R_RowNamesSymbol, rrownames);
         } else {
             rprotect(answer = RSaneAllocVector(REALSXP, (size_t)num_points * (num_points - 1) / 2));
 

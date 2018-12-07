@@ -307,20 +307,11 @@ SEXP tgs_cor(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _tidy, S
 
             SEXP rcol1, rcol2, rcor, rrownames, rcolnames;
 
-            SET_VECTOR_ELT(answer, COL1, (rcol1 = RSaneAllocVector(INTSXP, answer_size)));
-            SET_VECTOR_ELT(answer, COL2, (rcol2 = RSaneAllocVector(INTSXP, answer_size)));
-            SET_VECTOR_ELT(answer, COR, (rcor = RSaneAllocVector(REALSXP, answer_size)));
-
-            if (rold_colnames != R_NilValue) {
-                setAttrib(rcol1, R_LevelsSymbol, rold_colnames);
-                setAttrib(rcol1, R_ClassSymbol, mkString("factor"));
-                setAttrib(rcol2, R_LevelsSymbol, rold_colnames);
-                setAttrib(rcol2, R_ClassSymbol, mkString("factor"));
-            }
-
-            setAttrib(answer, R_NamesSymbol, (rcolnames = RSaneAllocVector(STRSXP, NUM_COLS)));
-            setAttrib(answer, R_ClassSymbol, mkString("data.frame"));
-            setAttrib(answer, R_RowNamesSymbol, (rrownames = RSaneAllocVector(INTSXP, answer_size)));
+            rprotect(rcol1 = RSaneAllocVector(INTSXP, answer_size));
+            rprotect(rcol2 = RSaneAllocVector(INTSXP, answer_size));
+            rprotect(rcor = RSaneAllocVector(REALSXP, answer_size));
+            rprotect(rcolnames = RSaneAllocVector(STRSXP, NUM_COLS));
+            rprotect(rrownames = RSaneAllocVector(INTSXP, answer_size));
 
             for (int i = 0; i < NUM_COLS; i++)
                 SET_STRING_ELT(rcolnames, i, mkChar(COL_NAMES[i]));
@@ -340,6 +331,21 @@ SEXP tgs_cor(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _tidy, S
                     }
                 }
             }
+
+            if (rold_colnames != R_NilValue) {
+                setAttrib(rcol1, R_LevelsSymbol, rold_colnames);
+                setAttrib(rcol1, R_ClassSymbol, mkString("factor"));
+                setAttrib(rcol2, R_LevelsSymbol, rold_colnames);
+                setAttrib(rcol2, R_ClassSymbol, mkString("factor"));
+            }
+
+            SET_VECTOR_ELT(answer, COL1, rcol1);
+            SET_VECTOR_ELT(answer, COL2, rcol2);
+            SET_VECTOR_ELT(answer, COR, rcor);
+
+            setAttrib(answer, R_NamesSymbol, rcolnames);
+            setAttrib(answer, R_ClassSymbol, mkString("data.frame"));
+            setAttrib(answer, R_RowNamesSymbol, rrownames);
         } else {
             // copy the matrix below the diagonal to the upper part (the two parts are identical since cor(X,Y)=cor(Y,X)
             for (size_t icol1 = 0; icol1 < (size_t)num_cols; ++icol1) {
@@ -724,20 +730,11 @@ SEXP tgs_cor_blas(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _ti
 
             SEXP rcol1, rcol2, rcor, rrownames, rcolnames;
 
-            SET_VECTOR_ELT(answer, COL1, (rcol1 = RSaneAllocVector(INTSXP, answer_size)));
-            SET_VECTOR_ELT(answer, COL2, (rcol2 = RSaneAllocVector(INTSXP, answer_size)));
-            SET_VECTOR_ELT(answer, COR, (rcor = RSaneAllocVector(REALSXP, answer_size)));
-
-            if (rold_colnames != R_NilValue) {
-                setAttrib(rcol1, R_LevelsSymbol, rold_colnames);
-                setAttrib(rcol1, R_ClassSymbol, mkString("factor"));
-                setAttrib(rcol2, R_LevelsSymbol, rold_colnames);
-                setAttrib(rcol2, R_ClassSymbol, mkString("factor"));
-            }
-
-            setAttrib(answer, R_NamesSymbol, (rcolnames = RSaneAllocVector(STRSXP, NUM_COLS)));
-            setAttrib(answer, R_ClassSymbol, mkString("data.frame"));
-            setAttrib(answer, R_RowNamesSymbol, (rrownames = RSaneAllocVector(INTSXP, answer_size)));
+            rprotect(rcol1 = RSaneAllocVector(INTSXP, answer_size));
+            rprotect(rcol2 = RSaneAllocVector(INTSXP, answer_size));
+            rprotect(rcor = RSaneAllocVector(REALSXP, answer_size));
+            rprotect(rcolnames = RSaneAllocVector(STRSXP, NUM_COLS));
+            rprotect(rrownames = RSaneAllocVector(INTSXP, answer_size));
 
             for (int i = 0; i < NUM_COLS; i++)
                 SET_STRING_ELT(rcolnames, i, mkChar(COL_NAMES[i]));
@@ -757,6 +754,21 @@ SEXP tgs_cor_blas(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _ti
                     }
                 }
             }
+
+            if (rold_colnames != R_NilValue) {
+                setAttrib(rcol1, R_LevelsSymbol, rold_colnames);
+                setAttrib(rcol1, R_ClassSymbol, mkString("factor"));
+                setAttrib(rcol2, R_LevelsSymbol, rold_colnames);
+                setAttrib(rcol2, R_ClassSymbol, mkString("factor"));
+            }
+
+            SET_VECTOR_ELT(answer, COL1, rcol1);
+            SET_VECTOR_ELT(answer, COL2, rcol2);
+            SET_VECTOR_ELT(answer, COR, rcor);
+
+            setAttrib(answer, R_NamesSymbol, rcolnames);
+            setAttrib(answer, R_ClassSymbol, mkString("data.frame"));
+            setAttrib(answer, R_RowNamesSymbol, rrownames);
         } else {
             SEXP dim;
 

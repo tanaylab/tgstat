@@ -31,16 +31,13 @@
 using namespace std;
 
 // should be used instead of R_CheckUserInterrupt. Throws exception if the command is interrupted.
-void check_interrupt() throw (TGLException);
+void check_interrupt();
 
 // adds timeout to the time that is already in req
 void set_abs_timeout(int64_t delay_msec, struct timespec &req);
 
 // sets timeout to req
 void set_rel_timeout(int64_t delay_msec, struct timespec &req);
-
-// returns true if current time exceeds start_time + delay
-bool is_time_elapsed(int64_t delay_msec, const struct timespec &start_time);
 
 // use rerror/verror instead of error!
 void rerror(const char *fmt, ...);
@@ -222,7 +219,7 @@ public:
 	static void    get_open_fds(set<int> &fds);
     static void    check_kids_state(bool ignore_errors);
 
-	friend void check_interrupt() throw (TGLException);
+	friend void check_interrupt();
 	friend SEXP rprotect(SEXP &expr);
 	friend void runprotect(int count);
 	friend void runprotect(SEXP &expr);
@@ -260,15 +257,6 @@ inline void set_rel_timeout(int64_t delay_msec, struct timespec &req)
 {
 	req.tv_sec = delay_msec / 1000;
 	req.tv_nsec = (delay_msec - req.tv_sec * 1000) * 1000000L;
-}
-
-inline bool is_time_elapsed(int64_t delay_msec, const struct timespec &start_time)
-{
-	struct timespec t1 = start_time;
-	struct timespec t2;
-	set_abs_timeout(delay_msec, t1);
-	clock_gettime(CLOCK_REALTIME, &t2);
-	return t2.tv_sec > t1.tv_sec || (t2.tv_sec == t1.tv_sec && t2.tv_nsec > t1.tv_nsec);
 }
 
 inline uint64_t TGStat::itr_idx_sum()

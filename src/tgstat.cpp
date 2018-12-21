@@ -630,7 +630,7 @@ void TGStat::get_open_fds(set<int> &fds)
 #endif
 }
 
-void check_interrupt() throw (TGLException)
+void check_interrupt()
 {
 	if (TGStat::s_sigint_fired)
 		TGLError("Command interrupted!");

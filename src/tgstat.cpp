@@ -683,6 +683,9 @@ void vdebug(const char *fmt, ...)
     	vsnprintf(buf, sizeof(buf), fmt, ap);
         va_end(ap);
         Rprintf(buf);
+
+        if (!*fmt || (*fmt && fmt[strlen(fmt) - 1] != '\n'))
+            Rprintf("\n");
     }
 }
 

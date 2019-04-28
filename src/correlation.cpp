@@ -157,7 +157,7 @@ SEXP tgs_cor(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _tidy, S
         for (size_t i = 0; i < res_size; ++i)
             res[i] = numeric_limits<double>::quiet_NaN();
 
-        int num_processes = (int)min(num_cols / 2, (size_t)g_tgstat->num_processes());
+        int num_processes = (int)min(max((size_t)1, num_cols / 10), (size_t)g_tgstat->num_processes());
         double num_cols4process = num_cols / (double)num_processes;
 
         ProgressReporter progress;
@@ -399,6 +399,388 @@ SEXP tgs_cor(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _tidy, S
 	rreturn(answer);
 }
 
+SEXP tgs_cross_cor(SEXP _x, SEXP _y, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _tidy, SEXP _threshold, SEXP _envir)
+{
+    SEXP answer = R_NilValue;
+    double *res = (double *)MAP_FAILED;
+    size_t res_sizeof = 0;
+
+	try {
+        TGStat tgstat(_envir);
+
+		if ((!isReal(_x) && !isInteger(_x)) || xlength(_x) < 1)
+			verror("\"x\" argument must be a matrix of numeric values");
+
+        if ((!isReal(_y) && !isInteger(_y)) || xlength(_y) < 1)
+            verror("\"y\" argument must be a matrix of numeric values");
+
+        if (!isLogical(_pairwise_complete_obs) || xlength(_pairwise_complete_obs) != 1)
+            verror("\"pairwise.complete.obs\" argument must be a logical value");
+
+        if (!isLogical(_spearman) || xlength(_spearman) != 1)
+            verror("\"spearman\" argument must be a logical value");
+
+        if (!isLogical(_tidy) || xlength(_tidy) != 1)
+            verror("\"tidy\" argument must be a logical value");
+
+        if ((!isReal(_threshold) && !isInteger(_threshold)) || xlength(_threshold) != 1)
+            verror("\"threshold\" argument must be a numeric value");
+
+        SEXP rdim1 = getAttrib(_x, R_DimSymbol);
+        SEXP rdim2 = getAttrib(_y, R_DimSymbol);
+
+        if (!isInteger(rdim1) || xlength(rdim1) != 2)
+            verror("\"x\" argument must be a matrix of numeric values");
+
+        if (!isInteger(rdim2) || xlength(rdim2) != 2)
+            verror("\"y\" argument must be a matrix of numeric values");
+
+        if (nrows(_x) != nrows(_y))
+            verror("\"x\" and \"y\" matrices have different number of rows");
+
+        bool pairwise_complete_obs = asLogical(_pairwise_complete_obs);
+        bool spearman = asLogical(_spearman);
+        bool tidy = asLogical(_tidy);
+        double threshold = fabs(asReal(_threshold));
+        size_t num_rows = nrows(_x);
+        size_t num_cols[2] = { (size_t)ncols(_x), (size_t)ncols(_y) };
+
+        if (num_rows <= 1 || num_cols[0] <= 1)
+            verror("\"x\" argument must be a matrix of numeric values");
+
+        if (num_cols[1] <= 1)
+            verror("\"y\" argument must be a matrix of numeric values");
+
+        size_t num_vals[2] = { num_rows * num_cols[0], num_rows * num_cols[1] };
+        bool nan_in_vals = false;
+        vector<bool> nan_in_col[2];
+        vector<double> sums[2];
+        vector<double> sums_square[2];
+        vector<double> means[2];
+        vector<double> stddevs[2];
+        vector<double> vals[2];
+        vector<double *> pvals[2];
+        vector<double> col_vals1(num_rows);
+        vector<double> col_vals2(num_rows);
+        double *pcol_vals1 = &col_vals1.front();
+        double *pcol_vals2 = &col_vals2.front();
+        vector<double> *col_vals[2] = { &col_vals1, &col_vals2 };
+        vector<double> nan_col(num_rows, numeric_limits<double>::quiet_NaN());
+
+        for (int k = 0; k < 2; ++k) {
+            nan_in_col[k].resize(num_cols[k], false);
+            sums[k].resize(num_cols[k], 0);
+            sums_square[k].resize(num_cols[k], 0);
+            means[k].resize(num_cols[k], 0);
+            stddevs[k].resize(num_cols[k], 0);
+            vals[k].reserve(num_vals[k]);
+        }
+
+        for (int k = 0; k < 2; ++k) {
+            SEXP x = k ? _y : _x;
+
+            for (size_t i = 0; i < num_vals[k]; ++i) {
+                if ((isReal(x) && !R_FINITE(REAL(x)[i])) || (isInteger(x) && INTEGER(x)[i] == NA_INTEGER)) {
+                    nan_in_col[k][i / num_rows] = true;
+                    nan_in_vals = true;
+                    vals[k].push_back(numeric_limits<double>::quiet_NaN());
+                } else
+                    vals[k].push_back(isReal(x) ? REAL(x)[i] : INTEGER(x)[i]);
+            }
+        }
+
+        // replace values with ranks if spearman=T
+        if (spearman) {
+            for (int k = 0; k < 2; ++k) {
+                pvals[k].reserve(num_vals[k]);
+                for (size_t i = 0; i < num_vals[k]; ++i)
+                    pvals[k].push_back(&vals[k][i]);
+
+                for (size_t icol = 0; icol < num_cols[k]; ++icol) {
+                    if (nan_in_col[k][icol] && !pairwise_complete_obs)
+                        continue;
+
+                    vector<double *>::iterator sival = pvals[k].begin() + icol * num_rows;
+                    vector<double *>::iterator eival = sival + num_rows;
+                    vector<double *>::iterator last_ival = sival;
+
+                    if (nan_in_col[k][icol])
+                        sort(sival, eival, [](double *p1, double *p2) { return *p1 < *p2 || (!std::isnan(*p1) && std::isnan(*p2)); });
+                    else
+                        sort(sival, eival, [](double *p1, double *p2) { return *p1 < *p2; });
+
+                    if (!nan_in_vals || !pairwise_complete_obs) {
+                        for (auto ival = sival; ; ++ival) {
+                            if (ival == eival || **ival != **last_ival) {
+                                double rank = ((ival - sival) + (last_ival - sival) - 1) / 2. + 1;
+            
+                                while (last_ival != ival) {
+                                    **last_ival = rank;
+                                    ++last_ival;
+                                }
+            
+                                if (ival == eival)
+                                    break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        for (int k = 0; k < 2; ++k) {
+            for (size_t irow = 0; irow < num_rows; ++irow) {
+                size_t idx = irow;
+                for (size_t icol = 0; icol < num_cols[k]; ++icol) {
+                    if (!nan_in_col[k][icol]) {
+                        sums[k][icol] += vals[k][idx];
+                        sums_square[k][icol] += vals[k][idx] * vals[k][idx];
+                    }
+                    idx += num_rows;
+                }
+            }
+
+            for (size_t icol = 0; icol < num_cols[k]; ++icol) {
+                if (!nan_in_col[k][icol]) {
+                    means[k][icol] = sums[k][icol] / num_rows;
+
+                    // we are calaculating standard deviation:
+                    // sqrt(sum((x-mean)^2) / N)) = sqrt(sum(x^2) / N - mean^2)
+                    stddevs[k][icol] = sqrt(sums_square[k][icol] / num_rows - means[k][icol] * means[k][icol]);
+                }
+            }
+        }
+
+        vdebug("Allocating shared memory for results\n");
+        size_t res_size = num_cols[0] * num_cols[1];
+        res_sizeof = sizeof(double) * res_size;
+        res = (double *)mmap(NULL, res_sizeof, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+
+        if (res == (double *)MAP_FAILED)
+            verror("Failed to allocate shared memory: %s", strerror(errno));
+
+        for (size_t i = 0; i < res_size; ++i)
+            res[i] = numeric_limits<double>::quiet_NaN();
+
+        // We split Y columns between different processes (and not X) because when
+        // child process writes its result to res, the location at res will be a contiguous
+        // chunk of memory. (res is organized like that: x1y1, x2y1, ..., x1y2, x2y2, ...)
+        int num_processes = (int)min(max((size_t)1, num_cols[1] / 10), (size_t)g_tgstat->num_processes());
+        double num_cols4process = num_cols[1] / (double)num_processes;
+
+        ProgressReporter progress;
+        progress.init(res_size, 1);
+
+        vdebug("num_processes: %d\n", num_processes);
+        TGStat::prepare4multitasking();
+
+        for (int iprocess = 0; iprocess < num_processes; ++iprocess) {
+            if (!TGStat::launch_process()) {     // child process
+                size_t scol = (size_t)(iprocess * num_cols4process);
+                size_t ecol = (size_t)((iprocess + 1) * num_cols4process);
+                size_t idx = scol * num_cols[0];
+                size_t itr_idx = 0;
+
+                for (size_t icol2 = scol; icol2 < ecol; ++icol2) {
+                    for (size_t icol1 = 0; icol1 < num_cols[0]; ++icol1, ++idx) {
+                        if (nan_in_vals && pairwise_complete_obs) {
+                            size_t idx1 = icol1 * num_rows;
+                            size_t idx2 = icol2 * num_rows;
+                            double sum1 = 0;
+                            double sum2 = 0;
+                            double sum_square1 = 0;
+                            double sum_square2 = 0;
+                            double mean1, mean2, stddev1, stddev2;
+
+                            if (spearman) {
+                                size_t indices[2] = { idx1, idx2 };
+                                vector<double *>::iterator sivals[2] = { pvals[0].begin() + idx1, pvals[1].begin() + idx2 };
+                                vector<double *>::iterator eivals[2] = { sivals[0] + num_rows, sivals[1] + num_rows };
+                                double *spvals[2] = { &vals[0].front() + idx1, &vals[1].front() + idx2 };
+
+                                for (int i = 0; i < 2; ++i) {
+                                    // the fastest way to set all members of col_vals to NaN
+                                    memcpy(&col_vals[i]->front(), &nan_col.front(), num_rows * sizeof(double));
+
+                                    auto last_ival = sivals[i];
+                                    size_t num_preceeding_vals = 0;
+                                    size_t last_num_preceeding_vals = 0;
+
+                                    for (auto ival = sivals[i]; ; ++ival) {
+                                        if (ival == eivals[i] || **ival != **last_ival || std::isnan(**ival)) {
+                                            double rank = (num_preceeding_vals + last_num_preceeding_vals - 1) / 2. + 1;
+                                            while (last_ival != ival) {
+                                                (*col_vals[i])[*last_ival - spvals[i]] = rank;
+                                                ++last_ival;
+                                            }
+
+                                            if (ival == eivals[i] || std::isnan(**ival))
+                                                break;
+
+                                            last_num_preceeding_vals = num_preceeding_vals;
+                                        }
+
+                                        if (!std::isnan(vals[1 - i][*ival - spvals[i] + indices[1 - i]]))
+                                            ++num_preceeding_vals;
+                                    }
+                                }
+                            } else {
+                                pcol_vals1 = &vals[0].front() + idx1;
+                                pcol_vals2 = &vals[1].front() + idx2;
+                            }
+
+                            size_t num_finite_pairs = 0;
+                            res[idx] = 0;
+                            for (size_t i = 0; i < num_rows; ++i) {
+                                double val1 = pcol_vals1[i];
+                                double val2 = pcol_vals2[i];
+
+                                if (!std::isnan(val1) && !std::isnan(val2)) {
+                                    sum1 += val1;
+                                    sum2 += val2;
+                                    sum_square1 += val1 * val1;
+                                    sum_square2 += val2 * val2;
+                                    res[idx] += val1 * val2;  // => sum(X*Y)
+                                    ++num_finite_pairs;
+                                }
+                            }
+
+                            if (num_finite_pairs) {
+                                mean1 = sum1 / num_finite_pairs;
+                                mean2 = sum2 / num_finite_pairs;
+                                double var1 = sum_square1 / num_finite_pairs - mean1 * mean1;
+                                double var2 = sum_square2 / num_finite_pairs - mean2 * mean2;
+
+                                // calculate correlation
+                                res[idx] /= num_finite_pairs;          // => mean(X*Y)
+                                res[idx] -= mean1 * mean2;         // => covariance(X,Y)
+                                res[idx] /= sqrt(var1 * var2);     // => correlation(X,Y)
+                            } else
+                                res[idx] = numeric_limits<double>::quiet_NaN();
+                        } else if (!nan_in_col[0][icol1] && !nan_in_col[1][icol2]) {
+                            size_t idx1 = icol1 * num_rows;
+                            size_t idx2 = icol2 * num_rows;
+                            size_t end_idx1 = idx1 + num_rows;
+
+                            res[idx] = 0;
+                            while (idx1 < end_idx1)
+                                res[idx] += vals[0][idx1++] * vals[1][idx2++];  // => sum(X*Y)
+
+                            res[idx] = res[idx] / num_rows;               // => mean(X*Y)
+                            res[idx] -= means[0][icol1] * means[1][icol2];      // => covariance(X,Y)
+                            res[idx] /= stddevs[0][icol1] * stddevs[1][icol2];  // => correlation(X,Y)
+                        }
+                        ++itr_idx;
+                        TGStat::itr_idx(itr_idx);
+                    }
+                }
+                rexit();
+            }
+        }
+
+        while (TGStat::wait_for_kids(3000))
+            progress.report(TGStat::itr_idx_sum() - progress.get_elapsed_steps());
+
+        progress.report_last();
+
+        // assemble the answer
+        SEXP rold_dimnames[2] = { getAttrib(_x, R_DimNamesSymbol), getAttrib(_y, R_DimNamesSymbol) };
+        SEXP rold_colnames[2] = {
+            !isNull(rold_dimnames[0]) && xlength(rold_dimnames[0]) == 2 ? VECTOR_ELT(rold_dimnames[0], 1) : R_NilValue,
+            !isNull(rold_dimnames[1]) && xlength(rold_dimnames[1]) == 2 ? VECTOR_ELT(rold_dimnames[1], 1) : R_NilValue
+        };
+
+        if (tidy) {
+            enum { COL1, COL2, COR, NUM_COLS };
+            const char *COL_NAMES[NUM_COLS] = { "col1", "col2", "cor" };
+
+            rprotect(answer = RSaneAllocVector(VECSXP, NUM_COLS));
+
+            size_t answer_size = 0;
+
+            for (size_t i = 0; i < res_size; ++i) {
+                if (!std::isnan(res[i]) && fabs(res[i]) >= threshold)
+                    ++answer_size;
+            }
+
+            SEXP rcol1, rcol2, rcor, rrownames, rcolnames;
+
+            rprotect(rcol1 = RSaneAllocVector(INTSXP, answer_size));
+            rprotect(rcol2 = RSaneAllocVector(INTSXP, answer_size));
+            rprotect(rcor = RSaneAllocVector(REALSXP, answer_size));
+            rprotect(rcolnames = RSaneAllocVector(STRSXP, NUM_COLS));
+            rprotect(rrownames = RSaneAllocVector(INTSXP, answer_size));
+
+            for (int i = 0; i < NUM_COLS; i++)
+                SET_STRING_ELT(rcolnames, i, mkChar(COL_NAMES[i]));
+
+            if (answer_size) {
+                size_t idx_answer = 0;
+                for (size_t icol1 = 0; icol1 < num_cols[0]; ++icol1) {
+                    size_t idx_m = icol1;
+                    for (size_t icol2 = 0; icol2 < num_cols[1]; ++icol2) {
+                        if (!std::isnan(res[idx_m]) && fabs(res[idx_m]) >= threshold) {
+                            INTEGER(rcol1)[idx_answer] = icol1 + 1;
+                            INTEGER(rcol2)[idx_answer] = icol2 + 1;
+                            REAL(rcor)[idx_answer] = res[idx_m];
+                            INTEGER(rrownames)[idx_answer] = idx_answer + 1;
+                            ++idx_answer;
+                        }
+                        idx_m += num_cols[0];
+                    }
+                }
+            }
+
+            if (rold_colnames[0] != R_NilValue) {
+                setAttrib(rcol1, R_LevelsSymbol, rold_colnames[0]);
+                setAttrib(rcol1, R_ClassSymbol, mkString("factor"));
+            }
+            if (rold_colnames[1] != R_NilValue) {
+                setAttrib(rcol2, R_LevelsSymbol, rold_colnames[1]);
+                setAttrib(rcol2, R_ClassSymbol, mkString("factor"));
+            }
+
+            SET_VECTOR_ELT(answer, COL1, rcol1);
+            SET_VECTOR_ELT(answer, COL2, rcol2);
+            SET_VECTOR_ELT(answer, COR, rcor);
+
+            setAttrib(answer, R_NamesSymbol, rcolnames);
+            setAttrib(answer, R_ClassSymbol, mkString("data.frame"));
+            setAttrib(answer, R_RowNamesSymbol, rrownames);
+        } else {
+            SEXP dim;
+            SEXP dimnames;
+
+            rprotect(answer = RSaneAllocVector(REALSXP, res_size));
+            memcpy(REAL(answer), res, res_size * sizeof(double));
+
+            rprotect(dim = RSaneAllocVector(INTSXP, 2));
+            INTEGER(dim)[0] = num_cols[0];
+            INTEGER(dim)[1] = num_cols[1];
+            setAttrib(answer, R_DimSymbol, dim);
+
+            rprotect(dimnames = RSaneAllocVector(VECSXP, 2));
+            SET_VECTOR_ELT(dimnames, 0, rold_colnames[0]);
+            SET_VECTOR_ELT(dimnames, 1, rold_colnames[1]);
+            setAttrib(answer, R_DimNamesSymbol, dimnames);
+        }
+    } catch (TGLException &e) {
+        if (!TGStat::is_kid() && res != (double *)MAP_FAILED) {
+            munmap(res, res_sizeof);
+            res = (double *)MAP_FAILED;
+        }
+		rerror("%s", e.msg());
+    } catch (const bad_alloc &e) {
+        rerror("Out of memory");
+    }
+
+    if (!TGStat::is_kid() && res != (double *)MAP_FAILED) {
+        munmap(res, res_sizeof);
+        res = (double *)MAP_FAILED;
+    }
+	rreturn(answer);
+}
+
 SEXP tgs_cor_blas(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _tidy, SEXP _threshold, SEXP _envir)
 {
     SEXP answer = R_NilValue;
@@ -462,9 +844,6 @@ SEXP tgs_cor_blas(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _ti
         if (posix_memalign((void **)&mem.mask, 64, sizeof(double) * num_vals))
             verror("%s", strerror(errno));
 
-        if (posix_memalign((void **)&mem.res, 64, sizeof(double) * res_size))
-            verror("%s", strerror(errno));
-
         for (size_t i = 0; i < num_vals; ++i) {
             if ((isReal(_x) && !R_FINITE(REAL(_x)[i])) || (isInteger(_x) && INTEGER(_x)[i] == NA_INTEGER)) {
                 mem.m[i] = mem.mask[i] = 0.;
@@ -479,6 +858,9 @@ SEXP tgs_cor_blas(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _ti
 
         if (spearman && pairwise_complete_obs && nan_in_vals)
             verror("BLAS implementation of tgs_cor does not support spearman with pairwise.complete.obs when x contains NA / NaN / Inf");
+
+        if (posix_memalign((void **)&mem.res, 64, sizeof(double) * res_size))
+            verror("%s", strerror(errno));
 
         // replace values with ranks if spearman=T
         if (spearman) {
@@ -787,6 +1169,433 @@ SEXP tgs_cor_blas(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _ti
                 SET_VECTOR_ELT(dimnames, 1, rold_colnames);
                 setAttrib(answer, R_DimNamesSymbol, dimnames);
             }
+        }
+    } catch (TGLException &e) {
+        rerror("%s", e.msg());
+    } catch (const bad_alloc &e) {
+        rerror("Out of memory");
+    }
+
+    rreturn(answer);
+}
+
+SEXP tgs_cross_cor_blas(SEXP _x, SEXP _y, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _tidy, SEXP _threshold, SEXP _envir)
+{
+    SEXP answer = R_NilValue;
+
+    try {
+        struct Mem {
+            double *m[2]{NULL};
+            double *mask[2]{NULL};
+            double *n{NULL};
+            double *s_x{NULL};
+            double *s_y{NULL};
+            double *cov_n{NULL};
+            double *varx_n{NULL};
+            double *vary_n{NULL};
+            double *res{NULL};
+            ~Mem() { 
+                for (int i = 0; i < 2; ++i) {
+                    free(m[i]);
+                    free(mask[i]);
+                }
+                free(n);
+                free(s_x);
+                free(s_y);
+                free(cov_n);
+                free(varx_n);
+                free(vary_n);
+                free(res);
+            }
+        } mem;
+
+        TGStat tgstat(_envir);
+
+        if ((!isReal(_x) && !isInteger(_x)) || xlength(_x) < 1)
+            verror("\"x\" argument must be a matrix of numeric values");
+
+        if ((!isReal(_y) && !isInteger(_y)) || xlength(_y) < 1)
+            verror("\"y\" argument must be a matrix of numeric values");
+
+        if (!isLogical(_pairwise_complete_obs) || xlength(_pairwise_complete_obs) != 1)
+            verror("\"pairwise.complete.obs\" argument must be a logical value");
+
+        if (!isLogical(_spearman) || xlength(_spearman) != 1)
+            verror("\"spearman\" argument must be a logical value");
+
+        if (!isLogical(_tidy) || xlength(_tidy) != 1)
+            verror("\"tidy\" argument must be a logical value");
+
+        if ((!isReal(_threshold) && !isInteger(_threshold)) || xlength(_threshold) != 1)
+            verror("\"threshold\" argument must be a numeric value");
+
+        SEXP rdim1 = getAttrib(_x, R_DimSymbol);
+        SEXP rdim2 = getAttrib(_y, R_DimSymbol);
+
+        if (!isInteger(rdim1) || xlength(rdim1) != 2)
+            verror("\"x\" argument must be a matrix of numeric values");
+
+        if (!isInteger(rdim2) || xlength(rdim2) != 2)
+            verror("\"y\" argument must be a matrix of numeric values");
+
+        if (nrows(_x) != nrows(_y))
+            verror("\"x\" and \"y\" matrices have different number of rows");
+
+        bool pairwise_complete_obs = asLogical(_pairwise_complete_obs);
+        bool spearman = asLogical(_spearman);
+        bool tidy = asLogical(_tidy);
+        double threshold = fabs(asReal(_threshold));
+        size_t num_dims = nrows(_x);
+        size_t num_points[2] = { (size_t)ncols(_x), (size_t)ncols(_y) };
+        int num_dims32 = (int)num_dims;
+        int num_points32[2] = { (int)num_points[0], (int)num_points[1] };
+
+        if (num_dims <= 1 || num_points[0] <= 1)
+            verror("\"x\" argument must be a matrix of numeric values");
+
+        if (num_points[1] <= 1)
+            verror("\"y\" argument must be a matrix of numeric values");
+
+        size_t num_vals[2] = { num_points[0] * num_dims, num_points[1] * num_dims };
+        size_t res_size = num_points[0] * num_points[1];
+        bool nan_in_vals = false;
+        vector<bool> nan_in_point[2];
+
+        nan_in_point[0].resize(num_points[0], false);
+        nan_in_point[1].resize(num_points[1], false);
+
+        vdebug("START BLAS COR\n");
+        // some BLAS implementations ask to align double arrays to 64 for improved efficiency
+        for (int k = 0; k < 2; k++) {
+            if (posix_memalign((void **)&mem.m[k], 64, sizeof(double) * num_vals[k]) ||
+                posix_memalign((void **)&mem.mask[k], 64, sizeof(double) * num_vals[k]))
+                verror("%s", strerror(errno));
+
+            SEXP x = k ? _y : _x;
+
+            for (size_t i = 0; i < num_vals[k]; ++i) {
+                if ((isReal(x) && !R_FINITE(REAL(x)[i])) || (isInteger(x) && INTEGER(x)[i] == NA_INTEGER)) {
+                    mem.m[k][i] = mem.mask[k][i] = 0.;
+                    nan_in_vals = true;
+                    nan_in_point[k][i / num_dims] = true;
+                } else {
+                    double val = isReal(x) ? REAL(x)[i] : INTEGER(x)[i];
+                    mem.m[k][i] = val;
+                    mem.mask[k][i] = 1.;
+                }
+            }
+        }
+
+        if (spearman && pairwise_complete_obs && nan_in_vals)
+            verror("BLAS implementation of tgs_cor does not support spearman with pairwise.complete.obs when x or y contain NA / NaN / Inf");
+
+        if (posix_memalign((void **)&mem.res, 64, sizeof(double) * res_size))
+            verror("%s", strerror(errno));
+
+        // replace values with ranks if spearman=T
+        if (spearman) {
+            vector<double *> pvals;
+            for (int k = 0; k < 2; ++k) {
+                pvals.clear();
+                pvals.reserve(num_vals[k]);
+
+                for (size_t i = 0; i < num_vals[k]; ++i)
+                    pvals.push_back(&mem.m[k][i]);
+
+                for (size_t ipoint = 0; ipoint < num_points[k]; ++ipoint) {
+                    if (nan_in_point[k][ipoint])
+                        continue;
+
+                    vector<double *>::iterator sival = pvals.begin() + ipoint * num_dims;
+                    vector<double *>::iterator eival = sival + num_dims;
+                    vector<double *>::iterator last_ival = sival;
+
+                    sort(sival, eival, [](double *p1, double *p2) { return *p1 < *p2; });
+                    for (auto ival = sival; ; ++ival) {
+                        if (ival == eival || **ival != **last_ival) {
+                            double rank = ((ival - sival) + (last_ival - sival) - 1) / 2. + 1;
+
+                            while (last_ival != ival) {
+                                **last_ival = rank;
+                                ++last_ival;
+                            }
+
+                            if (ival == eival)
+                                break;
+                        }
+                    }
+                }
+            }
+        }
+
+        if (pairwise_complete_obs && nan_in_vals) {
+            // given that X is a matrix of d x k and Y is a matrix of d x m
+            // correlation with pairwise complete jobs is calculated as:
+            //     n <- t(maskx) %*% masky
+            //     s_x <- t(mx) %*% masky
+            //     s_y <- t(maskx) %*% my
+            //     cov_n <- (t(mx) %*% my) - (s_x * s_y) / n
+            //     varx_n <- (t(mx * mx) %*% masky) - (s_x * s_x) / n
+            //     vary_n <- (t(maskx) %*% (my * my)) - (s_y * s_y) / n
+            //     res <- cov_n / sqrt(varx_n * vary_n)
+            //
+            // * all the results (e.g. n, s_x, s_y, ...) are matrices of k x m
+
+            if (posix_memalign((void **)&mem.s_x, 64, sizeof(double) * res_size) ||
+                posix_memalign((void **)&mem.s_y, 64, sizeof(double) * res_size) ||
+                posix_memalign((void **)&mem.varx_n, 64, sizeof(double) * res_size) ||
+                posix_memalign((void **)&mem.vary_n, 64, sizeof(double) * res_size) ||
+                posix_memalign((void **)&mem.n, 64, sizeof(double) * res_size) ||
+                posix_memalign((void **)&mem.cov_n, 64, sizeof(double) * res_size))
+                verror("%s", strerror(errno));
+
+            ProgressReporter progress;
+            progress.init(8, 1);
+
+            //     n <- t(maskx) %*% masky
+            {
+                char transa = 'T';
+                char transb = 'N';
+                double alpha = 1;
+                double beta = 0;
+                F77_NAME(dgemm)(&transa, &transb, &num_points32[0], &num_points32[1], &num_dims32, &alpha, mem.mask[0], &num_dims32, mem.mask[1], &num_dims32, &beta, mem.n, &num_points32[0]);
+                check_interrupt();
+                progress.report(1);
+            }
+
+            //     s_x <- t(mx) %*% masky
+            {
+                char transa = 'T';
+                char transb = 'N';
+                double alpha = 1;
+                double beta = 0;
+                F77_NAME(dgemm)(&transa, &transb, &num_points32[0], &num_points32[1], &num_dims32, &alpha, mem.m[0], &num_dims32, mem.mask[1], &num_dims32, &beta, mem.s_x, &num_points32[0]);
+                check_interrupt();
+                progress.report(1);
+            }
+
+            //     s_y <- t(maskx) %*% my
+            {
+                char transa = 'T';
+                char transb = 'N';
+                double alpha = 1;
+                double beta = 0;
+                F77_NAME(dgemm)(&transa, &transb, &num_points32[0], &num_points32[1], &num_dims32, &alpha, mem.mask[0], &num_dims32, mem.m[1], &num_dims32, &beta, mem.s_y, &num_points32[0]);
+                check_interrupt();
+                progress.report(1);
+            }
+
+            //     cov_n <- t(mx) %*% my
+            {
+                char transa = 'T';
+                char transb = 'N';
+                double alpha = 1;
+                double beta = 0;
+                F77_NAME(dgemm)(&transa, &transb, &num_points32[0], &num_points32[1], &num_dims32, &alpha, mem.m[0], &num_dims32, mem.m[1], &num_dims32, &beta, mem.cov_n, &num_points32[0]);
+                check_interrupt();
+                progress.report(1);
+            }
+
+            //     cov_n <- cov_n - (s_x * s_y) / n
+            for (size_t i = 0; i < res_size; ++i)
+                mem.cov_n[i] -= mem.s_x[i] * mem.s_y[i] / mem.n[i];
+            check_interrupt();
+
+            //    m <- m * m
+            for (int k = 0; k < 2; ++k) {
+                for (size_t i = 0; i < num_vals[k]; ++i)
+                    mem.m[k][i] *= mem.m[k][i];
+                check_interrupt();
+            }
+            progress.report(1);
+
+            //     varx_n <- t(mx * mx) %*% masky
+            {
+                char transa = 'T';
+                char transb = 'N';
+                double alpha = 1;
+                double beta = 0;
+                F77_NAME(dgemm)(&transa, &transb, &num_points32[0], &num_points32[1], &num_dims32, &alpha, mem.m[0], &num_dims32, mem.mask[1], &num_dims32, &beta, mem.varx_n, &num_points32[0]);
+                check_interrupt();
+                progress.report(1);
+            }
+
+            //     varx_n <- varx_n - (s_x * s_x) / n
+            for (size_t i = 0; i < res_size; ++i)
+                mem.varx_n[i] -= mem.s_x[i] * mem.s_x[i] / mem.n[i];
+            check_interrupt();
+
+            //     vary_n <- maskx %*% t(my * my)
+            {
+                char transa = 'T';
+                char transb = 'N';
+                double alpha = 1;
+                double beta = 0;
+                F77_NAME(dgemm)(&transa, &transb, &num_points32[0], &num_points32[1], &num_dims32, &alpha, mem.mask[0], &num_dims32, mem.m[1], &num_dims32, &beta, mem.vary_n, &num_points32[0]);
+                check_interrupt();
+                progress.report(1);
+            }
+
+            //     vary_n <- vary_n - (s_y * s_y) / n
+            for (size_t i = 0; i < res_size; ++i)
+                mem.vary_n[i] -= mem.s_y[i] * mem.s_y[i] / mem.n[i];
+            check_interrupt();
+
+            //     res <- cov_n / sqrt(varx_n * vary_n)
+            for (size_t i = 0; i < res_size; ++i)
+                mem.res[i] = mem.cov_n[i] / sqrt(mem.varx_n[i] * mem.vary_n[i]);
+            check_interrupt();
+            progress.report_last();
+        } else {
+            // correlation without pairwise complete obs or with all finite values requires matrix multiplications (only one):
+            //     s_xy <- t(mx) %*% my
+            //     stddev[i] <- sqrt(sums_square[i] / dims - e(i)^2)
+            //     res[i,j] <- (s_xy[i,j] / dims - ex(i) * ey(j)) / (stddevx(i) * stddevy(j))
+
+            ProgressReporter progress;
+            progress.init(3, 1);
+
+            vector<double> sums[2];
+            vector<double> sums_square[2];
+            vector<double> means[2];
+            vector<double> stddevs[2];
+
+            for (int k = 0; k < 2; ++k) {
+                sums[k].resize(num_points[k], 0);
+                sums_square[k].resize(num_points[k], 0);
+                means[k].resize(num_points[k], 0);
+                stddevs[k].resize(num_points[k], 0);
+
+                for (size_t idim = 0; idim < num_dims; ++idim) {
+                    size_t idx = idim;
+                    for (size_t ipoint = 0; ipoint < num_points[k]; ++ipoint) {
+                        if (!nan_in_point[k][ipoint]) {
+                            sums[k][ipoint] += mem.m[k][idx];
+                            sums_square[k][ipoint] += mem.m[k][idx] * mem.m[k][idx];
+                        }
+                        idx += num_dims;
+                    }
+                }
+                check_interrupt();
+
+                for (size_t ipoint = 0; ipoint < num_points[k]; ++ipoint) {
+                    if (!nan_in_point[k][ipoint]) {
+                        means[k][ipoint] = sums[k][ipoint] / num_dims;
+
+                        // we are calaculating standard deviation:
+                        // sqrt(sum((x-mean)^2) / N)) = sqrt(sum(x^2) / N - mean^2)
+                        stddevs[k][ipoint] = sqrt(sums_square[k][ipoint] / num_dims - means[k][ipoint] * means[k][ipoint]);
+                    }
+                }
+                check_interrupt();
+            }
+            progress.report(1);
+
+            //     res <- t(mx) %*% my
+            {
+                char transa = 'T';
+                char transb = 'N';
+                double alpha = 1;
+                double beta = 0;
+                F77_NAME(dgemm)(&transa, &transb, &num_points32[0], &num_points32[1], &num_dims32, &alpha, mem.m[0], &num_dims32, mem.m[1], &num_dims32, &beta, mem.res, &num_points32[0]);
+                check_interrupt();
+                progress.report(1);
+            }
+
+            for (size_t ipoint2 = 0, idx = 0; ipoint2 < num_points[1]; ++ipoint2) {
+                for (size_t ipoint1 = 0; ipoint1 < num_points[0]; ++ipoint1) {
+                    if (nan_in_point[0][ipoint1] || nan_in_point[1][ipoint2])
+                        mem.res[idx] = NA_REAL;
+                    else
+                        mem.res[idx] = (mem.res[idx] / num_dims - means[0][ipoint1] * means[1][ipoint2]) / (stddevs[0][ipoint1] * stddevs[1][ipoint2]);
+                    ++idx;
+                }
+            }
+            check_interrupt();
+            progress.report_last();
+        }
+        vdebug("END BLAS COR\n");
+
+        // assemble the answer
+        SEXP rold_dimnames[2] = { getAttrib(_x, R_DimNamesSymbol), getAttrib(_y, R_DimNamesSymbol) };
+        SEXP rold_colnames[2] = {
+            !isNull(rold_dimnames[0]) && xlength(rold_dimnames[0]) == 2 ? VECTOR_ELT(rold_dimnames[0], 1) : R_NilValue,
+            !isNull(rold_dimnames[1]) && xlength(rold_dimnames[1]) == 2 ? VECTOR_ELT(rold_dimnames[1], 1) : R_NilValue
+        };
+
+        if (tidy) {
+            enum { COL1, COL2, COR, NUM_COLS };
+            const char *COL_NAMES[NUM_COLS] = { "col1", "col2", "cor" };
+
+            rprotect(answer = RSaneAllocVector(VECSXP, NUM_COLS));
+
+            size_t answer_size = 0;
+
+            for (size_t i = 0; i < res_size; ++i) {
+                if (!std::isnan(mem.res[i]) && fabs(mem.res[i]) >= threshold)
+                    ++answer_size;
+            }
+
+            SEXP rcol1, rcol2, rcor, rrownames, rcolnames;
+
+            rprotect(rcol1 = RSaneAllocVector(INTSXP, answer_size));
+            rprotect(rcol2 = RSaneAllocVector(INTSXP, answer_size));
+            rprotect(rcor = RSaneAllocVector(REALSXP, answer_size));
+            rprotect(rcolnames = RSaneAllocVector(STRSXP, NUM_COLS));
+            rprotect(rrownames = RSaneAllocVector(INTSXP, answer_size));
+
+            for (int i = 0; i < NUM_COLS; i++)
+                SET_STRING_ELT(rcolnames, i, mkChar(COL_NAMES[i]));
+
+            if (answer_size) {
+                size_t idx_answer = 0;
+                for (size_t icol1 = 0; icol1 < num_points[0]; ++icol1) {
+                    size_t idx_m = icol1;
+                    for (size_t icol2 = 0; icol2 < num_points[1]; ++icol2) {
+                        if (!std::isnan(mem.res[idx_m]) && fabs(mem.res[idx_m]) >= threshold) {
+                            INTEGER(rcol1)[idx_answer] = icol1 + 1;
+                            INTEGER(rcol2)[idx_answer] = icol2 + 1;
+                            REAL(rcor)[idx_answer] = mem.res[idx_m];
+                            INTEGER(rrownames)[idx_answer] = idx_answer + 1;
+                            ++idx_answer;
+                        }
+                        idx_m += num_points[0];
+                    }
+                }
+            }
+
+            if (rold_colnames[0] != R_NilValue) {
+                setAttrib(rcol1, R_LevelsSymbol, rold_colnames[0]);
+                setAttrib(rcol1, R_ClassSymbol, mkString("factor"));
+            }
+            if (rold_colnames[1] != R_NilValue) {
+                setAttrib(rcol2, R_LevelsSymbol, rold_colnames[1]);
+                setAttrib(rcol2, R_ClassSymbol, mkString("factor"));
+            }
+
+            SET_VECTOR_ELT(answer, COL1, rcol1);
+            SET_VECTOR_ELT(answer, COL2, rcol2);
+            SET_VECTOR_ELT(answer, COR, rcor);
+
+            setAttrib(answer, R_NamesSymbol, rcolnames);
+            setAttrib(answer, R_ClassSymbol, mkString("data.frame"));
+            setAttrib(answer, R_RowNamesSymbol, rrownames);
+        } else {
+            SEXP dim;
+            SEXP dimnames;
+
+            rprotect(answer = RSaneAllocVector(REALSXP, res_size));
+            memcpy(REAL(answer), mem.res, res_size * sizeof(double));
+
+            rprotect(dim = RSaneAllocVector(INTSXP, 2));
+            INTEGER(dim)[0] = num_points[0];
+            INTEGER(dim)[1] = num_points[1];
+            setAttrib(answer, R_DimSymbol, dim);
+
+            rprotect(dimnames = RSaneAllocVector(VECSXP, 2));
+            SET_VECTOR_ELT(dimnames, 0, rold_colnames[0]);
+            SET_VECTOR_ELT(dimnames, 1, rold_colnames[1]);
+            setAttrib(answer, R_DimNamesSymbol, dimnames);
         }
     } catch (TGLException &e) {
         rerror("%s", e.msg());

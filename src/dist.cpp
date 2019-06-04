@@ -466,7 +466,7 @@ SEXP tgs_dist(SEXP _x, SEXP _attrs, SEXP _tidy, SEXP _threshold, SEXP _rrownames
         size_t num_points = nrows(_x);
         size_t num_dims = ncols(_x);
 
-        if (num_points <= 1 || num_dims <= 1)
+        if (num_points < 1 || num_dims < 1)
             verror("\"x\" argument must be a matrix of numeric values");
 
         size_t num_vals = num_points * num_dims;
@@ -685,7 +685,7 @@ SEXP tgs_dist_blas(SEXP _x, SEXP _attrs, SEXP _tidy, SEXP _threshold, SEXP _rrow
         int num_points32 = (int)num_points;
         int num_dims32 = (int)num_dims;
 
-        if (num_points <= 1 || num_dims <= 1)
+        if (num_points < 1 || num_dims < 1)
             verror("\"x\" argument must be a matrix of numeric values");
 
         size_t num_vals = num_points * num_dims;

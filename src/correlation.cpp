@@ -58,7 +58,7 @@ SEXP tgs_cor(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _tidy, S
         size_t num_rows = nrows(_x);
         size_t num_cols = ncols(_x);
 
-        if (num_rows <= 1 || num_cols <= 1)
+        if (num_rows < 1 || num_cols < 1)
             verror("\"x\" argument must be a matrix of numeric values");
 
         size_t num_vals = num_rows * num_cols;
@@ -356,7 +356,7 @@ SEXP tgs_cor(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _tidy, S
                     idx1++;
                     idx2 += num_cols;
                 }
-                res[icol1 * (num_cols + 1)] = 1.;
+                res[icol1 * (num_cols + 1)] = num_rows > 1 ? 1. : NA_REAL;
             }
 
             for (size_t i = 0; i < res_size; ++i) {
@@ -445,10 +445,10 @@ SEXP tgs_cross_cor(SEXP _x, SEXP _y, SEXP _pairwise_complete_obs, SEXP _spearman
         size_t num_rows = nrows(_x);
         size_t num_cols[2] = { (size_t)ncols(_x), (size_t)ncols(_y) };
 
-        if (num_rows <= 1 || num_cols[0] <= 1)
+        if (num_rows < 1 || num_cols[0] < 1)
             verror("\"x\" argument must be a matrix of numeric values");
 
-        if (num_cols[1] <= 1)
+        if (num_cols[1] < 1)
             verror("\"y\" argument must be a matrix of numeric values");
 
         size_t num_vals[2] = { num_rows * num_cols[0], num_rows * num_cols[1] };
@@ -751,6 +751,11 @@ SEXP tgs_cross_cor(SEXP _x, SEXP _y, SEXP _pairwise_complete_obs, SEXP _spearman
             SEXP dim;
             SEXP dimnames;
 
+            for (size_t i = 0; i < res_size; ++i) {
+                if (std::isnan(res[i]))
+                    res[i] = NA_REAL;
+            }
+
             rprotect(answer = RSaneAllocVector(REALSXP, res_size));
             memcpy(REAL(answer), res, res_size * sizeof(double));
 
@@ -828,7 +833,7 @@ SEXP tgs_cor_blas(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _ti
         int num_dims32 = (int)num_dims;
         int num_points32 = (int)num_points;
 
-        if (num_dims <= 1 || num_points <= 1)
+        if (num_dims < 1 || num_points < 1)
             verror("\"x\" argument must be a matrix of numeric values");
 
         size_t num_vals = num_points * num_dims;
@@ -1069,8 +1074,14 @@ SEXP tgs_cor_blas(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _ti
             }
             check_interrupt();
 
-            for (size_t idx = 0; idx < res_size; idx += num_points + 1)
-                mem.res[idx] = 1.;
+            if (num_dims > 1) {
+                for (size_t idx = 0; idx < res_size; idx += num_points + 1)
+                    mem.res[idx] = 1.;
+            } else {
+                for (size_t idx = 0; idx < res_size; idx += num_points + 1)
+                    mem.res[idx] = NA_REAL;
+            }
+
             check_interrupt();
 
             progress.report_last();
@@ -1153,6 +1164,11 @@ SEXP tgs_cor_blas(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _ti
             setAttrib(answer, R_RowNamesSymbol, rrownames);
         } else {
             SEXP dim;
+
+            for (size_t i = 0; i < res_size; ++i) {
+                if (std::isnan(mem.res[i]))
+                    mem.res[i] = NA_REAL;
+            }
 
             rprotect(answer = RSaneAllocVector(REALSXP, res_size));
             memcpy(REAL(answer), mem.res, res_size * sizeof(double));
@@ -1250,10 +1266,10 @@ SEXP tgs_cross_cor_blas(SEXP _x, SEXP _y, SEXP _pairwise_complete_obs, SEXP _spe
         int num_dims32 = (int)num_dims;
         int num_points32[2] = { (int)num_points[0], (int)num_points[1] };
 
-        if (num_dims <= 1 || num_points[0] <= 1)
+        if (num_dims < 1 || num_points[0] < 1)
             verror("\"x\" argument must be a matrix of numeric values");
 
-        if (num_points[1] <= 1)
+        if (num_points[1] < 1)
             verror("\"y\" argument must be a matrix of numeric values");
 
         size_t num_vals[2] = { num_points[0] * num_dims, num_points[1] * num_dims };
@@ -1584,6 +1600,11 @@ SEXP tgs_cross_cor_blas(SEXP _x, SEXP _y, SEXP _pairwise_complete_obs, SEXP _spe
             SEXP dim;
             SEXP dimnames;
 
+            for (size_t i = 0; i < res_size; ++i) {
+                if (std::isnan(mem.res[i]))
+                    mem.res[i] = NA_REAL;
+            }
+
             rprotect(answer = RSaneAllocVector(REALSXP, res_size));
             memcpy(REAL(answer), mem.res, res_size * sizeof(double));
 
@@ -1607,5 +1628,4 @@ SEXP tgs_cross_cor_blas(SEXP _x, SEXP _y, SEXP _pairwise_complete_obs, SEXP _spe
 }
 
 }
-
 

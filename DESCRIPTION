@@ -1,15 +1,15 @@
 Package: tgstat
 Type: Package
 Title: Amos Tanay's Group High Performance Statistical Utilities
-Version: 2.3.4
+Version: 2.3.5
 Depends: utils
 SystemRequirements: C++11
 OS_type: unix
-Date: 2019-05-03
+Date: 2019-06-04
 Author: Misha Hoichman
 Maintainer: Misha Hoichman <misha.hoichman@weizmann.ac.il>
 Description: A collection of high performance utilities to compute distance, correlation, clustering and other tasks.
 License: GPL-2
 LazyLoad: yes
 NeedsCompilation: yes
-Packaged: 2019-05-03 09:43:10 UTC; hoichman
+Packaged: 2019-06-04 10:28:46 UTC; hoichman

@@ -3,7 +3,9 @@
 language: R
 warnings_are_errors: false
 cache: packages
-before_install: sudo apt-get install texinfo texlive
+before_install: 
+  - sudo apt-get install texinfo texlive
+  - tlmgr install ps­frag amsmath amscd tableposition ifthen inputenc epsfig psfrag listings geometry
 before_deploy: Rscript -e 'remotes::install_cran("pkgdown")'
 deploy:
   provider: script

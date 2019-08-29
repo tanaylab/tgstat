@@ -4,8 +4,7 @@ language: R
 warnings_are_errors: false
 cache: packages
 before_install: 
-  - sudo apt-get install texinfo texlive-latex-recommended
-  - tlmgr install amsmath amscd caption ifthen inputenc epsfig listings geometry
+  - sudo apt-get install texinfo texlive-latex-recommended  
 before_deploy: Rscript -e 'remotes::install_cran("pkgdown")'
 deploy:
   provider: script

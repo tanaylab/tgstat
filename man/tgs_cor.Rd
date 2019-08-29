@@ -54,7 +54,7 @@ m[sample(1 : (rows * cols), rows * cols / 1000)] <- NA
 
 r1 <- tgs_cor(m, spearman = FALSE)
 r2 <- tgs_cor(m, pairwise.complete.obs = TRUE, spearman = TRUE)
-r3 <- tgs_cor_knn(m, 5, spearman = FALSE)
+r3 <- tgs_cor_knn(m, m, 5, spearman = FALSE)
 }
 \keyword{ ~correlation }
 

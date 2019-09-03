@@ -2,7 +2,7 @@
 
 language: R
 warnings_are_errors: false
-r_build_args: "--no-codoc --no-examples --no-vignettes --no-build-vignettes --no-tests"
+r_build_args: "--no-vignettes --no-build-vignettes --no-tests"
 r_check_args: "--no-codoc --no-examples --no-vignettes --no-build-vignettes --no-tests"
 cache: packages
 before_install: 

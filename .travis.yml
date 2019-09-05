@@ -10,6 +10,9 @@ before_install:
   - tlmgr install dvips
 before_deploy: Rscript -e 'remotes::install_cran("pkgdown")'
 deploy:
-  provider: script
-  script: Rscript -e 'pkgdown::deploy_site_github(document = FALSE, examples = FALSE)'
-  skip_cleanup: true
+  - provider: script
+    script: Rscript -e 'pkgdown::deploy_site_github(document = FALSE, examples = FALSE)'  
+    skip_cleanup: true
+  - provider: script
+    script: "./push_misha_manual"
+    skip_cleanup: true

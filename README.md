@@ -7,5 +7,5 @@ Installation
 ------------
 
 ``` r
-install.packages('tgstat', repos=c(getOption('repos'), 'https://tanaylab.bitbucket.io/repo'))
+install.packages('tgstat', repos=c(getOption('repos'), 'https://tanaylab.github.io/repo'))
 ```

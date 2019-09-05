@@ -18,6 +18,6 @@ The goal of tgstat is to provide fast and efficient statistical tools.
 
 ## Installation
 ```{r, eval=FALSE}
-install.packages('tgstat', repos=c(getOption('repos'), 'https://tanaylab.bitbucket.io/repo'))
+install.packages('tgstat', repos=c(getOption('repos'), 'https://tanaylab.github.io/repo'))
 ```
 

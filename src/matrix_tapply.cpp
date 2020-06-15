@@ -13,7 +13,7 @@
 
 extern "C" {
 
-SEXP tgs_matrix_tapply(SEXP _x, SEXP _index, SEXP _fn, SEXP _args, SEXP _envir)
+SEXP tgs_matrix_tapply(SEXP _x, SEXP _index, SEXP _fn, SEXP _fn_name, SEXP _args, SEXP _envir)
 {
     SEXP answer = R_NilValue;
     double *res = (double *)MAP_FAILED;
@@ -27,7 +27,6 @@ SEXP tgs_matrix_tapply(SEXP _x, SEXP _index, SEXP _fn, SEXP _args, SEXP _envir)
         SEXP _xx = getAttrib(_x, install("x"));   // non zero values of sparse matrix
         SEXP _xi = getAttrib(_x, install("i"));   // row number within sparse matrix
         SEXP _xp = getAttrib(_x, install("p"));   // index offset of the column within sparse matrix
-
 
         if ((!isReal(_x) && !isInteger(_x) && !isObject(_x)) ||
             ((isReal(_x) || isInteger(_x)) && (xlength(_x) < 1 || !isInteger(_rdims = getAttrib(_x, R_DimSymbol)) || xlength(_rdims) != 2)) ||
@@ -50,6 +49,11 @@ SEXP tgs_matrix_tapply(SEXP _x, SEXP _index, SEXP _fn, SEXP _args, SEXP _envir)
         if (!isFunction(_fn) || xlength(_fn) != 1)
             verror("\"fn\" argument must be a function");
 
+        if (!isString(_fn_name) || xlength(_fn_name) != 1)
+            verror("\"fn_name\" argument must be a string");
+
+        string fn_name(CHAR(asChar(_fn_name)));
+        
         SEXP rcall;
         SEXP rindex_levels = getAttrib(_index, R_LevelsSymbol);
         size_t num_groups = xlength(rindex_levels);
@@ -130,9 +134,11 @@ SEXP tgs_matrix_tapply(SEXP _x, SEXP _index, SEXP _fn, SEXP _args, SEXP _envir)
                     for (int i = 0; i < Rf_length(_args); ++i) {
                         s = CDR(s);
                         SETCAR(s, VECTOR_ELT(_args, i));
-                        const char *arg_name = CHAR(STRING_ELT(rarg_names, i));
-                        if (*arg_name)
-                            SET_TAG(s, install(arg_name));
+                        if (!isNull(rarg_names)) {
+                            const char *arg_name = CHAR(STRING_ELT(rarg_names, i));
+                            if (*arg_name)
+                                SET_TAG(s, install(arg_name));
+                        }
                     }
 
                     for (int irow = srow; irow < erow; ++irow) {

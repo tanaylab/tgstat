@@ -118,5 +118,5 @@ tgs_matrix_tapply <- function(x, index, fun, ...) {
     args <- as.list(substitute(list(...)))[-1L]
     if (!is.factor(index))
         index <- factor(index)
-    .Call("tgs_matrix_tapply", x, index, fun, args, new.env(parent = parent.frame()))
+    .Call("tgs_matrix_tapply", x, index, fun, as.character(substitute(fun)), args, new.env(parent = parent.frame()))
 }

@@ -13,6 +13,7 @@ tgs_matrix_tapply(x, index, fun)
   \item{x}{a matrix or a sparse matrix of 'dgCMatrix' type}
   \item{index}{a 'list' of one or more 'factor's, each of same length as the number of columns in 'x'. The elements are coerced to factors by 'as.factor'.}
   \item{fun}{the function to be applied}
+  \item{...}{optional arguments to 'fun'}
 }
 \details{
 'tgs_matrix_tapply(x, index, fun)' is essentialy an efficient implementation of 'apply(mat, 1, function(x) tapply(x, index, fun))'.

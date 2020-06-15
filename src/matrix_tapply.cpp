@@ -13,7 +13,7 @@
 
 extern "C" {
 
-SEXP tgs_matrix_tapply(SEXP _x, SEXP _index, SEXP _fn, SEXP _envir)
+SEXP tgs_matrix_tapply(SEXP _x, SEXP _index, SEXP _fn, SEXP _args, SEXP _envir)
 {
     SEXP answer = R_NilValue;
     double *res = (double *)MAP_FAILED;
@@ -27,6 +27,7 @@ SEXP tgs_matrix_tapply(SEXP _x, SEXP _index, SEXP _fn, SEXP _envir)
         SEXP _xx = getAttrib(_x, install("x"));   // non zero values of sparse matrix
         SEXP _xi = getAttrib(_x, install("i"));   // row number within sparse matrix
         SEXP _xp = getAttrib(_x, install("p"));   // index offset of the column within sparse matrix
+
 
         if ((!isReal(_x) && !isInteger(_x) && !isObject(_x)) ||
             ((isReal(_x) || isInteger(_x)) && (xlength(_x) < 1 || !isInteger(_rdims = getAttrib(_x, R_DimSymbol)) || xlength(_rdims) != 2)) ||
@@ -117,8 +118,22 @@ SEXP tgs_matrix_tapply(SEXP _x, SEXP _index, SEXP _fn, SEXP _envir)
                                 lower_bound(rows_sparse + col_offsets_sparse[*icol], rows_sparse + col_offsets_sparse[*icol + 1], srow) - rows_sparse;
                     }
 
-                    rprotect(rcall = lang2(_fn, R_NilValue));
+                    // construct language expression for eval:
+                    // function, vector of values, additional arguments in _args
+                    rprotect(rcall = allocList(2 + Rf_length(_args)));
+                    SET_TYPEOF(rcall, LANGSXP);
+                    SETCAR(rcall, _fn);
                     SETCADR(rcall, rgroup);
+
+                    SEXP s = CDR(rcall);
+                    SEXP rarg_names = getAttrib(_args, R_NamesSymbol);
+                    for (int i = 0; i < Rf_length(_args); ++i) {
+                        s = CDR(s);
+                        SETCAR(s, VECTOR_ELT(_args, i));
+                        const char *arg_name = CHAR(STRING_ELT(rarg_names, i));
+                        if (*arg_name)
+                            SET_TAG(s, install(arg_name));
+                    }
 
                     for (int irow = srow; irow < erow; ++irow) {
                         if (_xclass == R_NilValue) {     // _x is regular matrix

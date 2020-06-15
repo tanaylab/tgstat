@@ -1,5 +1,7 @@
 <!-- badges: start -->
-[![Travis build status](https://travis-ci.com/tanaylab/tgstat.svg?branch=master)](https://travis-ci.org/tanaylab/tgstat) <!-- badges: end -->
+[![Travis build
+status](https://travis-ci.com/tanaylab/tgstat.svg?branch=master)](https://travis-ci.org/tanaylab/tgstat)
+<!-- badges: end -->
 
 tgstat
 ======

@@ -160,8 +160,7 @@ public:
 
     static sem_t *shm_sem() { return s_shm_sem; }
 
-//protected:
-public:
+protected:
     struct Shm {
         char          error_msg[10000];
         uint64_t      itr_idx[MAX_KIDS];          // used for progress report

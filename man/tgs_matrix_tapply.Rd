@@ -7,7 +7,7 @@ For each matrix row apply a function over a ragged array
 For each matrix row apply a function to each cell of a ragged array, that is to each (non-empty) group of values given by a unique combination of the levels of certain factors.
 }
 \usage{
-tgs_matrix_tapply(x, index, fun)
+tgs_matrix_tapply(x, index, fun, ...)
 }
 \arguments{
   \item{x}{a matrix or a sparse matrix of 'dgCMatrix' type}

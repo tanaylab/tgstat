@@ -2,7 +2,8 @@ Package: tgstat
 Type: Package
 Title: Amos Tanay's Group High Performance Statistical Utilities
 Version: 2.3.8
-Depends: utils
+Depends: R (>= 3.1.0)
+Imports: utils
 SystemRequirements: C++11
 OS_type: unix
 Date: 2020-06-17
@@ -12,6 +13,6 @@ Description: A collection of high performance utilities to compute distance, cor
 License: GPL-2
 LazyLoad: yes
 NeedsCompilation: yes
-Packaged: 2020-06-17 14:26:20 UTC; hoichman
+Packaged: 2020-06-22 16:29:56 UTC; hoichman
 Authors@R: person("Misha", "Hoichman", email = "misha@hoichman.com", role = c("aut", "cre"))
 BugReports: https://github.com/tanaylab/tgstat/issues

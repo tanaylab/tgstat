@@ -1,2 +1,7 @@
 ^.*\.Rproj$
 ^\.Rproj\.user$
+_pkgdown\.yml
+push_misha_manual
+README\.Rmd
+README\.md
+\.travis\.yml

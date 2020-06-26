@@ -550,7 +550,7 @@ void TGStat::sigint_handler(int)
     // Normally this condition should be always true since the kid installs the default handler for SIGINT.
     // However due to race condition the old handler might still be in use.
     if (getpid() == s_parent_pid)
-        Rprintf("CTL-C!\n");
+        REprintf("CTL-C!\n");
 }
 
 void TGStat::sigalrm_handler(int)
@@ -674,18 +674,18 @@ void vdebug(const char *fmt, ...)
         tm = localtime(&tmnow.tv_sec);
         strftime(buf, sizeof(buf), "%H:%M:%S", tm);
         if (TGStat::is_kid())
-            Rprintf("[DEBUG pid %d %s.%03d] ", getpid(), buf, (int)(tmnow.tv_usec / 1000));
+            REprintf("[DEBUG pid %d %s.%03d] ", getpid(), buf, (int)(tmnow.tv_usec / 1000));
         else
-            Rprintf("[DEBUG %s.%03d] ", buf, (int)(tmnow.tv_usec / 1000));
+            REprintf("[DEBUG %s.%03d] ", buf, (int)(tmnow.tv_usec / 1000));
 
         va_list ap;
     	va_start(ap, fmt);
     	vsnprintf(buf, sizeof(buf), fmt, ap);
         va_end(ap);
-        Rprintf(buf);
+        REprintf(buf);
 
         if (!*fmt || (*fmt && fmt[strlen(fmt) - 1] != '\n'))
-            Rprintf("\n");
+            REprintf("\n");
     }
 }
 
@@ -766,7 +766,8 @@ SEXP eval_in_R(SEXP parsed_command, SEXP envir)
 SEXP run_in_R(const char *command, SEXP envir)
 {
 	SEXP expr;
-	SEXP parsed_expr;
+	SEXP parsed_expr = R_NilValue;
+    SEXPCleaner parsed_expr_cleaner(parsed_expr);
 	ParseStatus status;
 
 	rprotect(expr = RSaneAllocVector(STRSXP, 1));

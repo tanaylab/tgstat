@@ -24,7 +24,8 @@ tgs_graph_cover_resample(graph, knn, min_cluster_size,
   \item{method}{method for calculating co_cluster and co_sample; valid values: "hash", "full", "edges"}
 }
 \details{
-The algorithm is explained in a separate document.
+The algorithm is explained in a "MetaCell: analysis of single-cell RNA-seq data using K-nn graph partitions" paper, published in "Genome Biology" #20:
+https://genomebiology.biomedcentral.com/articles/10.1186/s13059-019-1812-2
 }
 \value{
 If method == "hash", a list with two members.

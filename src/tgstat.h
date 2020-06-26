@@ -61,6 +61,12 @@ void runprotect(vector<SEXP> &exprs);
 // Call runprotect_all if you wish to unprotect all object that are still protected
 void runprotect_all();
 
+struct SEXPCleaner {
+    SEXPCleaner(SEXP &_var) : var(&_var) {}
+    ~SEXPCleaner() { runprotect(*var); }
+    SEXP *var;
+};
+
 inline bool is_R_var_char(char c) { return isalnum(c) || c == '_' || c == '.'; }
 
 // the result is already protected

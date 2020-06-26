@@ -109,12 +109,12 @@ unsigned graph2cluster(const int *pnode1, const int *pnode2, const double *pweig
         ++num_clusters;
     }
 
-//printf("Num clusters: %d\n", num_clusters);
+//REprintf("Num clusters: %d\n", num_clusters);
 //for (auto i = node2seed.begin(); i < node2seed.end(); ++i)
-//printf("\tnode2seed %d -> %d\n", i - node2seed.begin(), *i);
-//printf("Num clusters: %d\n", num_clusters);
+//REprintf("\tnode2seed %d -> %d\n", i - node2seed.begin(), *i);
+//REprintf("Num clusters: %d\n", num_clusters);
 //for (size_t i = 0; i < num_nodes; ++i)
-//printf("\t%d -> %d\n", i, node2cluster[i]);
+//REprintf("\t%d -> %d\n", i, node2cluster[i]);
 
     // look for the nodes that have not been covered yet and assign them to the seeds
     // that achieve the maximal weight along the d2 path; nodes that cannot reach the seeds within d2 will stay unassigned
@@ -146,9 +146,9 @@ unsigned graph2cluster(const int *pnode1, const int *pnode2, const double *pweig
 
     check_interrupt();
     vdebug("Formed %d clusters\n", num_clusters);
-//printf("Cluster sizes: %ld, num_clusters: %ld\n", cluster_sizes.size(), num_clusters);
+//REprintf("Cluster sizes: %ld, num_clusters: %ld\n", cluster_sizes.size(), num_clusters);
 //for (auto i = node2seed.begin(); i < node2seed.end(); ++i)
-//printf("%d -> %d, cluster: %d, cluster size: %d\n", i - node2seed.begin(), *i, node2cluster[i - node2seed.begin()], node2cluster[i - node2seed.begin()] == -1 ? -1 : cluster_sizes[node2cluster[i - node2seed.begin()]]);
+//REprintf("%d -> %d, cluster: %d, cluster size: %d\n", i - node2seed.begin(), *i, node2cluster[i - node2seed.begin()], node2cluster[i - node2seed.begin()] == -1 ? -1 : cluster_sizes[node2cluster[i - node2seed.begin()]]);
 
     // stage 2: consolidate the clusters
 
@@ -255,7 +255,7 @@ unsigned graph2cluster(const int *pnode1, const int *pnode2, const double *pweig
     vdebug("Consolidation - DONE\n");
 
 //for (unsigned i = 0; i < num_clusters; ++i) {
-//printf("Cluster[%d], size: %d\n", i, cluster_sizes[i]);
+//REprintf("Cluster[%d], size: %d\n", i, cluster_sizes[i]);
 //}
 //
     if (0 && g_tgstat->debug()) {
@@ -285,23 +285,23 @@ unsigned graph2cluster(const int *pnode1, const int *pnode2, const double *pweig
             }
         }
 
-        printf("TOTAL WEIGHTS: %g\n", total_weight);
-        printf("  IN CLUSTERS: %g\n", in_cluster_weight);
-        printf("  UNASSIGNED:  %g\n", unassigned_weight);
-        printf("  IN/TOTAL:    %g\n", in_cluster_weight / total_weight);
-        printf("\n");
+        REprintf("TOTAL WEIGHTS: %g\n", total_weight);
+        REprintf("  IN CLUSTERS: %g\n", in_cluster_weight);
+        REprintf("  UNASSIGNED:  %g\n", unassigned_weight);
+        REprintf("  IN/TOTAL:    %g\n", in_cluster_weight / total_weight);
+        REprintf("\n");
 
         for (unsigned cluster = 0; cluster < num_clusters; ++cluster) {
-            printf("CLUSTER %d\n", cluster + 1);
-            printf("\tIN CLUSTER: %g\n", in_cluster_weights[cluster]);
-            printf("\tINCOMING:   %g\n", incoming_weights[cluster]);
-            printf("\tOUTGOING:   %g\n", outgoing_weights[cluster]);
-            printf("\tIN/TOTAL:   %g\n", in_cluster_weights[cluster] / (in_cluster_weights[cluster] + incoming_weights[cluster] + outgoing_weights[cluster]));
+            REprintf("CLUSTER %d\n", cluster + 1);
+            REprintf("\tIN CLUSTER: %g\n", in_cluster_weights[cluster]);
+            REprintf("\tINCOMING:   %g\n", incoming_weights[cluster]);
+            REprintf("\tOUTGOING:   %g\n", outgoing_weights[cluster]);
+            REprintf("\tIN/TOTAL:   %g\n", in_cluster_weights[cluster] / (in_cluster_weights[cluster] + incoming_weights[cluster] + outgoing_weights[cluster]));
         }
     }
 
 //for (unsigned i = 0; i < num_nodes; ++i)
-//printf("Node %d => %d\n", i + 1, node2cluster[i] + 1);
+//REprintf("Node %d => %d\n", i + 1, node2cluster[i] + 1);
 
     return num_clusters;
 }

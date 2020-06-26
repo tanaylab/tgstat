@@ -18,7 +18,8 @@ tgs_graph_cover(graph, min_cluster_size, cooling = 1.05,
   \item{burn_in}{number of node reassignments after which cooling is applied}
 }
 \details{
-The algorithm is explained in a separate document.
+The algorithm is explained in a "MetaCell: analysis of single-cell RNA-seq data using K-nn graph partitions" paper, published in "Genome Biology" #20:
+https://genomebiology.biomedcentral.com/articles/10.1186/s13059-019-1812-2
 }
 \value{
 Data frame that maps each node to its cluster.

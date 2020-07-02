@@ -478,7 +478,7 @@ void TGStat::handle_error(const char *msg)
 		{
 			SemLocker sl(s_shm_sem);
 			if (!s_shm->error_msg[0]) { // write an error message only if there were no error messages before
-				strncpy(s_shm->error_msg, msg, sizeof(s_shm->error_msg));
+				strncpy(s_shm->error_msg, msg, sizeof(s_shm->error_msg) - 1);
 				s_shm->error_msg[sizeof(s_shm->error_msg) - 1] = '\0';
 			}
 		}

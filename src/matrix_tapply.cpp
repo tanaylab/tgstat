@@ -37,7 +37,7 @@ void init_sum_data(SEXP rargs, SEXP rarg_names, SEXP renvir, SumData *sum_data)
             else if (!strcmp(arg_name, "na.rm")) {
                 SEXP retv = eval_in_R(VECTOR_ELT(rargs, i), renvir);
                 sum_data->na_rm = asLogical(retv);
-                unprotect(1);
+                runprotect(1);
             }
         }
     }
@@ -97,12 +97,12 @@ void init_mean_data(SEXP rargs, SEXP rarg_names, SEXP renvir, MeanData *mean_dat
                     SEXP retv = eval_in_R(VECTOR_ELT(rargs, i), renvir);
                     mean_data->trim = asReal(retv);
                     trim_set = true;
-                    unprotect(1);
+                    runprotect(1);
                 } else if (!strcmp(arg_name, "na.rm")) {
                     SEXP retv = eval_in_R(VECTOR_ELT(rargs, i), renvir);
                     mean_data->na_rm = asLogical(retv);
                     na_rm_set = true;
-                    unprotect(1);
+                    runprotect(1);
                 }
             }
         }
@@ -115,12 +115,12 @@ void init_mean_data(SEXP rargs, SEXP rarg_names, SEXP renvir, MeanData *mean_dat
                 SEXP retv = eval_in_R(VECTOR_ELT(rargs, i), renvir);
                 mean_data->trim = asReal(retv);
                 trim_set = true;
-                unprotect(1);
+                runprotect(1);
             } else if (!na_rm_set) {
                 SEXP retv = eval_in_R(VECTOR_ELT(rargs, i), renvir);
                 mean_data->na_rm = asLogical(retv);
                 na_rm_set = true;
-                unprotect(1);
+                runprotect(1);
             }
         }
     }
@@ -164,10 +164,11 @@ SEXP tgs_matrix_tapply(SEXP _x, SEXP _index, SEXP _fn, SEXP _fn_name, SEXP _args
         if (!isFunction(_fn) || xlength(_fn) != 1)
             verror("\"fn\" argument must be a function");
 
-        if (!isString(_fn_name) || xlength(_fn_name) != 1)
+        if (!isString(_fn_name))
             verror("\"fn_name\" argument must be a string");
 
-        string fn_name(CHAR(asChar(_fn_name)));        
+        // in case "fun=function(x) mean(x)", _fn_name will be a vector of strings
+        string fn_name(xlength(_fn_name) == 1 ? CHAR(asChar(_fn_name)) : "");
         SEXP rarg_names = getAttrib(_args, R_NamesSymbol);
         SEXP rcall;
         SEXP rindex_levels = getAttrib(_index, R_LevelsSymbol);

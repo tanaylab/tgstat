@@ -31,6 +31,7 @@ If 'tidy' is 'FALSE' - the output is similar to that of 'dist' function. If 'tid
 }
 
 \examples{
+\dontrun{
 set.seed(seed = 0)
 rows <- 100
 cols <- 1000
@@ -38,6 +39,7 @@ vals <- sample(1 : (rows * cols / 2), rows * cols, replace = TRUE)
 m <- matrix(vals, nrow = rows, ncol = cols)
 m[sample(1 : (rows * cols), rows * cols / 1000)] <- NA
 r <- tgs_dist(m)
+}
 }
 \keyword{ ~distance }
 

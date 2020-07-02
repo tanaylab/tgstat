@@ -26,6 +26,7 @@ A sparse matrix in a data frame format with 'col1', 'col2', 'val' and 'rank' col
 }
 
 \examples{
+\dontrun{
 set.seed(seed = 1)
 rows <- 100
 cols <- 1000
@@ -33,6 +34,7 @@ vals <- sample(1 : (rows * cols / 2), rows * cols, replace = TRUE)
 m <- matrix(vals, nrow = rows, ncol = cols)
 m[sample(1 : (rows * cols), rows * cols / 1000)] <- NA
 r <- tgs_knn(m, 3)
+}
 }
 \keyword{ ~knn }
 

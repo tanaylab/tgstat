@@ -30,6 +30,7 @@ Data frame that maps each node to its cluster.
 }
 
 \examples{
+\dontrun{
 set.seed(seed = 0)
 rows <- 100
 cols <- 1000
@@ -41,6 +42,7 @@ r1 <- tgs_cor(m, pairwise.complete.obs = FALSE, spearman = TRUE)
 r2 <- tgs_knn(r1, knn = 30, diag = FALSE)
 r3 <- tgs_graph(r2, knn = 3, k_expand = 10)
 r4 <- tgs_graph_cover(r3, 5)
+}
 }
 \keyword{ ~cluster }
 

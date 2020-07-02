@@ -42,6 +42,7 @@ If method == "edges", a list containing two data frames: co_cluster and co_sampl
 }
 
 \examples{
+\dontrun{
 set.seed(seed = 0)
 rows <- 100
 cols <- 200
@@ -52,6 +53,7 @@ r1 <- tgs_cor(m, pairwise.complete.obs = FALSE, spearman = TRUE)
 r2 <- tgs_knn(r1, knn = 20, diag = FALSE)
 r3 <- tgs_graph(r2, knn = 3, k_expand = 10)
 r4 <- tgs_graph_cover_resample(r3, 10, 1)
+}
 }
 \keyword{ ~cluster }
 

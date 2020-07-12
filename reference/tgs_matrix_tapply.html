@@ -158,7 +158,9 @@
     <p>A matrix of nrow(x) X length(index) size. Each [i,j] element represents the result of applying 'fun' to x[i,which(index==levels(index)[j])].</p>
 
     <h2 class="hasAnchor" id="examples"><a class="anchor" href="#examples"></a>Examples</h2>
-    <pre class="examples"><span class='kw'>if</span> (<span class='fl'>FALSE</span>) {
+    <pre class="examples"><span class='co'># \donttest{</span>
+<span class='co'># Note: all the available CPU cores might be used</span>
+
 <span class='fu'><a href='https://rdrr.io/r/base/Random.html'>set.seed</a></span>(<span class='kw'>seed</span> <span class='kw'>=</span> <span class='fl'>1</span>)
 <span class='no'>nr</span> <span class='kw'>&lt;-</span> <span class='fl'>6</span>
 <span class='no'>nc</span> <span class='kw'>&lt;-</span> <span class='fl'>10</span>
@@ -166,7 +168,20 @@
 <span class='no'>index</span> <span class='kw'>&lt;-</span><span class='fu'><a href='https://rdrr.io/r/base/factor.html'>factor</a></span>(<span class='fu'><a href='https://rdrr.io/r/base/rep.html'>rep_len</a></span>(<span class='fl'>1</span>:<span class='fl'>3</span>, <span class='fu'><a href='https://rdrr.io/r/base/nrow.html'>ncol</a></span>(<span class='no'>mat</span>)), <span class='kw'>levels</span><span class='kw'>=</span><span class='fl'>0</span>:<span class='fl'>5</span>)
 <span class='no'>r1</span> <span class='kw'>&lt;-</span> <span class='fu'><a href='https://rdrr.io/r/base/apply.html'>apply</a></span>(<span class='no'>mat</span>, <span class='fl'>1</span>, <span class='kw'>function</span>(<span class='no'>x</span>) <span class='fu'><a href='https://rdrr.io/r/base/tapply.html'>tapply</a></span>(<span class='no'>x</span>, <span class='no'>index</span>, <span class='no'>sum</span>))
 <span class='no'>r2</span> <span class='kw'>&lt;-</span> <span class='fu'>tgs_matrix_tapply</span>(<span class='no'>mat</span>, <span class='no'>index</span>, <span class='no'>sum</span>)
-}</pre>
+<span class='co'># }</span>
+
+<span class='co'># \dontshow{</span>
+<span class='fu'><a href='https://rdrr.io/r/base/options.html'>options</a></span>(<span class='kw'>tgs_use.blas</span><span class='kw'>=</span><span class='fl'>FALSE</span>)
+<span class='fu'><a href='https://rdrr.io/r/base/options.html'>options</a></span>(<span class='kw'>tgs_max.processes</span><span class='kw'>=</span><span class='fl'>1</span>)
+
+<span class='fu'><a href='https://rdrr.io/r/base/Random.html'>set.seed</a></span>(<span class='kw'>seed</span> <span class='kw'>=</span> <span class='fl'>1</span>)
+<span class='no'>nr</span> <span class='kw'>&lt;-</span> <span class='fl'>6</span>
+<span class='no'>nc</span> <span class='kw'>&lt;-</span> <span class='fl'>10</span>
+<span class='no'>mat</span> <span class='kw'>&lt;-</span> <span class='fu'><a href='https://rdrr.io/r/base/matrix.html'>matrix</a></span>(<span class='fu'><a href='https://rdrr.io/r/base/sample.html'>sample</a></span>(<span class='fu'><a href='https://rdrr.io/r/base/c.html'>c</a></span>(<span class='fu'><a href='https://rdrr.io/r/base/rep.html'>rep</a></span>(<span class='fl'>0</span>,<span class='fl'>6</span>), <span class='fl'>1</span>:<span class='fl'>3</span>),<span class='no'>nr</span>*<span class='no'>nc</span>, <span class='kw'>replace</span><span class='kw'>=</span><span class='fl'>TRUE</span>), <span class='kw'>nrow</span><span class='kw'>=</span><span class='no'>nr</span>, <span class='kw'>ncol</span><span class='kw'>=</span><span class='no'>nc</span>)
+<span class='no'>index</span> <span class='kw'>&lt;-</span><span class='fu'><a href='https://rdrr.io/r/base/factor.html'>factor</a></span>(<span class='fu'><a href='https://rdrr.io/r/base/rep.html'>rep_len</a></span>(<span class='fl'>1</span>:<span class='fl'>3</span>, <span class='fu'><a href='https://rdrr.io/r/base/nrow.html'>ncol</a></span>(<span class='no'>mat</span>)), <span class='kw'>levels</span><span class='kw'>=</span><span class='fl'>0</span>:<span class='fl'>5</span>)
+<span class='no'>r1</span> <span class='kw'>&lt;-</span> <span class='fu'><a href='https://rdrr.io/r/base/apply.html'>apply</a></span>(<span class='no'>mat</span>, <span class='fl'>1</span>, <span class='kw'>function</span>(<span class='no'>x</span>) <span class='fu'><a href='https://rdrr.io/r/base/tapply.html'>tapply</a></span>(<span class='no'>x</span>, <span class='no'>index</span>, <span class='no'>sum</span>))
+<span class='no'>r2</span> <span class='kw'>&lt;-</span> <span class='fu'>tgs_matrix_tapply</span>(<span class='no'>mat</span>, <span class='no'>index</span>, <span class='no'>sum</span>)
+<span class='co'># }</span></pre>
   </div>
   <div class="col-md-3 hidden-xs hidden-sm" id="pkgdown-sidebar">
     <nav id="toc" data-toggle="toc" class="sticky-top">

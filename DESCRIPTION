@@ -15,6 +15,6 @@ License: GPL-2
 LazyLoad: yes
 RoxygenNote: 6.1.1
 NeedsCompilation: yes
-Packaged: 2020-07-02 18:23:34 UTC; hoichman
+Packaged: 2020-07-12 10:55:42 UTC; hoichman
 Authors@R: person("Misha", "Hoichman", email = "misha@hoichman.com", role = c("aut", "cre"))
 BugReports: https://github.com/tanaylab/tgstat/issues

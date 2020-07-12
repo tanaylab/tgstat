@@ -45,10 +45,28 @@ One of the reasons to opt 'tgs_cor_knn' over a pair of calls to 'tgs_cor' and 't
 }
 
 \examples{
-\dontrun{
+\donttest{
+# Note: all the available CPU cores might be used
+
 set.seed(seed = 0)
 rows <- 100
 cols <- 1000
+vals <- sample(1 : (rows * cols / 2), rows * cols, replace = TRUE)
+m <- matrix(vals, nrow = rows, ncol = cols)
+m[sample(1 : (rows * cols), rows * cols / 1000)] <- NA
+
+r1 <- tgs_cor(m, spearman = FALSE)
+r2 <- tgs_cor(m, pairwise.complete.obs = TRUE, spearman = TRUE)
+r3 <- tgs_cor_knn(m, NULL, 5, spearman = FALSE)
+}
+
+\dontshow{
+options(tgs_use.blas=FALSE)
+options(tgs_max.processes=1)
+
+set.seed(seed = 0)
+rows <- 100
+cols <- 100
 vals <- sample(1 : (rows * cols / 2), rows * cols, replace = TRUE)
 m <- matrix(vals, nrow = rows, ncol = cols)
 m[sample(1 : (rows * cols), rows * cols / 1000)] <- NA

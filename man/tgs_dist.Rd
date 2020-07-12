@@ -31,10 +31,25 @@ If 'tidy' is 'FALSE' - the output is similar to that of 'dist' function. If 'tid
 }
 
 \examples{
-\dontrun{
+\donttest{
+# Note: all the available CPU cores might be used
+
 set.seed(seed = 0)
 rows <- 100
 cols <- 1000
+vals <- sample(1 : (rows * cols / 2), rows * cols, replace = TRUE)
+m <- matrix(vals, nrow = rows, ncol = cols)
+m[sample(1 : (rows * cols), rows * cols / 1000)] <- NA
+r <- tgs_dist(m)
+}
+
+\dontshow{
+options(tgs_use.blas=FALSE)
+options(tgs_max.processes=1)
+
+set.seed(seed = 0)
+rows <- 100
+cols <- 100
 vals <- sample(1 : (rows * cols / 2), rows * cols, replace = TRUE)
 m <- matrix(vals, nrow = rows, ncol = cols)
 m[sample(1 : (rows * cols), rows * cols / 1000)] <- NA

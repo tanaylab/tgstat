@@ -23,7 +23,22 @@ A matrix of nrow(x) X length(index) size. Each [i,j] element represents the resu
 }
 
 \examples{
-\dontrun{
+\donttest{
+# Note: all the available CPU cores might be used
+
+set.seed(seed = 1)
+nr <- 6
+nc <- 10
+mat <- matrix(sample(c(rep(0,6), 1:3),nr*nc, replace=TRUE), nrow=nr, ncol=nc)
+index <-factor(rep_len(1:3, ncol(mat)), levels=0:5)
+r1 <- apply(mat, 1, function(x) tapply(x, index, sum))
+r2 <- tgs_matrix_tapply(mat, index, sum)
+}
+
+\dontshow{
+options(tgs_use.blas=FALSE)
+options(tgs_max.processes=1)
+
 set.seed(seed = 1)
 nr <- 6
 nc <- 10

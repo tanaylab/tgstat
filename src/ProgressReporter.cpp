@@ -1,4 +1,4 @@
-#include <sys/timeb.h>
+#include <sys/time.h>
 
 #include <R.h>
 #include <Rinternals.h>
@@ -21,9 +21,9 @@ void ProgressReporter::init(uint64_t maxsteps, uint64_t init_report_step, uint64
 
 uint64_t ProgressReporter::get_cur_clock()
 {
-	struct timeb tp;
-	ftime(&tp);
-	return tp.time * 1000 + tp.millitm;
+	struct timeval tv;
+	gettimeofday(&tv, NULL);
+	return tv.tv_sec * 1000 + tv.tv_usec / 1000;
 }
 
 void ProgressReporter::report(uint64_t delta_steps_done)

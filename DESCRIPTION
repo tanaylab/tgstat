@@ -1,20 +1,25 @@
 Package: tgstat
 Type: Package
 Title: Amos Tanay's Group High Performance Statistical Utilities
-Version: 2.3.11
+Version: 2.3.12
 Depends: R (>= 3.1.0)
 Imports: utils
 SystemRequirements: C++11
 OS_type: unix
-Date: 2020-07-14
-Author: Misha Hoichman
-Maintainer: Misha Hoichman <misha@hoichman.com>
+Date: 2020-07-15
+Author: Michael Hoichman
+Maintainer: Michael Hoichman <misha@hoichman.com>
 Description: A collection of high performance utilities to compute distance,
     correlation, auto correlation, clustering and other tasks.
+    Contains graph clustering algorithm described in "MetaCell: analysis of
+    single-cell RNA-seq data using K-nn graph partitions" (Yael Baran,
+    Akhiad Bercovich, Arnau Sebe-Pedros, Yaniv Lubling, Amir Giladi,
+    Elad Chomsky, Zohar Meir, Michael Hoichman, Aviezer Lifshitz & Amos Tanay,
+    2019 <doi:10.1186/s13059-019-1812-2>).
 License: GPL-2
 LazyLoad: yes
 RoxygenNote: 6.1.1
 NeedsCompilation: yes
-Packaged: 2020-07-14 13:33:38 UTC; hoichman
+Packaged: 2020-07-15 13:06:24 UTC; hoichman
 Authors@R: person("Misha", "Hoichman", email = "misha@hoichman.com", role = c("aut", "cre"))
 BugReports: https://github.com/tanaylab/tgstat/issues

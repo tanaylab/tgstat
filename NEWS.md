@@ -1,3 +1,7 @@
+# tgstat 2.3.12
+
+- Added authors with DOI to package description.
+
 # tgstat 2.3.11
 
 - Fixed compilation issues on some platforms.

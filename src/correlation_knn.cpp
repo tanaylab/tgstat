@@ -146,54 +146,17 @@ SEXP tgs_cor_knn(SEXP _x, SEXP _knn, SEXP _pairwise_complete_obs, SEXP _spearman
             }
         }
 
-//struct Mem {
-//    double *m{NULL};
-//    double *m2{NULL};
-//    double *mask{NULL};
-//    double *n{NULL};
-//    double *sum_x{NULL};
-//    double *sum_y{NULL};
-//    double *sum_xy{NULL};
-//    double *sum_x2{NULL};
-//    double *sum_y2{NULL};
-//    ~Mem() { free(m); free(m2); free(mask); free(n); free(sum_x); free(sum_y); free(sum_xy); free(sum_x2); free(sum_y2); }
-//} mem;
-//
-//int num_rows32 = (int)num_rows;
-//int num_cols32 = (int)num_cols;
-//
-//posix_memalign((void **)&mem.m, 64, sizeof(double) * num_vals);
-//posix_memalign((void **)&mem.m2, 64, sizeof(double) * num_vals);
-//posix_memalign((void **)&mem.mask, 64, sizeof(double) * num_vals);
-//posix_memalign((void **)&mem.n, 64, sizeof(double) * num_cols);
-//posix_memalign((void **)&mem.sum_x, 64, sizeof(double) * num_cols);
-//posix_memalign((void **)&mem.sum_y, 64, sizeof(double) * num_cols);
-//posix_memalign((void **)&mem.sum_xy, 64, sizeof(double) * num_cols);
-//posix_memalign((void **)&mem.sum_x2, 64, sizeof(double) * num_cols);
-//posix_memalign((void **)&mem.sum_y2, 64, sizeof(double) * num_cols);
-//
-//for (size_t i = 0; i < num_vals; ++i) {
-//    if ((isReal(_x) && !R_FINITE(REAL(_x)[i])) || (isInteger(_x) && INTEGER(_x)[i] == NA_INTEGER))
-//        mem.m[i] = mem.m2[i] = mem.mask[i] = 0.;
-//    else {
-//        double val = isReal(_x) ? REAL(_x)[i] : INTEGER(_x)[i];
-//        mem.m[i] = val;
-//        mem.m2[i] = val * val;
-//        mem.mask[i] = 1.;
-//    }
-//}
-
         vdebug("Allocating shared memory for results\n");
 
         // Shared memory structure:
         //    [col 0]
-        //       unsigned - node with the highest correlation
+        //       int64_t - node with the highest correlation. int64_t used to make the following double aligned to 8.
         //       double   - highest correlation
-        //       unsigned - node with the second highest correlation
+        //       int64_t - node with the second highest correlation
         //       ...
         //    [col 1]
         //       ...
-        size_t res_record_sizeof = sizeof(unsigned) + sizeof(double);
+        size_t res_record_sizeof = sizeof(int64_t) + sizeof(double);
         res_sizeof = num_cols * knn * res_record_sizeof;
         res = (char *)mmap(NULL, res_sizeof, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
 
@@ -201,7 +164,6 @@ SEXP tgs_cor_knn(SEXP _x, SEXP _knn, SEXP _pairwise_complete_obs, SEXP _spearman
             verror("Failed to allocate shared memory: %s", strerror(errno));
 
         int num_processes = (int)min(num_cols, (size_t)g_tgstat->num_processes());
-//num_processes=1;
         double num_cols4process = num_cols / (double)num_processes;
 
         ProgressReporter progress;
@@ -219,53 +181,6 @@ SEXP tgs_cor_knn(SEXP _x, SEXP _knn, SEXP _pairwise_complete_obs, SEXP _spearman
                 vector<double *> pcors(num_cols);
 
                 for (size_t icol1 = scol; icol1 < ecol; ++icol1) {
-//{
-////    char transa = 'T';
-//char transa = 'T';
-//    double alpha = 1;
-//    double beta = 0;
-//    int inc = 1;
-//
-//    // n = t(mask) x mask[,col]
-//    F77_NAME(dgemv)(&transa, &num_rows32, &num_cols32, &alpha, mem.mask, &num_rows32, mem.mask + (num_rows * icol1), &inc, &beta, mem.n, &inc);
-//
-//    // sum_xy = t(m) x m[,col]
-//    F77_NAME(dgemv)(&transa, &num_rows32, &num_cols32, &alpha, mem.m, &num_rows32, mem.m + (num_rows * icol1), &inc, &beta, mem.sum_xy, &inc);
-//
-//    // sum_x = t(m) x mask[,col]
-//    F77_NAME(dgemv)(&transa, &num_rows32, &num_cols32, &alpha, mem.m, &num_rows32, mem.mask + (num_rows * icol1), &inc, &beta, mem.sum_x, &inc);
-//
-//    // sum_y = t(mask) x m[,col]
-//    F77_NAME(dgemv)(&transa, &num_rows32, &num_cols32, &alpha, mem.mask, &num_rows32, mem.m + (num_rows * icol1), &inc, &beta, mem.sum_y, &inc);
-//
-//    // sum_x2 = t(m^2) x mask[,col]
-//    F77_NAME(dgemv)(&transa, &num_rows32, &num_cols32, &alpha, mem.m2, &num_rows32, mem.mask + (num_rows * icol1), &inc, &beta, mem.sum_x2, &inc);
-//
-//    // sum_y2 = t(mask) x m^2[,col]
-//    F77_NAME(dgemv)(&transa, &num_rows32, &num_cols32, &alpha, mem.mask, &num_rows32, mem.m2 + (num_rows * icol1), &inc, &beta, mem.sum_y2, &inc);
-//}
-//
-//for (size_t i = 0; i < num_cols; ++i) {
-//    double cor = 0;
-//
-//    if (i != icol1) {
-//        double avg_x = mem.sum_x[i] / mem.n[i];
-//        double avg_y = mem.sum_y[i] / mem.n[i];
-//        double cov_xy = mem.sum_xy[i] / mem.n[i] - avg_x * avg_y;
-//        double stddev_x = sqrt(mem.sum_x2[i] / mem.n[i] - avg_x * avg_x);
-//        double stddev_y = sqrt(mem.sum_y2[i] / mem.n[i] - avg_y * avg_y);
-//        cor = cov_xy / (stddev_x * stddev_y);
-//    }
-//
-//    if (!cor || fabs(cor) < threshold)
-//        cor = -2;
-//
-//    cors[i] = cor;
-//    pcors[i] = &cors[i];
-//    ++itr_idx;
-//    TGStat::itr_idx(itr_idx);
-//}
-
                     for (size_t icol2 = 0; icol2 < num_cols; ++icol2) {
                         double cor = 0;
 
@@ -372,9 +287,9 @@ SEXP tgs_cor_knn(SEXP _x, SEXP _knn, SEXP _pairwise_complete_obs, SEXP _spearman
                     // pack the results into shared memory
                     size_t offset = icol1 * res_record_sizeof * knn;
                     for (size_t i = 0; i < knn; ++i) {
-                        unsigned idx = pcors[i] - &cors.front();
-                        *(unsigned *)(res + offset) = idx;
-                        offset += sizeof(unsigned);
+                        int64_t idx = pcors[i] - &cors.front();
+                        *(int64_t *)(res + offset) = idx;
+                        offset += sizeof(int64_t);
                         *(double *)(res + offset) = cors[idx];
                         offset += sizeof(double);
 
@@ -401,7 +316,7 @@ SEXP tgs_cor_knn(SEXP _x, SEXP _knn, SEXP _pairwise_complete_obs, SEXP _spearman
             size_t offset = icol * res_record_sizeof * knn;
 
             for (size_t i = 0; i < knn; ++i) {
-                if (*(double *)(res + offset + sizeof(unsigned)) == -2)
+                if (*(double *)(res + offset + sizeof(int64_t)) == -2)
                     break;
 
                 ++answer_size;
@@ -431,12 +346,12 @@ SEXP tgs_cor_knn(SEXP _x, SEXP _knn, SEXP _pairwise_complete_obs, SEXP _spearman
                 size_t offset = icol * res_record_sizeof * knn;
 
                 for (size_t i = 0; i < knn; ++i) {
-                    if (*(double *)(res + offset + sizeof(unsigned)) == -2)
+                    if (*(double *)(res + offset + sizeof(int64_t)) == -2)
                         break;
 
                     INTEGER(rcol1)[row] = icol + 1;
-                    INTEGER(rcol2)[row] = *(unsigned *)(res + offset) + 1;
-                    offset += sizeof(unsigned);
+                    INTEGER(rcol2)[row] = *(int64_t *)(res + offset) + 1;
+                    offset += sizeof(int64_t);
                     REAL(rcor)[row] = *(double *)(res + offset);
                     offset += sizeof(double);
                     INTEGER(rrank)[row] = i + 1;
@@ -634,13 +549,13 @@ SEXP tgs_cross_cor_knn(SEXP _x, SEXP _y, SEXP _knn, SEXP _pairwise_complete_obs,
 
         // Shared memory structure:
         //    [col 0]
-        //       unsigned - node with the highest correlation
-        //       double   - highest correlation
-        //       unsigned - node with the second highest correlation
+        //       int64_t - node with the highest correlation: int64_t used to make the following double aligned to 8
+        //       double  - highest correlation
+        //       int64_t - node with the second highest correlation
         //       ...
         //    [col 1]
         //       ...
-        size_t res_record_sizeof = sizeof(unsigned) + sizeof(double);
+        size_t res_record_sizeof = sizeof(int64_t) + sizeof(double);
         res_sizeof = num_cols[0] * knn * res_record_sizeof;
         res = (char *)mmap(NULL, res_sizeof, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
 
@@ -769,9 +684,9 @@ SEXP tgs_cross_cor_knn(SEXP _x, SEXP _y, SEXP _knn, SEXP _pairwise_complete_obs,
                     // pack the results into shared memory
                     size_t offset = icol1 * res_record_sizeof * knn;
                     for (size_t i = 0; i < knn; ++i) {
-                        unsigned idx = pcors[i] - &cors.front();
-                        *(unsigned *)(res + offset) = idx;
-                        offset += sizeof(unsigned);
+                        int64_t idx = pcors[i] - &cors.front();
+                        *(int64_t *)(res + offset) = idx;
+                        offset += sizeof(int64_t);
                         *(double *)(res + offset) = cors[idx];
                         offset += sizeof(double);
 
@@ -798,7 +713,7 @@ SEXP tgs_cross_cor_knn(SEXP _x, SEXP _y, SEXP _knn, SEXP _pairwise_complete_obs,
             size_t offset = icol * res_record_sizeof * knn;
 
             for (size_t i = 0; i < knn; ++i) {
-                if (*(double *)(res + offset + sizeof(unsigned)) == -2)
+                if (*(double *)(res + offset + sizeof(int64_t)) == -2)
                     break;
 
                 ++answer_size;
@@ -831,12 +746,12 @@ SEXP tgs_cross_cor_knn(SEXP _x, SEXP _y, SEXP _knn, SEXP _pairwise_complete_obs,
                 size_t offset = icol * res_record_sizeof * knn;
 
                 for (size_t i = 0; i < knn; ++i) {
-                    if (*(double *)(res + offset + sizeof(unsigned)) == -2)
+                    if (*(double *)(res + offset + sizeof(int64_t)) == -2)
                         break;
 
                     INTEGER(rcol1)[row] = icol + 1;
-                    INTEGER(rcol2)[row] = *(unsigned *)(res + offset) + 1;
-                    offset += sizeof(unsigned);
+                    INTEGER(rcol2)[row] = *(int64_t *)(res + offset) + 1;
+                    offset += sizeof(int64_t);
                     REAL(rcor)[row] = *(double *)(res + offset);
                     offset += sizeof(double);
                     INTEGER(rrank)[row] = i + 1;
@@ -881,4 +796,3 @@ SEXP tgs_cross_cor_knn(SEXP _x, SEXP _y, SEXP _knn, SEXP _pairwise_complete_obs,
 }
 
 }
-

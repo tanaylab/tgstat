@@ -152,6 +152,7 @@ SEXP tgs_matrix_tapply(SEXP _x, SEXP _index, SEXP _fn, SEXP _fn_name, SEXP _args
                               !isInteger(_xp) || xlength(_xp) != INTEGER(_rdims)[1] + 1)))
             verror("\"x\" argument must be a matrix of numeric values");
 
+        SEXP _xdimnames = _xclass == R_NilValue ? getAttrib(_x, R_DimNamesSymbol) : getAttrib(_x, install("Dimnames"));
         size_t num_rows = INTEGER(_rdims)[0];   // do not use nrows(): it doesn't work for sparse (i.e. dgCMatrix) matrix
         size_t num_cols = INTEGER(_rdims)[1];
 
@@ -433,7 +434,7 @@ SEXP tgs_matrix_tapply(SEXP _x, SEXP _index, SEXP _fn, SEXP _fn_name, SEXP _args
 
         rprotect(dimnames = RSaneAllocVector(VECSXP, 2));
         SET_VECTOR_ELT(dimnames, 0, rindex_levels);
-        SET_VECTOR_ELT(dimnames, 1, R_NilValue);
+        SET_VECTOR_ELT(dimnames, 1, !isNull(_xdimnames) && xlength(_xdimnames) > 0 ? VECTOR_ELT(_xdimnames, 0) : R_NilValue);
         setAttrib(answer, R_DimNamesSymbol, dimnames);
     } catch (TGLException &e) {
         if (!TGStat::is_kid() && res != (double *)MAP_FAILED) {

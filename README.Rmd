@@ -30,7 +30,7 @@ optimized functions provided by the Basic Linear Algebra Subprograms (BLAS) libr
 In order to install `tgstat`:
 
 ```{r, eval = FALSE}
-remotes::install_github("tanaylab/tgstat")
+install.packages("tgstat")
 ```
 
 ## Examples

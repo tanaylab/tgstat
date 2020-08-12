@@ -1,12 +1,12 @@
 Package: tgstat
 Type: Package
 Title: Amos Tanay's Group High Performance Statistical Utilities
-Version: 2.3.12
-Depends: R (>= 3.1.0)
+Version: 2.3.13
+Depends: R (>= 3.5.0)
 Imports: utils
 SystemRequirements: C++11
 OS_type: unix
-Date: 2020-07-15
+Date: 2020-08-11
 Author: Michael Hoichman
 Maintainer: Michael Hoichman <misha@hoichman.com>
 Description: A collection of high performance utilities to compute distance,
@@ -20,6 +20,6 @@ License: GPL-2
 LazyLoad: yes
 RoxygenNote: 6.1.1
 NeedsCompilation: yes
-Packaged: 2020-07-15 13:19:54 UTC; hoichman
+Packaged: 2020-08-12 09:05:49 UTC; hoichman
 Authors@R: person("Misha", "Hoichman", email = "misha@hoichman.com", role = c("aut", "cre"))
 BugReports: https://github.com/tanaylab/tgstat/issues

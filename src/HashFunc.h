@@ -3,15 +3,20 @@
 
 #include <functional>
 
-#include <sys/param.h>
-#ifdef _BSD
-#include <sys/endian.h>
-#elif defined(__linux__)
-#include <byteswap.h>
-#elif defined(__APPLE__)
-#include <libkern/OSByteOrder.h>
-#define bswap_64 OSSwapInt64
-#define bswap_32 OSSwapInt32
+#ifndef BSWAP_8
+#define	BSWAP_8(x)	((x) & 0xff)
+#endif
+
+#ifndef BSWAP_16
+#define	BSWAP_16(x)	((BSWAP_8(x) << 8) | BSWAP_8((x) >> 8))
+#endif
+
+#ifndef BSWAP_32
+#define	BSWAP_32(x)	((BSWAP_16(x) << 16) | BSWAP_16((x) >> 16))
+#endif
+
+#ifndef BSWAP_64
+#define	BSWAP_64(x)	((BSWAP_32(x) << 32) | BSWAP_32((x) >> 32))
 #endif
 
 namespace std
@@ -25,9 +30,9 @@ namespace std
 	{
 		size_t operator()(const std::pair<size_t, size_t> &v) const {
 #if (__WORDSIZE == 64)
-			return v.first ^ bswap_64(v.second);
+			return v.first ^ BSWAP_64(v.second);
 #else
-			return v.first ^ bswap_32(v.second);
+			return v.first ^ BSWAP_32(v.second);
 #endif
 		}
 	};
@@ -44,7 +49,7 @@ namespace std
 #if (__WORDSIZE == 64)
             return v.first | (v.second << 32);
 #else
-            return v.first ^ bswap_32(v.second);
+            return v.first ^ BSWAP_32(v.second);
 #endif
         }
     };

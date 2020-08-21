@@ -23,15 +23,15 @@
 #include "ProgressReporter.h"
 #include "tgstat.h"
 
-unsigned graph2cluster(const int *pnode1, const int *pnode2, const double *pweight, size_t num_edges,
-                       unsigned min_cluster_size, float cooling_rate, unsigned burn_in, unsigned *node2cluster, size_t num_nodes)
+unsigned graph2cluster(const int *pnode1, const int *pnode2, const double *pweight, uint64_t num_edges,
+                       unsigned min_cluster_size, float cooling_rate, unsigned burn_in, unsigned *node2cluster, uint64_t num_nodes)
 {
     vdebug("Finding seeds...\n");
 
     unordered_map<pair<unsigned, unsigned>, float> ij2weight;
 
     ij2weight.reserve(num_edges);
-    for (size_t i = 0; i < num_edges; ++i)
+    for (uint64_t i = 0; i < num_edges; ++i)
         ij2weight[{pnode1[i] - 1, pnode2[i] - 1}] = pweight[i];
 
     vector<vector<unsigned>> incoming(num_nodes);
@@ -41,17 +41,17 @@ unsigned graph2cluster(const int *pnode1, const int *pnode2, const double *pweig
     unsigned num_clusters = 0;
     unordered_set<unsigned> cands;                 // seed candidates 
     vector<unsigned> node2weight(num_nodes, 0);    // node2weight[i] = | incoming(i) - COVERED |
-    size_t weights_sum = 0;
+    uint64_t weights_sum = 0;
     unsigned max_weight = 0;
     unsigned min_weight = min_cluster_size;
 
-    for (size_t i = 0; i < num_edges; ++i) {
+    for (uint64_t i = 0; i < num_edges; ++i) {
         incoming[pnode2[i] - 1].push_back(pnode1[i] - 1);
         outgoing[pnode1[i] - 1].push_back(pnode2[i] - 1);
     }
 
     cands.reserve(num_nodes);
-    for (size_t i = 0; i < num_nodes; ++i) {
+    for (uint64_t i = 0; i < num_nodes; ++i) {
         node2weight[i] = incoming[i].size();
         max_weight = max(max_weight, node2weight[i]);
         if (node2weight[i] >= min_weight) {
@@ -113,7 +113,7 @@ unsigned graph2cluster(const int *pnode1, const int *pnode2, const double *pweig
 //for (auto i = node2seed.begin(); i < node2seed.end(); ++i)
 //REprintf("\tnode2seed %d -> %d\n", i - node2seed.begin(), *i);
 //REprintf("Num clusters: %d\n", num_clusters);
-//for (size_t i = 0; i < num_nodes; ++i)
+//for (uint64_t i = 0; i < num_nodes; ++i)
 //REprintf("\t%d -> %d\n", i, node2cluster[i]);
 
     // look for the nodes that have not been covered yet and assign them to the seeds
@@ -165,7 +165,7 @@ unsigned graph2cluster(const int *pnode1, const int *pnode2, const double *pweig
     vector<float> cooling_rates(num_nodes, 1);
 
     vdebug("Starting consolidation of nodes around the clusters...\n");
-    for (size_t i = 0; i < num_nodes; ++i) {
+    for (uint64_t i = 0; i < num_nodes; ++i) {
         vector<Score> &cluster2score = node2cluster_score[i];
         cluster2score.resize(num_clusters);
 
@@ -183,7 +183,7 @@ unsigned graph2cluster(const int *pnode1, const int *pnode2, const double *pweig
 
     vector<unsigned> candidates(num_nodes);
 
-    for (size_t i = 0; i < num_nodes; ++i)
+    for (uint64_t i = 0; i < num_nodes; ++i)
         candidates[i] = i;
 
     while (1) {
@@ -306,20 +306,20 @@ unsigned graph2cluster(const int *pnode1, const int *pnode2, const double *pweig
     return num_clusters;
 }
 
-void reassign_weights(const int *pnode1, const int *pnode2, unsigned knn, size_t num_edges,
+void reassign_weights(const int *pnode1, const int *pnode2, unsigned knn, uint64_t num_edges,
                       const vector<bool> &node_selected, vector<int> &nodes1, vector<int> &nodes2, vector<double> &weights)
 {
     unsigned last_idx = 0;
     unsigned last_node = pnode1[0] - 1;
     unsigned num_node_edges = node_selected[pnode2[0] - 1] ? 1 : 0;
 
-    for (size_t i = 1; ; ++i) {
+    for (uint64_t i = 1; ; ++i) {
         if (i == num_edges || last_node != pnode1[i] - 1) {
             if (node_selected[last_node] && num_node_edges) {
                 double rank = 0;
                 num_node_edges = min(num_node_edges, knn);
 
-                for (size_t j = last_idx; j < i; ++j) {
+                for (uint64_t j = last_idx; j < i; ++j) {
                     unsigned pointed_node = pnode2[j] - 1;
 
                     if (node_selected[pointed_node]) {
@@ -346,15 +346,15 @@ void reassign_weights(const int *pnode1, const int *pnode2, unsigned knn, size_t
     }
 }
 
-void launch_kid_hash(const int *pnode1, const int *pnode2, const double *pweight, size_t num_nodes, size_t num_edges, unsigned *res, int slot,
+void launch_kid_hash(const int *pnode1, const int *pnode2, const double *pweight, uint64_t num_nodes, uint64_t num_edges, unsigned *res, int slot,
                      unsigned knn, double p_resamp, unsigned min_cluster_size, float cooling_rate, unsigned burn_in, uint64_t seed)
 {
     vdebug("Launching a working process at slot %d\n", slot);
     if (!TGStat::launch_process()) {     // child process
-        size_t num_kid_nodes = max(1., p_resamp * num_nodes);
+        uint64_t num_kid_nodes = max(1., p_resamp * num_nodes);
         vector<bool> node_selected(num_nodes, false);
         vector<unsigned> nodes(num_nodes);
-        for (size_t i = 0; i < num_nodes; ++i)
+        for (uint64_t i = 0; i < num_nodes; ++i)
             nodes[i] = i;
 
         g_tgstat->rnd_seed(seed);
@@ -379,7 +379,7 @@ void launch_kid_hash(const int *pnode1, const int *pnode2, const double *pweight
         g_tgstat->rnd_seed(seed);   // this will make the results reproducible by tgs_graph_cover
         *num_clusters = graph2cluster(nodes1.data(), nodes2.data(), weights.data(), nodes1.size(), min_cluster_size, cooling_rate, burn_in, clusters, num_nodes);
 
-        for (size_t i = num_kid_nodes; i < num_nodes; ++i)
+        for (uint64_t i = num_kid_nodes; i < num_nodes; ++i)
             clusters[nodes[i]] = -2;                          // mark nodes that were not selected by -2
 
         *pready = 1;
@@ -387,14 +387,14 @@ void launch_kid_hash(const int *pnode1, const int *pnode2, const double *pweight
     }
 }
 
-void launch_kid_full(const int *pnode1, const int *pnode2, const double *pweight, size_t num_nodes, size_t num_edges, unsigned *pready, unsigned short *pco_clust,
+void launch_kid_full(const int *pnode1, const int *pnode2, const double *pweight, uint64_t num_nodes, uint64_t num_edges, unsigned *pready, unsigned short *pco_clust,
                      unsigned short *psamples, unsigned knn, double p_resamp, unsigned min_cluster_size, float cooling_rate, unsigned burn_in, uint64_t seed)
 {
     if (!TGStat::launch_process()) {     // child process
         unsigned num_kid_nodes = max(1., p_resamp * num_nodes);
         vector<bool> node_selected(num_nodes, false);
         vector<unsigned> nodes(num_nodes);
-        for (size_t i = 0; i < num_nodes; ++i)
+        for (uint64_t i = 0; i < num_nodes; ++i)
             nodes[i] = i;
 
         g_tgstat->rnd_seed(seed);
@@ -419,7 +419,7 @@ void launch_kid_full(const int *pnode1, const int *pnode2, const double *pweight
 
         vector<vector<unsigned>> cluster2nodes(num_clusters);
 
-        for (size_t i = 0; i < num_kid_nodes; ++i) {
+        for (uint64_t i = 0; i < num_kid_nodes; ++i) {
             if (node2cluster[nodes[i]] != -1)
                 cluster2nodes[node2cluster[nodes[i]]].push_back(nodes[i]);
         }
@@ -428,7 +428,7 @@ void launch_kid_full(const int *pnode1, const int *pnode2, const double *pweight
             sort(cluster_nodes.begin(), cluster_nodes.end());
             for (auto inode1 = cluster_nodes.begin(); inode1 < cluster_nodes.end(); ++inode1) {
                 // this ugly offset translates node1, node2 to the index in the buffer that stores the lower triangle (incl. diagonal) of the co_cluster matrix
-                unsigned short *p = pco_clust + ((size_t)*inode1 * (2 * num_nodes - (size_t)*inode1 - 1)) / 2;
+                unsigned short *p = pco_clust + ((uint64_t)*inode1 * (2 * num_nodes - (uint64_t)*inode1 - 1)) / 2;
                 for (auto inode2 = inode1; inode2 < cluster_nodes.end(); ++inode2)
                     __sync_add_and_fetch(p + *inode2, 1);
             }
@@ -439,14 +439,14 @@ void launch_kid_full(const int *pnode1, const int *pnode2, const double *pweight
     }
 }
 
-void launch_kid_edges(const int *pnode1, const int *pnode2, const double *pweight, size_t num_nodes, size_t num_edges, unsigned *pready, unsigned short *pco_clust,
+void launch_kid_edges(const int *pnode1, const int *pnode2, const double *pweight, uint64_t num_nodes, uint64_t num_edges, unsigned *pready, unsigned short *pco_clust,
                       unsigned short *psamples, unsigned knn, double p_resamp, unsigned min_cluster_size, float cooling_rate, unsigned burn_in, uint64_t seed)
 {
     if (!TGStat::launch_process()) {     // child process
         unsigned num_kid_nodes = max(1., p_resamp * num_nodes);
         vector<bool> node_selected(num_nodes, false);
         vector<unsigned> nodes(num_nodes);
-        for (size_t i = 0; i < num_nodes; ++i)
+        for (uint64_t i = 0; i < num_nodes; ++i)
             nodes[i] = i;
 
         g_tgstat->rnd_seed(seed);
@@ -469,7 +469,7 @@ void launch_kid_edges(const int *pnode1, const int *pnode2, const double *pweigh
         g_tgstat->rnd_seed(seed);   // this will make the results reproducible by tgs_graph_cover
         graph2cluster(nodes1.data(), nodes2.data(), weights.data(), nodes1.size(), min_cluster_size, cooling_rate, burn_in, node2cluster.data(), num_nodes);
 
-        for (size_t i = 0; i < num_edges; ++i) {
+        for (uint64_t i = 0; i < num_edges; ++i) {
             int node1 = pnode1[i] - 1;
             int node2 = pnode2[i] - 1;
 
@@ -492,7 +492,7 @@ SEXP tgs_graph2cluster(SEXP _graph, SEXP _min_cluster_size, SEXP _cooling, SEXP 
         int *pcol1;
         int *pcol2;
         double *pweight;
-        size_t num_edges;
+        uint64_t num_edges;
 
         {
             enum { COL1, COL2, WEIGHT, NUM_COLS };
@@ -533,11 +533,11 @@ SEXP tgs_graph2cluster(SEXP _graph, SEXP _min_cluster_size, SEXP _cooling, SEXP 
         float cooling_rate = asReal(_cooling);
         unsigned burn_in = asInteger(_burn_in);
 
-        size_t num_nodes = 0;
+        uint64_t num_nodes = 0;
         if (rlevels1 == R_NilValue) {
-            for (size_t i = 0; i < num_edges; ++i) {
-                num_nodes = max(num_nodes, (size_t)pcol1[i]);
-                num_nodes = max(num_nodes, (size_t)pcol2[i]);
+            for (uint64_t i = 0; i < num_edges; ++i) {
+                num_nodes = max(num_nodes, (uint64_t)pcol1[i]);
+                num_nodes = max(num_nodes, (uint64_t)pcol2[i]);
             }
         } else
             num_nodes = xlength(rlevels1);
@@ -562,7 +562,7 @@ SEXP tgs_graph2cluster(SEXP _graph, SEXP _min_cluster_size, SEXP _cooling, SEXP 
         for (int i = 0; i < NUM_COLS; i++)
             SET_STRING_ELT(rcolnames, i, mkChar(COL_NAMES[i]));
 
-        for (size_t i = 0; i < num_nodes; ++i) {
+        for (uint64_t i = 0; i < num_nodes; ++i) {
             INTEGER(rnode)[i] = i + 1;
             INTEGER(rcluster)[i] = node2cluster[i] + 1;
             INTEGER(rrownames)[i] = i + 1;
@@ -596,7 +596,7 @@ SEXP tgs_graph2cluster_multi_hash(SEXP _graph, SEXP _knn, SEXP _min_cluster_size
 {
     SEXP answer = R_NilValue;
     unsigned *res = (unsigned *)MAP_FAILED;
-    size_t res_sizeof = 0;
+    uint64_t res_sizeof = 0;
 
 	try {
         TGStat tgstat(_envir);
@@ -604,7 +604,7 @@ SEXP tgs_graph2cluster_multi_hash(SEXP _graph, SEXP _knn, SEXP _min_cluster_size
         int *pcol1;
         int *pcol2;
         double *pweight;
-        size_t num_edges;
+        uint64_t num_edges;
 
         {
             enum { COL1, COL2, WEIGHT, NUM_COLS };
@@ -656,12 +656,12 @@ SEXP tgs_graph2cluster_multi_hash(SEXP _graph, SEXP _knn, SEXP _min_cluster_size
         unsigned knn = asInteger(_knn);
         unsigned n_resamp = asInteger(_n_resamp);
         double p_resamp = asReal(_p_resamp);
-        size_t num_nodes = 0;
+        uint64_t num_nodes = 0;
 
         if (rlevels1 == R_NilValue) {
-            for (size_t i = 0; i < num_edges; ++i) {
-                num_nodes = max(num_nodes, (size_t)pcol1[i]);
-                num_nodes = max(num_nodes, (size_t)pcol2[i]);
+            for (uint64_t i = 0; i < num_edges; ++i) {
+                num_nodes = max(num_nodes, (uint64_t)pcol1[i]);
+                num_nodes = max(num_nodes, (uint64_t)pcol2[i]);
             }
         } else
             num_nodes = xlength(rlevels1);
@@ -688,7 +688,7 @@ SEXP tgs_graph2cluster_multi_hash(SEXP _graph, SEXP _knn, SEXP _min_cluster_size
         //    [child process j]
         //       ...
 
-        size_t kid_res_sizeof = sizeof(unsigned) + sizeof(unsigned) + sizeof(unsigned) * num_nodes;
+        uint64_t kid_res_sizeof = sizeof(unsigned) + sizeof(unsigned) + sizeof(unsigned) * num_nodes;
 
         res_sizeof = kid_res_sizeof * max_num_kids;
         res = (unsigned *)mmap(NULL, res_sizeof, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
@@ -721,10 +721,10 @@ SEXP tgs_graph2cluster_multi_hash(SEXP _graph, SEXP _knn, SEXP _min_cluster_size
 
                     unsigned *num_clusters = pready + 1;
                     unsigned *clusters = num_clusters + 1;
-                    size_t num_pairs = 0;
+                    uint64_t num_pairs = 0;
                     vector<vector<unsigned>> cluster2nodes(*num_clusters);
 
-                    for (size_t i = 0; i < num_nodes; ++i) {
+                    for (uint64_t i = 0; i < num_nodes; ++i) {
                         if (clusters[i] != -2) {
                             ++node2sample_cnt[i];
                             if (clusters[i] != -1) {
@@ -820,7 +820,7 @@ SEXP tgs_graph2cluster_multi_hash(SEXP _graph, SEXP _knn, SEXP _min_cluster_size
 
         rprotect(rsamples = RSaneAllocVector(INTSXP, num_nodes));
 
-        for (size_t i = 0; i < num_nodes; ++i)
+        for (uint64_t i = 0; i < num_nodes; ++i)
             INTEGER(rsamples)[i] = node2sample_cnt[i];
 
         if (rlevels1 != R_NilValue) {
@@ -848,7 +848,7 @@ SEXP tgs_graph2cluster_multi_hash(SEXP _graph, SEXP _knn, SEXP _min_cluster_size
         SET_VECTOR_ELT(answer, 1, rsamples);
     } catch (TGLException &e) {
         if (!TGStat::is_kid() && res != (unsigned *)MAP_FAILED) {
-            munmap(res, res_sizeof);
+            munmap((char *)res, res_sizeof);  // needs to be char * for some versions of Solaris
             res = (unsigned *)MAP_FAILED;
         }
         rerror("%s", e.msg());
@@ -857,7 +857,7 @@ SEXP tgs_graph2cluster_multi_hash(SEXP _graph, SEXP _knn, SEXP _min_cluster_size
     }
 
     if (!TGStat::is_kid() && res != (unsigned *)MAP_FAILED) {
-        munmap(res, res_sizeof);
+        munmap((char *)res, res_sizeof);  // needs to be char * for some versions of Solaris
         res = (unsigned *)MAP_FAILED;
     }
     rreturn(answer);
@@ -867,7 +867,7 @@ SEXP tgs_graph2cluster_multi_full(SEXP _graph, SEXP _knn, SEXP _min_cluster_size
 {
     SEXP answer = R_NilValue;
     unsigned *res = (unsigned *)MAP_FAILED;
-    size_t res_sizeof = 0;
+    uint64_t res_sizeof = 0;
 
     try {
         TGStat tgstat(_envir);
@@ -875,7 +875,7 @@ SEXP tgs_graph2cluster_multi_full(SEXP _graph, SEXP _knn, SEXP _min_cluster_size
         int *pcol1;
         int *pcol2;
         double *pweight;
-        size_t num_edges;
+        uint64_t num_edges;
 
         {
             enum { COL1, COL2, WEIGHT, NUM_COLS };
@@ -928,11 +928,11 @@ SEXP tgs_graph2cluster_multi_full(SEXP _graph, SEXP _knn, SEXP _min_cluster_size
         unsigned n_resamp = asInteger(_n_resamp);
         double p_resamp = asReal(_p_resamp);
 
-        size_t num_nodes = 0;
+        uint64_t num_nodes = 0;
         if (rlevels1 == R_NilValue) {
-            for (size_t i = 0; i < num_edges; ++i) {
-                num_nodes = max(num_nodes, (size_t)pcol1[i]);
-                num_nodes = max(num_nodes, (size_t)pcol2[i]);
+            for (uint64_t i = 0; i < num_edges; ++i) {
+                num_nodes = max(num_nodes, (uint64_t)pcol1[i]);
+                num_nodes = max(num_nodes, (uint64_t)pcol2[i]);
             }
         } else
             num_nodes = xlength(rlevels1);
@@ -941,7 +941,7 @@ SEXP tgs_graph2cluster_multi_full(SEXP _graph, SEXP _knn, SEXP _min_cluster_size
 //max_num_kids = 2;
         int num_kids_launched = 0;
         int num_kids_finished = 0;
-        size_t co_clust_size = ((num_nodes + 1) * num_nodes) / 2;
+        uint64_t co_clust_size = ((num_nodes + 1) * num_nodes) / 2;
 
         vdebug("Allocating shared memory for results\n");
 
@@ -1011,9 +1011,9 @@ SEXP tgs_graph2cluster_multi_full(SEXP _graph, SEXP _knn, SEXP _min_cluster_size
         const char *COL_NAMES[NUM_COLS] = { "node1", "node2", "cnt" };
 
         SEXP rco_clust, rsamples, rnode1, rnode2, rcount, rrownames, rcolnames, rnames;
-        size_t co_clust_nz_size = 0;
+        uint64_t co_clust_nz_size = 0;
 
-        for (size_t i = 0; i < co_clust_size; ++i) {
+        for (uint64_t i = 0; i < co_clust_size; ++i) {
             if (pco_clust[i])
                 ++co_clust_nz_size;
         }
@@ -1028,11 +1028,11 @@ SEXP tgs_graph2cluster_multi_full(SEXP _graph, SEXP _knn, SEXP _min_cluster_size
         rprotect(rrownames = RSaneAllocVector(INTSXP, co_clust_nz_size));
 
         {
-            size_t row = 0;
+            uint64_t row = 0;
 
-            for (size_t node1 = 0; node1 < num_nodes; ++node1) {
+            for (uint64_t node1 = 0; node1 < num_nodes; ++node1) {
                 unsigned short *p = pco_clust + (node1 * (2 * num_nodes - node1 - 1)) / 2;
-                for (size_t node2 = node1; node2 < num_nodes; ++node2) {
+                for (uint64_t node2 = node1; node2 < num_nodes; ++node2) {
                     if (p[node2]) {
                         INTEGER(rnode1)[row] = node1 + 1;
                         INTEGER(rnode2)[row] = node2 + 1;
@@ -1057,7 +1057,7 @@ SEXP tgs_graph2cluster_multi_full(SEXP _graph, SEXP _knn, SEXP _min_cluster_size
 
         rprotect(rsamples = RSaneAllocVector(INTSXP, num_nodes));
 
-        for (size_t i = 0; i < num_nodes; ++i)
+        for (uint64_t i = 0; i < num_nodes; ++i)
             INTEGER(rsamples)[i] = psamples[i];
 
         if (rlevels1 != R_NilValue) {
@@ -1096,7 +1096,7 @@ SEXP tgs_graph2cluster_multi_edges(SEXP _graph, SEXP _knn, SEXP _min_cluster_siz
 {
     SEXP answer = R_NilValue;
     unsigned *res = (unsigned *)MAP_FAILED;
-    size_t res_sizeof = 0;
+    uint64_t res_sizeof = 0;
 
     try {
         TGStat tgstat(_envir);
@@ -1104,7 +1104,7 @@ SEXP tgs_graph2cluster_multi_edges(SEXP _graph, SEXP _knn, SEXP _min_cluster_siz
         int *pcol1;
         int *pcol2;
         double *pweight;
-        size_t num_edges;
+        uint64_t num_edges;
 
         {
             enum { COL1, COL2, WEIGHT, NUM_COLS };
@@ -1157,11 +1157,11 @@ SEXP tgs_graph2cluster_multi_edges(SEXP _graph, SEXP _knn, SEXP _min_cluster_siz
         unsigned n_resamp = asInteger(_n_resamp);
         double p_resamp = asReal(_p_resamp);
 
-        size_t num_nodes = 0;
+        uint64_t num_nodes = 0;
         if (rlevels1 == R_NilValue) {
-            for (size_t i = 0; i < num_edges; ++i) {
-                num_nodes = max(num_nodes, (size_t)pcol1[i]);
-                num_nodes = max(num_nodes, (size_t)pcol2[i]);
+            for (uint64_t i = 0; i < num_edges; ++i) {
+                num_nodes = max(num_nodes, (uint64_t)pcol1[i]);
+                num_nodes = max(num_nodes, (uint64_t)pcol2[i]);
             }
         } else
             num_nodes = xlength(rlevels1);
@@ -1242,9 +1242,9 @@ SEXP tgs_graph2cluster_multi_edges(SEXP _graph, SEXP _knn, SEXP _min_cluster_siz
 
         rprotect(answer = RSaneAllocVector(VECSXP, 2));
 
-        size_t co_clust_nz_size = 0;
+        uint64_t co_clust_nz_size = 0;
 
-        for (size_t i = 0; i < num_edges; ++i) {
+        for (uint64_t i = 0; i < num_edges; ++i) {
             if (pco_clust[i])
                 ++co_clust_nz_size;
         }
@@ -1259,9 +1259,9 @@ SEXP tgs_graph2cluster_multi_edges(SEXP _graph, SEXP _knn, SEXP _min_cluster_siz
         rprotect(rrownames = RSaneAllocVector(INTSXP, co_clust_nz_size));
 
         {
-            size_t row = 0;
+            uint64_t row = 0;
 
-            for (size_t i = 0; i < num_edges; ++i) {
+            for (uint64_t i = 0; i < num_edges; ++i) {
                 if (pco_clust[i]) {
                     INTEGER(rnode1)[row] = pcol1[i];
                     INTEGER(rnode2)[row] = pcol2[i];
@@ -1285,7 +1285,7 @@ SEXP tgs_graph2cluster_multi_edges(SEXP _graph, SEXP _knn, SEXP _min_cluster_siz
 
         rprotect(rsamples = RSaneAllocVector(INTSXP, num_nodes));
 
-        for (size_t i = 0; i < num_nodes; ++i)
+        for (uint64_t i = 0; i < num_nodes; ++i)
             INTEGER(rsamples)[i] = psamples[i];
 
         if (rlevels1 != R_NilValue) {

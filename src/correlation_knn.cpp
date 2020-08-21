@@ -26,7 +26,7 @@ SEXP tgs_cor_knn(SEXP _x, SEXP _knn, SEXP _pairwise_complete_obs, SEXP _spearman
 {
     SEXP answer = R_NilValue;
     char *res = (char *)MAP_FAILED;
-    size_t res_sizeof = 0;
+    uint64_t res_sizeof = 0;
 
     try {
         TGStat tgstat(_envir);
@@ -54,14 +54,14 @@ SEXP tgs_cor_knn(SEXP _x, SEXP _knn, SEXP _pairwise_complete_obs, SEXP _spearman
         bool pairwise_complete_obs = asLogical(_pairwise_complete_obs);
         bool spearman = asLogical(_spearman);
         double threshold = fabs(asReal(_threshold));
-        size_t num_rows = nrows(_x);
-        size_t num_cols = ncols(_x);
-        size_t knn = min((size_t)asInteger(_knn), num_cols - 1);
+        uint64_t num_rows = nrows(_x);
+        uint64_t num_cols = ncols(_x);
+        uint64_t knn = min((uint64_t)asInteger(_knn), num_cols - 1);
 
         if (num_rows <= 1 || num_cols <= 1)
             verror("\"x\" argument must be a matrix of numeric values");
 
-        size_t num_vals = num_rows * num_cols;
+        uint64_t num_vals = num_rows * num_cols;
         bool nan_in_vals = false;
         vector<bool> nan_in_col(num_cols, false);
         vector<double> sums(num_cols, 0);
@@ -79,7 +79,7 @@ SEXP tgs_cor_knn(SEXP _x, SEXP _knn, SEXP _pairwise_complete_obs, SEXP _spearman
 
         vals.reserve(num_vals);
 
-        for (size_t i = 0; i < num_vals; ++i) {
+        for (uint64_t i = 0; i < num_vals; ++i) {
             if ((isReal(_x) && !R_FINITE(REAL(_x)[i])) || (isInteger(_x) && INTEGER(_x)[i] == NA_INTEGER)) {
                 nan_in_col[i / num_rows] = true;
                 nan_in_vals = true;
@@ -91,10 +91,10 @@ SEXP tgs_cor_knn(SEXP _x, SEXP _knn, SEXP _pairwise_complete_obs, SEXP _spearman
         // replace values with ranks if spearman=T
         if (spearman) {
             pvals.reserve(num_vals);
-            for (size_t i = 0; i < num_vals; ++i)
+            for (uint64_t i = 0; i < num_vals; ++i)
                 pvals.push_back(&vals[i]);
 
-            for (size_t icol = 0; icol < num_cols; ++icol) {
+            for (uint64_t icol = 0; icol < num_cols; ++icol) {
                 if (nan_in_col[icol] && !pairwise_complete_obs)
                     continue;
 
@@ -125,9 +125,9 @@ SEXP tgs_cor_knn(SEXP _x, SEXP _knn, SEXP _pairwise_complete_obs, SEXP _spearman
             }
         }
 
-        for (size_t irow = 0; irow < num_rows; ++irow) {
-            size_t idx = irow;
-            for (size_t icol = 0; icol < num_cols; ++icol) {
+        for (uint64_t irow = 0; irow < num_rows; ++irow) {
+            uint64_t idx = irow;
+            for (uint64_t icol = 0; icol < num_cols; ++icol) {
                 if (!nan_in_col[icol]) {
                     sums[icol] += vals[idx];
                     sums_square[icol] += vals[idx] * vals[idx];
@@ -136,7 +136,7 @@ SEXP tgs_cor_knn(SEXP _x, SEXP _knn, SEXP _pairwise_complete_obs, SEXP _spearman
             }
         }
 
-        for (size_t icol = 0; icol < num_cols; ++icol) {
+        for (uint64_t icol = 0; icol < num_cols; ++icol) {
             if (!nan_in_col[icol]) {
                 means[icol] = sums[icol] / num_rows;
 
@@ -146,62 +146,24 @@ SEXP tgs_cor_knn(SEXP _x, SEXP _knn, SEXP _pairwise_complete_obs, SEXP _spearman
             }
         }
 
-//struct Mem {
-//    double *m{NULL};
-//    double *m2{NULL};
-//    double *mask{NULL};
-//    double *n{NULL};
-//    double *sum_x{NULL};
-//    double *sum_y{NULL};
-//    double *sum_xy{NULL};
-//    double *sum_x2{NULL};
-//    double *sum_y2{NULL};
-//    ~Mem() { free(m); free(m2); free(mask); free(n); free(sum_x); free(sum_y); free(sum_xy); free(sum_x2); free(sum_y2); }
-//} mem;
-//
-//int num_rows32 = (int)num_rows;
-//int num_cols32 = (int)num_cols;
-//
-//posix_memalign((void **)&mem.m, 64, sizeof(double) * num_vals);
-//posix_memalign((void **)&mem.m2, 64, sizeof(double) * num_vals);
-//posix_memalign((void **)&mem.mask, 64, sizeof(double) * num_vals);
-//posix_memalign((void **)&mem.n, 64, sizeof(double) * num_cols);
-//posix_memalign((void **)&mem.sum_x, 64, sizeof(double) * num_cols);
-//posix_memalign((void **)&mem.sum_y, 64, sizeof(double) * num_cols);
-//posix_memalign((void **)&mem.sum_xy, 64, sizeof(double) * num_cols);
-//posix_memalign((void **)&mem.sum_x2, 64, sizeof(double) * num_cols);
-//posix_memalign((void **)&mem.sum_y2, 64, sizeof(double) * num_cols);
-//
-//for (size_t i = 0; i < num_vals; ++i) {
-//    if ((isReal(_x) && !R_FINITE(REAL(_x)[i])) || (isInteger(_x) && INTEGER(_x)[i] == NA_INTEGER))
-//        mem.m[i] = mem.m2[i] = mem.mask[i] = 0.;
-//    else {
-//        double val = isReal(_x) ? REAL(_x)[i] : INTEGER(_x)[i];
-//        mem.m[i] = val;
-//        mem.m2[i] = val * val;
-//        mem.mask[i] = 1.;
-//    }
-//}
-
         vdebug("Allocating shared memory for results\n");
 
         // Shared memory structure:
         //    [col 0]
-        //       unsigned - node with the highest correlation
+        //       int64_t - node with the highest correlation. int64_t used to make the following double aligned to 8.
         //       double   - highest correlation
-        //       unsigned - node with the second highest correlation
+        //       int64_t - node with the second highest correlation
         //       ...
         //    [col 1]
         //       ...
-        size_t res_record_sizeof = sizeof(unsigned) + sizeof(double);
+        uint64_t res_record_sizeof = sizeof(int64_t) + sizeof(double);
         res_sizeof = num_cols * knn * res_record_sizeof;
         res = (char *)mmap(NULL, res_sizeof, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
 
         if (res == (char *)MAP_FAILED)
             verror("Failed to allocate shared memory: %s", strerror(errno));
 
-        int num_processes = (int)min(num_cols, (size_t)g_tgstat->num_processes());
-//num_processes=1;
+        int num_processes = (int)min(num_cols, (uint64_t)g_tgstat->num_processes());
         double num_cols4process = num_cols / (double)num_processes;
 
         ProgressReporter progress;
@@ -212,67 +174,20 @@ SEXP tgs_cor_knn(SEXP _x, SEXP _knn, SEXP _pairwise_complete_obs, SEXP _spearman
 
         for (int iprocess = 0; iprocess < num_processes; ++iprocess) {
             if (!TGStat::launch_process()) {     // child process
-                size_t scol = iprocess * num_cols4process;
-                size_t ecol = (iprocess + 1) * num_cols4process;
-                size_t itr_idx = 0;
+                uint64_t scol = iprocess * num_cols4process;
+                uint64_t ecol = (iprocess + 1) * num_cols4process;
+                uint64_t itr_idx = 0;
                 vector<double> cors(num_cols);
                 vector<double *> pcors(num_cols);
 
-                for (size_t icol1 = scol; icol1 < ecol; ++icol1) {
-//{
-////    char transa = 'T';
-//char transa = 'T';
-//    double alpha = 1;
-//    double beta = 0;
-//    int inc = 1;
-//
-//    // n = t(mask) x mask[,col]
-//    F77_NAME(dgemv)(&transa, &num_rows32, &num_cols32, &alpha, mem.mask, &num_rows32, mem.mask + (num_rows * icol1), &inc, &beta, mem.n, &inc);
-//
-//    // sum_xy = t(m) x m[,col]
-//    F77_NAME(dgemv)(&transa, &num_rows32, &num_cols32, &alpha, mem.m, &num_rows32, mem.m + (num_rows * icol1), &inc, &beta, mem.sum_xy, &inc);
-//
-//    // sum_x = t(m) x mask[,col]
-//    F77_NAME(dgemv)(&transa, &num_rows32, &num_cols32, &alpha, mem.m, &num_rows32, mem.mask + (num_rows * icol1), &inc, &beta, mem.sum_x, &inc);
-//
-//    // sum_y = t(mask) x m[,col]
-//    F77_NAME(dgemv)(&transa, &num_rows32, &num_cols32, &alpha, mem.mask, &num_rows32, mem.m + (num_rows * icol1), &inc, &beta, mem.sum_y, &inc);
-//
-//    // sum_x2 = t(m^2) x mask[,col]
-//    F77_NAME(dgemv)(&transa, &num_rows32, &num_cols32, &alpha, mem.m2, &num_rows32, mem.mask + (num_rows * icol1), &inc, &beta, mem.sum_x2, &inc);
-//
-//    // sum_y2 = t(mask) x m^2[,col]
-//    F77_NAME(dgemv)(&transa, &num_rows32, &num_cols32, &alpha, mem.mask, &num_rows32, mem.m2 + (num_rows * icol1), &inc, &beta, mem.sum_y2, &inc);
-//}
-//
-//for (size_t i = 0; i < num_cols; ++i) {
-//    double cor = 0;
-//
-//    if (i != icol1) {
-//        double avg_x = mem.sum_x[i] / mem.n[i];
-//        double avg_y = mem.sum_y[i] / mem.n[i];
-//        double cov_xy = mem.sum_xy[i] / mem.n[i] - avg_x * avg_y;
-//        double stddev_x = sqrt(mem.sum_x2[i] / mem.n[i] - avg_x * avg_x);
-//        double stddev_y = sqrt(mem.sum_y2[i] / mem.n[i] - avg_y * avg_y);
-//        cor = cov_xy / (stddev_x * stddev_y);
-//    }
-//
-//    if (!cor || fabs(cor) < threshold)
-//        cor = -2;
-//
-//    cors[i] = cor;
-//    pcors[i] = &cors[i];
-//    ++itr_idx;
-//    TGStat::itr_idx(itr_idx);
-//}
-
-                    for (size_t icol2 = 0; icol2 < num_cols; ++icol2) {
+                for (uint64_t icol1 = scol; icol1 < ecol; ++icol1) {
+                    for (uint64_t icol2 = 0; icol2 < num_cols; ++icol2) {
                         double cor = 0;
 
                         if (icol1 != icol2) {
                             if (nan_in_vals && pairwise_complete_obs) {
-                                size_t idx1 = icol1 * num_rows;
-                                size_t idx2 = icol2 * num_rows;
+                                uint64_t idx1 = icol1 * num_rows;
+                                uint64_t idx2 = icol2 * num_rows;
                                 double sum1 = 0;
                                 double sum2 = 0;
                                 double sum_square1 = 0;
@@ -280,7 +195,7 @@ SEXP tgs_cor_knn(SEXP _x, SEXP _knn, SEXP _pairwise_complete_obs, SEXP _spearman
                                 double mean1, mean2;
 
                                 if (spearman) {
-                                    size_t indices[2] = { idx1, idx2 };
+                                    uint64_t indices[2] = { idx1, idx2 };
                                     vector<double *>::iterator sivals[2] = { pvals.begin() + idx1, pvals.begin() + idx2 };
                                     vector<double *>::iterator eivals[2] = { sivals[0] + num_rows, sivals[1] + num_rows };
                                     double *spvals[2] = { &vals.front() + idx1, &vals.front() + idx2 };
@@ -290,8 +205,8 @@ SEXP tgs_cor_knn(SEXP _x, SEXP _knn, SEXP _pairwise_complete_obs, SEXP _spearman
                                         memcpy(&col_vals[i]->front(), &nan_col.front(), num_rows * sizeof(double));
 
                                         auto last_ival = sivals[i];
-                                        size_t num_preceeding_vals = 0;
-                                        size_t last_num_preceeding_vals = 0;
+                                        uint64_t num_preceeding_vals = 0;
+                                        uint64_t last_num_preceeding_vals = 0;
 
                                         for (auto ival = sivals[i]; ; ++ival) {
                                             if (ival == eivals[i] || **ival != **last_ival || std::isnan(**ival)) {
@@ -316,8 +231,8 @@ SEXP tgs_cor_knn(SEXP _x, SEXP _knn, SEXP _pairwise_complete_obs, SEXP _spearman
                                     pcol_vals2 = &vals.front() + idx2;
                                 }
 
-                                size_t num_finite_pairs = 0;
-                                for (size_t i = 0; i < num_rows; ++i) {
+                                uint64_t num_finite_pairs = 0;
+                                for (uint64_t i = 0; i < num_rows; ++i) {
                                     double val1 = pcol_vals1[i];
                                     double val2 = pcol_vals2[i];
 
@@ -343,9 +258,9 @@ SEXP tgs_cor_knn(SEXP _x, SEXP _knn, SEXP _pairwise_complete_obs, SEXP _spearman
                                     cor /= sqrt(var1 * var2);     // => correlation(X,Y)
                                 }
                             } else if (!nan_in_col[icol1] && !nan_in_col[icol2]) {
-                                size_t idx1 = icol1 * num_rows;
-                                size_t idx2 = icol2 * num_rows;
-                                size_t end_idx1 = idx1 + num_rows;
+                                uint64_t idx1 = icol1 * num_rows;
+                                uint64_t idx2 = icol2 * num_rows;
+                                uint64_t end_idx1 = idx1 + num_rows;
 
                                 while (idx1 < end_idx1)
                                     cor += vals[idx1++] * vals[idx2++];  // => sum(X*Y)
@@ -370,11 +285,11 @@ SEXP tgs_cor_knn(SEXP _x, SEXP _knn, SEXP _pairwise_complete_obs, SEXP _spearman
                                  [](double *pcor1, double *pcor2) { return *pcor1 > *pcor2 || (*pcor1 == *pcor2 && pcor1 < pcor2); });
 
                     // pack the results into shared memory
-                    size_t offset = icol1 * res_record_sizeof * knn;
-                    for (size_t i = 0; i < knn; ++i) {
-                        unsigned idx = pcors[i] - &cors.front();
-                        *(unsigned *)(res + offset) = idx;
-                        offset += sizeof(unsigned);
+                    uint64_t offset = icol1 * res_record_sizeof * knn;
+                    for (uint64_t i = 0; i < knn; ++i) {
+                        int64_t idx = pcors[i] - &cors.front();
+                        *(int64_t *)(res + offset) = idx;
+                        offset += sizeof(int64_t);
                         *(double *)(res + offset) = cors[idx];
                         offset += sizeof(double);
 
@@ -395,13 +310,13 @@ SEXP tgs_cor_knn(SEXP _x, SEXP _knn, SEXP _pairwise_complete_obs, SEXP _spearman
         enum { COL1, COL2, COR, RANK, NUM_COLS };
         const char *COL_NAMES[NUM_COLS] = { "col1", "col2", "cor", "rank" };
 
-        size_t answer_size = 0;
+        uint64_t answer_size = 0;
 
-        for (size_t icol = 0; icol < num_cols; ++icol) {
-            size_t offset = icol * res_record_sizeof * knn;
+        for (uint64_t icol = 0; icol < num_cols; ++icol) {
+            uint64_t offset = icol * res_record_sizeof * knn;
 
-            for (size_t i = 0; i < knn; ++i) {
-                if (*(double *)(res + offset + sizeof(unsigned)) == -2)
+            for (uint64_t i = 0; i < knn; ++i) {
+                if (*(double *)(res + offset + sizeof(int64_t)) == -2)
                     break;
 
                 ++answer_size;
@@ -426,17 +341,17 @@ SEXP tgs_cor_knn(SEXP _x, SEXP _knn, SEXP _pairwise_complete_obs, SEXP _spearman
             SET_STRING_ELT(rcolnames, i, mkChar(COL_NAMES[i]));
 
         if (answer_size) {
-            size_t row = 0;
-            for (size_t icol = 0; icol < num_cols; ++icol) {
-                size_t offset = icol * res_record_sizeof * knn;
+            uint64_t row = 0;
+            for (uint64_t icol = 0; icol < num_cols; ++icol) {
+                uint64_t offset = icol * res_record_sizeof * knn;
 
-                for (size_t i = 0; i < knn; ++i) {
-                    if (*(double *)(res + offset + sizeof(unsigned)) == -2)
+                for (uint64_t i = 0; i < knn; ++i) {
+                    if (*(double *)(res + offset + sizeof(int64_t)) == -2)
                         break;
 
                     INTEGER(rcol1)[row] = icol + 1;
-                    INTEGER(rcol2)[row] = *(unsigned *)(res + offset) + 1;
-                    offset += sizeof(unsigned);
+                    INTEGER(rcol2)[row] = *(int64_t *)(res + offset) + 1;
+                    offset += sizeof(int64_t);
                     REAL(rcor)[row] = *(double *)(res + offset);
                     offset += sizeof(double);
                     INTEGER(rrank)[row] = i + 1;
@@ -482,7 +397,7 @@ SEXP tgs_cross_cor_knn(SEXP _x, SEXP _y, SEXP _knn, SEXP _pairwise_complete_obs,
 {
     SEXP answer = R_NilValue;
     char *res = (char *)MAP_FAILED;
-    size_t res_sizeof = 0;
+    uint64_t res_sizeof = 0;
 
     try {
         TGStat tgstat(_envir);
@@ -520,9 +435,9 @@ SEXP tgs_cross_cor_knn(SEXP _x, SEXP _y, SEXP _knn, SEXP _pairwise_complete_obs,
         bool pairwise_complete_obs = asLogical(_pairwise_complete_obs);
         bool spearman = asLogical(_spearman);
         double threshold = fabs(asReal(_threshold));
-        size_t num_rows = nrows(_x);
-        size_t num_cols[2] = { (size_t)ncols(_x), (size_t)ncols(_y) };
-        size_t knn = min((size_t)asInteger(_knn), num_cols[1]);
+        uint64_t num_rows = nrows(_x);
+        uint64_t num_cols[2] = { (uint64_t)ncols(_x), (uint64_t)ncols(_y) };
+        uint64_t knn = min((uint64_t)asInteger(_knn), num_cols[1]);
 
         if (num_rows <= 1 || num_cols[0] <= 1)
             verror("\"x\" argument must be a matrix of numeric values");
@@ -530,7 +445,7 @@ SEXP tgs_cross_cor_knn(SEXP _x, SEXP _y, SEXP _knn, SEXP _pairwise_complete_obs,
         if (num_cols[1] <= 1)
             verror("\"y\" argument must be a matrix of numeric values");
 
-        size_t num_vals[2] = { num_rows * num_cols[0], num_rows * num_cols[1] };
+        uint64_t num_vals[2] = { num_rows * num_cols[0], num_rows * num_cols[1] };
         bool nan_in_vals = false;
         vector<bool> nan_in_col[2];
         vector<double> sums[2];
@@ -558,7 +473,7 @@ SEXP tgs_cross_cor_knn(SEXP _x, SEXP _y, SEXP _knn, SEXP _pairwise_complete_obs,
         for (int k = 0; k < 2; ++k) {
             SEXP x = k ? _y : _x;
 
-            for (size_t i = 0; i < num_vals[k]; ++i) {
+            for (uint64_t i = 0; i < num_vals[k]; ++i) {
                 if ((isReal(x) && !R_FINITE(REAL(x)[i])) || (isInteger(x) && INTEGER(x)[i] == NA_INTEGER)) {
                     nan_in_col[k][i / num_rows] = true;
                     nan_in_vals = true;
@@ -572,10 +487,10 @@ SEXP tgs_cross_cor_knn(SEXP _x, SEXP _y, SEXP _knn, SEXP _pairwise_complete_obs,
         if (spearman) {
             for (int k = 0; k < 2; ++k) {
                 pvals[k].reserve(num_vals[k]);
-                for (size_t i = 0; i < num_vals[k]; ++i)
+                for (uint64_t i = 0; i < num_vals[k]; ++i)
                     pvals[k].push_back(&vals[k][i]);
 
-                for (size_t icol = 0; icol < num_cols[k]; ++icol) {
+                for (uint64_t icol = 0; icol < num_cols[k]; ++icol) {
                     if (nan_in_col[k][icol] && !pairwise_complete_obs)
                         continue;
 
@@ -608,9 +523,9 @@ SEXP tgs_cross_cor_knn(SEXP _x, SEXP _y, SEXP _knn, SEXP _pairwise_complete_obs,
         }
 
         for (int k = 0; k < 2; ++k) {
-            for (size_t irow = 0; irow < num_rows; ++irow) {
-                size_t idx = irow;
-                for (size_t icol = 0; icol < num_cols[k]; ++icol) {
+            for (uint64_t irow = 0; irow < num_rows; ++irow) {
+                uint64_t idx = irow;
+                for (uint64_t icol = 0; icol < num_cols[k]; ++icol) {
                     if (!nan_in_col[k][icol]) {
                         sums[k][icol] += vals[k][idx];
                         sums_square[k][icol] += vals[k][idx] * vals[k][idx];
@@ -619,7 +534,7 @@ SEXP tgs_cross_cor_knn(SEXP _x, SEXP _y, SEXP _knn, SEXP _pairwise_complete_obs,
                 }
             }
 
-            for (size_t icol = 0; icol < num_cols[k]; ++icol) {
+            for (uint64_t icol = 0; icol < num_cols[k]; ++icol) {
                 if (!nan_in_col[k][icol]) {
                     means[k][icol] = sums[k][icol] / num_rows;
 
@@ -634,20 +549,20 @@ SEXP tgs_cross_cor_knn(SEXP _x, SEXP _y, SEXP _knn, SEXP _pairwise_complete_obs,
 
         // Shared memory structure:
         //    [col 0]
-        //       unsigned - node with the highest correlation
-        //       double   - highest correlation
-        //       unsigned - node with the second highest correlation
+        //       int64_t - node with the highest correlation: int64_t used to make the following double aligned to 8
+        //       double  - highest correlation
+        //       int64_t - node with the second highest correlation
         //       ...
         //    [col 1]
         //       ...
-        size_t res_record_sizeof = sizeof(unsigned) + sizeof(double);
+        uint64_t res_record_sizeof = sizeof(int64_t) + sizeof(double);
         res_sizeof = num_cols[0] * knn * res_record_sizeof;
         res = (char *)mmap(NULL, res_sizeof, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
 
         if (res == (char *)MAP_FAILED)
             verror("Failed to allocate shared memory: %s", strerror(errno));
 
-        int num_processes = (int)min(max((size_t)1, num_cols[0] / 10), (size_t)g_tgstat->num_processes());
+        int num_processes = (int)min(max((uint64_t)1, num_cols[0] / 10), (uint64_t)g_tgstat->num_processes());
         double num_cols4process = num_cols[0] / (double)num_processes;
 
         ProgressReporter progress;
@@ -658,19 +573,19 @@ SEXP tgs_cross_cor_knn(SEXP _x, SEXP _y, SEXP _knn, SEXP _pairwise_complete_obs,
 
         for (int iprocess = 0; iprocess < num_processes; ++iprocess) {
             if (!TGStat::launch_process()) {     // child process
-                size_t scol = iprocess * num_cols4process;
-                size_t ecol = (iprocess + 1) * num_cols4process;
-                size_t itr_idx = 0;
+                uint64_t scol = iprocess * num_cols4process;
+                uint64_t ecol = (iprocess + 1) * num_cols4process;
+                uint64_t itr_idx = 0;
                 vector<double> cors(num_cols[1]);
                 vector<double *> pcors(num_cols[1]);
 
-                for (size_t icol1 = scol; icol1 < ecol; ++icol1) {
-                    for (size_t icol2 = 0; icol2 < num_cols[1]; ++icol2) {
+                for (uint64_t icol1 = scol; icol1 < ecol; ++icol1) {
+                    for (uint64_t icol2 = 0; icol2 < num_cols[1]; ++icol2) {
                         double cor = 0;
 
                         if (nan_in_vals && pairwise_complete_obs) {
-                            size_t idx1 = icol1 * num_rows;
-                            size_t idx2 = icol2 * num_rows;
+                            uint64_t idx1 = icol1 * num_rows;
+                            uint64_t idx2 = icol2 * num_rows;
                             double sum1 = 0;
                             double sum2 = 0;
                             double sum_square1 = 0;
@@ -678,7 +593,7 @@ SEXP tgs_cross_cor_knn(SEXP _x, SEXP _y, SEXP _knn, SEXP _pairwise_complete_obs,
                             double mean1, mean2;
 
                             if (spearman) {
-                                size_t indices[2] = { idx1, idx2 };
+                                uint64_t indices[2] = { idx1, idx2 };
                                 vector<double *>::iterator sivals[2] = { pvals[0].begin() + idx1, pvals[1].begin() + idx2 };
                                 vector<double *>::iterator eivals[2] = { sivals[0] + num_rows, sivals[1] + num_rows };
                                 double *spvals[2] = { &vals[0].front() + idx1, &vals[1].front() + idx2 };
@@ -688,8 +603,8 @@ SEXP tgs_cross_cor_knn(SEXP _x, SEXP _y, SEXP _knn, SEXP _pairwise_complete_obs,
                                     memcpy(&col_vals[i]->front(), &nan_col.front(), num_rows * sizeof(double));
 
                                     auto last_ival = sivals[i];
-                                    size_t num_preceeding_vals = 0;
-                                    size_t last_num_preceeding_vals = 0;
+                                    uint64_t num_preceeding_vals = 0;
+                                    uint64_t last_num_preceeding_vals = 0;
 
                                     for (auto ival = sivals[i]; ; ++ival) {
                                         if (ival == eivals[i] || **ival != **last_ival || std::isnan(**ival)) {
@@ -714,8 +629,8 @@ SEXP tgs_cross_cor_knn(SEXP _x, SEXP _y, SEXP _knn, SEXP _pairwise_complete_obs,
                                 pcol_vals2 = &vals[1].front() + idx2;
                             }
 
-                            size_t num_finite_pairs = 0;
-                            for (size_t i = 0; i < num_rows; ++i) {
+                            uint64_t num_finite_pairs = 0;
+                            for (uint64_t i = 0; i < num_rows; ++i) {
                                 double val1 = pcol_vals1[i];
                                 double val2 = pcol_vals2[i];
 
@@ -741,9 +656,9 @@ SEXP tgs_cross_cor_knn(SEXP _x, SEXP _y, SEXP _knn, SEXP _pairwise_complete_obs,
                                 cor /= sqrt(var1 * var2);     // => correlation(X,Y)
                             }
                         } else if (!nan_in_col[0][icol1] && !nan_in_col[1][icol2]) {
-                            size_t idx1 = icol1 * num_rows;
-                            size_t idx2 = icol2 * num_rows;
-                            size_t end_idx1 = idx1 + num_rows;
+                            uint64_t idx1 = icol1 * num_rows;
+                            uint64_t idx2 = icol2 * num_rows;
+                            uint64_t end_idx1 = idx1 + num_rows;
 
                             while (idx1 < end_idx1)
                                 cor += vals[0][idx1++] * vals[1][idx2++];  // => sum(X*Y)
@@ -767,11 +682,11 @@ SEXP tgs_cross_cor_knn(SEXP _x, SEXP _y, SEXP _knn, SEXP _pairwise_complete_obs,
                                  [](double *pcor1, double *pcor2) { return *pcor1 > *pcor2 || (*pcor1 == *pcor2 && pcor1 < pcor2); });
 
                     // pack the results into shared memory
-                    size_t offset = icol1 * res_record_sizeof * knn;
-                    for (size_t i = 0; i < knn; ++i) {
-                        unsigned idx = pcors[i] - &cors.front();
-                        *(unsigned *)(res + offset) = idx;
-                        offset += sizeof(unsigned);
+                    uint64_t offset = icol1 * res_record_sizeof * knn;
+                    for (uint64_t i = 0; i < knn; ++i) {
+                        int64_t idx = pcors[i] - &cors.front();
+                        *(int64_t *)(res + offset) = idx;
+                        offset += sizeof(int64_t);
                         *(double *)(res + offset) = cors[idx];
                         offset += sizeof(double);
 
@@ -792,13 +707,13 @@ SEXP tgs_cross_cor_knn(SEXP _x, SEXP _y, SEXP _knn, SEXP _pairwise_complete_obs,
         enum { COL1, COL2, COR, RANK, NUM_COLS };
         const char *COL_NAMES[NUM_COLS] = { "col1", "col2", "cor", "rank" };
 
-        size_t answer_size = 0;
+        uint64_t answer_size = 0;
 
-        for (size_t icol = 0; icol < num_cols[0]; ++icol) {
-            size_t offset = icol * res_record_sizeof * knn;
+        for (uint64_t icol = 0; icol < num_cols[0]; ++icol) {
+            uint64_t offset = icol * res_record_sizeof * knn;
 
-            for (size_t i = 0; i < knn; ++i) {
-                if (*(double *)(res + offset + sizeof(unsigned)) == -2)
+            for (uint64_t i = 0; i < knn; ++i) {
+                if (*(double *)(res + offset + sizeof(int64_t)) == -2)
                     break;
 
                 ++answer_size;
@@ -826,17 +741,17 @@ SEXP tgs_cross_cor_knn(SEXP _x, SEXP _y, SEXP _knn, SEXP _pairwise_complete_obs,
             SET_STRING_ELT(rcolnames, i, mkChar(COL_NAMES[i]));
 
         if (answer_size) {
-            size_t row = 0;
-            for (size_t icol = 0; icol < num_cols[0]; ++icol) {
-                size_t offset = icol * res_record_sizeof * knn;
+            uint64_t row = 0;
+            for (uint64_t icol = 0; icol < num_cols[0]; ++icol) {
+                uint64_t offset = icol * res_record_sizeof * knn;
 
-                for (size_t i = 0; i < knn; ++i) {
-                    if (*(double *)(res + offset + sizeof(unsigned)) == -2)
+                for (uint64_t i = 0; i < knn; ++i) {
+                    if (*(double *)(res + offset + sizeof(int64_t)) == -2)
                         break;
 
                     INTEGER(rcol1)[row] = icol + 1;
-                    INTEGER(rcol2)[row] = *(unsigned *)(res + offset) + 1;
-                    offset += sizeof(unsigned);
+                    INTEGER(rcol2)[row] = *(int64_t *)(res + offset) + 1;
+                    offset += sizeof(int64_t);
                     REAL(rcor)[row] = *(double *)(res + offset);
                     offset += sizeof(double);
                     INTEGER(rrank)[row] = i + 1;
@@ -865,7 +780,7 @@ SEXP tgs_cross_cor_knn(SEXP _x, SEXP _y, SEXP _knn, SEXP _pairwise_complete_obs,
         setAttrib(answer, R_RowNamesSymbol, rrownames);
     } catch (TGLException &e) {
         if (!TGStat::is_kid() && res != (char *)MAP_FAILED) {
-            munmap(res, res_sizeof);
+            munmap((char *)res, res_sizeof);  // needs to be char * for some versions of Solaris
             res = (char *)MAP_FAILED;
         }
         rerror("%s", e.msg());
@@ -874,11 +789,10 @@ SEXP tgs_cross_cor_knn(SEXP _x, SEXP _y, SEXP _knn, SEXP _pairwise_complete_obs,
     }
 
     if (!TGStat::is_kid() && res != (char *)MAP_FAILED) {
-        munmap(res, res_sizeof);
+        munmap((char *)res, res_sizeof);  // needs to be char * for some versions of Solaris
         res = (char *)MAP_FAILED;
     }
     rreturn(answer);
 }
 
 }
-

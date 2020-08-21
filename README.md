@@ -48,7 +48,7 @@ Pearson correlation without BLAS, no NAs:
 options(tgs_use.blas=F)
 system.time(tgs_cor(m))
 #>    user  system elapsed 
-#>  19.868   1.614   1.186
+#>  19.815   1.563   1.142
 ```
 
 Same with BLAS:
@@ -58,7 +58,7 @@ Same with BLAS:
 options(tgs_use.blas=T)
 system.time(tgs_cor(m))
 #>    user  system elapsed 
-#>   2.107   0.259   0.431
+#>   2.092   0.261   0.441
 ```
 
 Base R version:
@@ -66,7 +66,7 @@ Base R version:
 ``` r
 system.time(cor(m))
 #>    user  system elapsed 
-#>  20.200   0.104  20.352
+#>  18.198   0.116  18.356
 ```
 
 Pearson correlation without BLAS, with NAs:
@@ -75,7 +75,7 @@ Pearson correlation without BLAS, with NAs:
 options(tgs_use.blas=F)
 system.time(tgs_cor(m_with_NAs, pairwise.complete.obs=T))
 #>    user  system elapsed 
-#>  61.170   1.929   1.947
+#>  62.348   1.578   1.542
 ```
 
 Same with BLAS:
@@ -84,7 +84,7 @@ Same with BLAS:
 options(tgs_use.blas=T)
 system.time(tgs_cor(m_with_NAs, pairwise.complete.obs=T))
 #>    user  system elapsed 
-#>   7.836   0.774   0.711
+#>   6.726   0.907   0.698
 ```
 
 Base R version:
@@ -92,7 +92,7 @@ Base R version:
 ``` r
 system.time(cor(m_with_NAs, use="pairwise.complete.obs"))
 #>    user  system elapsed 
-#> 259.318   0.778 260.711
+#> 249.427   0.176 250.190
 ```
 
 ### Fast computation of distance matrices
@@ -102,9 +102,9 @@ Distance without BLAS, no NAs:
 ``` r
 options(tgs_use.blas=F)
 system.time(tgs_dist(m))
-#> 87%...100%
+#> 84%...100%
 #>    user  system elapsed 
-#> 255.964   1.623   4.773
+#> 266.052   1.541   4.523
 ```
 
 Same with BLAS:
@@ -113,7 +113,7 @@ Same with BLAS:
 options(tgs_use.blas=T)
 system.time(tgs_dist(m))
 #>    user  system elapsed 
-#>   2.183   0.253   0.301
+#>   1.832   0.316   0.289
 ```
 
 Base R:
@@ -121,7 +121,7 @@ Base R:
 ``` r
 system.time(dist(m, method="euclidean"))
 #>    user  system elapsed 
-#> 159.341   0.182 159.901
+#> 146.067   0.070 146.481
 ```
 
 Notes regarding the usage of `BLAS`

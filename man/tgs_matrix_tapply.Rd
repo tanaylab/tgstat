@@ -19,7 +19,7 @@ tgs_matrix_tapply(x, index, fun, ...)
 'tgs_matrix_tapply(x, index, fun)' is essentialy an efficient implementation of 'apply(mat, 1, function(x) tapply(x, index, fun))'.
 }
 \value{
-A matrix of nrow(x) X length(index) size. Each [i,j] element represents the result of applying 'fun' to x[i,which(index==levels(index)[j])].
+A matrix of length(index) X nrow(x) size. Each [i,j] element represents the result of applying 'fun' to x[i,which(index==levels(index)[j])].
 }
 
 \examples{

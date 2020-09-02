@@ -37,7 +37,7 @@
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="index.html">tgstat</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="Released version">2.3.12</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="Released version">2.3.16</span>
       </span>
     </div>
 
@@ -93,7 +93,7 @@
 <h2 class="hasAnchor">
 <a href="#installation" class="anchor"></a>Installation</h2>
 <p>In order to install <code>tgstat</code>:</p>
-<div class="sourceCode" id="cb1"><pre class="r"><span class="fu"><a href="https://rdrr.io/r/utils/install.packages.html">install.packages</a></span>(<span class="st">"tgstat"</span>)</pre></div>
+<div class="sourceCode" id="cb1"><pre class="r"><span class="kw pkg">remotes</span><span class="kw ns">::</span><span class="fu"><a href="https://remotes.r-lib.org/reference/install_github.html">install_github</a></span>(<span class="st">"tanaylab/tgstat"</span>)</pre></div>
 </div>
 <div id="examples" class="section level2">
 <h2 class="hasAnchor">
@@ -114,31 +114,31 @@
 <div class="sourceCode" id="cb3"><pre class="r"><span class="fu"><a href="https://rdrr.io/r/base/options.html">options</a></span>(<span class="kw">tgs_use.blas</span><span class="kw">=</span><span class="no">F</span>)
 <span class="fu"><a href="https://rdrr.io/r/base/system.time.html">system.time</a></span>(<span class="fu"><a href="reference/tgs_cor.html">tgs_cor</a></span>(<span class="no">m</span>))
 <span class="co">#&gt;    user  system elapsed </span>
-<span class="co">#&gt;  19.868   1.614   1.186</span></pre></div>
+<span class="co">#&gt;  19.819   1.588   1.129</span></pre></div>
 <p>Same with BLAS:</p>
 <div class="sourceCode" id="cb4"><pre class="r"><span class="co"># tgs_cor, with BLAS, no NAs, pearson</span>
 <span class="fu"><a href="https://rdrr.io/r/base/options.html">options</a></span>(<span class="kw">tgs_use.blas</span><span class="kw">=</span><span class="no">T</span>)
 <span class="fu"><a href="https://rdrr.io/r/base/system.time.html">system.time</a></span>(<span class="fu"><a href="reference/tgs_cor.html">tgs_cor</a></span>(<span class="no">m</span>))
 <span class="co">#&gt;    user  system elapsed </span>
-<span class="co">#&gt;   2.107   0.259   0.431</span></pre></div>
+<span class="co">#&gt;   2.073   0.262   0.430</span></pre></div>
 <p>Base R version:</p>
 <div class="sourceCode" id="cb5"><pre class="r"><span class="fu"><a href="https://rdrr.io/r/base/system.time.html">system.time</a></span>(<span class="fu"><a href="https://rdrr.io/r/stats/cor.html">cor</a></span>(<span class="no">m</span>))
 <span class="co">#&gt;    user  system elapsed </span>
-<span class="co">#&gt;  20.200   0.104  20.352</span></pre></div>
+<span class="co">#&gt;  17.884   0.097  18.023</span></pre></div>
 <p>Pearson correlation without BLAS, with NAs:</p>
 <div class="sourceCode" id="cb6"><pre class="r"><span class="fu"><a href="https://rdrr.io/r/base/options.html">options</a></span>(<span class="kw">tgs_use.blas</span><span class="kw">=</span><span class="no">F</span>)
 <span class="fu"><a href="https://rdrr.io/r/base/system.time.html">system.time</a></span>(<span class="fu"><a href="reference/tgs_cor.html">tgs_cor</a></span>(<span class="no">m_with_NAs</span>, <span class="kw">pairwise.complete.obs</span><span class="kw">=</span><span class="no">T</span>))
 <span class="co">#&gt;    user  system elapsed </span>
-<span class="co">#&gt;  61.170   1.929   1.947</span></pre></div>
+<span class="co">#&gt;  62.454   1.508   1.557</span></pre></div>
 <p>Same with BLAS:</p>
 <div class="sourceCode" id="cb7"><pre class="r"><span class="fu"><a href="https://rdrr.io/r/base/options.html">options</a></span>(<span class="kw">tgs_use.blas</span><span class="kw">=</span><span class="no">T</span>)
 <span class="fu"><a href="https://rdrr.io/r/base/system.time.html">system.time</a></span>(<span class="fu"><a href="reference/tgs_cor.html">tgs_cor</a></span>(<span class="no">m_with_NAs</span>, <span class="kw">pairwise.complete.obs</span><span class="kw">=</span><span class="no">T</span>))
 <span class="co">#&gt;    user  system elapsed </span>
-<span class="co">#&gt;   7.836   0.774   0.711</span></pre></div>
+<span class="co">#&gt;   6.162   0.863   0.654</span></pre></div>
 <p>Base R version:</p>
 <div class="sourceCode" id="cb8"><pre class="r"><span class="fu"><a href="https://rdrr.io/r/base/system.time.html">system.time</a></span>(<span class="fu"><a href="https://rdrr.io/r/stats/cor.html">cor</a></span>(<span class="no">m_with_NAs</span>, <span class="kw">use</span><span class="kw">=</span><span class="st">"pairwise.complete.obs"</span>))
 <span class="co">#&gt;    user  system elapsed </span>
-<span class="co">#&gt; 259.318   0.778 260.711</span></pre></div>
+<span class="co">#&gt; 251.409   0.150 252.150</span></pre></div>
 </div>
 <div id="fast-computation-of-distance-matrices" class="section level3">
 <h3 class="hasAnchor">
@@ -146,18 +146,18 @@
 <p>Distance without BLAS, no NAs:</p>
 <div class="sourceCode" id="cb9"><pre class="r"><span class="fu"><a href="https://rdrr.io/r/base/options.html">options</a></span>(<span class="kw">tgs_use.blas</span><span class="kw">=</span><span class="no">F</span>)
 <span class="fu"><a href="https://rdrr.io/r/base/system.time.html">system.time</a></span>(<span class="fu"><a href="reference/tgs_dist.html">tgs_dist</a></span>(<span class="no">m</span>))
-<span class="co">#&gt; 87%...100%</span>
+<span class="co">#&gt; 83%...100%</span>
 <span class="co">#&gt;    user  system elapsed </span>
-<span class="co">#&gt; 255.964   1.623   4.773</span></pre></div>
+<span class="co">#&gt; 272.206   1.433   4.524</span></pre></div>
 <p>Same with BLAS:</p>
 <div class="sourceCode" id="cb10"><pre class="r"><span class="fu"><a href="https://rdrr.io/r/base/options.html">options</a></span>(<span class="kw">tgs_use.blas</span><span class="kw">=</span><span class="no">T</span>)
 <span class="fu"><a href="https://rdrr.io/r/base/system.time.html">system.time</a></span>(<span class="fu"><a href="reference/tgs_dist.html">tgs_dist</a></span>(<span class="no">m</span>))
 <span class="co">#&gt;    user  system elapsed </span>
-<span class="co">#&gt;   2.183   0.253   0.301</span></pre></div>
+<span class="co">#&gt;   1.917   0.322   0.293</span></pre></div>
 <p>Base R:</p>
 <div class="sourceCode" id="cb11"><pre class="r"><span class="fu"><a href="https://rdrr.io/r/base/system.time.html">system.time</a></span>(<span class="fu"><a href="https://rdrr.io/r/stats/dist.html">dist</a></span>(<span class="no">m</span>, <span class="kw">method</span><span class="kw">=</span><span class="st">"euclidean"</span>))
 <span class="co">#&gt;    user  system elapsed </span>
-<span class="co">#&gt; 159.341   0.182 159.901</span></pre></div>
+<span class="co">#&gt; 142.932   0.083 143.350</span></pre></div>
 </div>
 </div>
 <div id="notes-regarding-the-usage-of-blas" class="section level2">

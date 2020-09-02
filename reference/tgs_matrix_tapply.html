@@ -72,7 +72,7 @@
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">tgstat</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="Released version">2.3.12</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="Released version">2.3.16</span>
       </span>
     </div>
 
@@ -155,7 +155,7 @@
     <p>'tgs_matrix_tapply(x, index, fun)' is essentialy an efficient implementation of 'apply(mat, 1, function(x) tapply(x, index, fun))'.</p>
     <h2 class="hasAnchor" id="value"><a class="anchor" href="#value"></a>Value</h2>
 
-    <p>A matrix of nrow(x) X length(index) size. Each [i,j] element represents the result of applying 'fun' to x[i,which(index==levels(index)[j])].</p>
+    <p>A matrix of length(index) X nrow(x) size. Each [i,j] element represents the result of applying 'fun' to x[i,which(index==levels(index)[j])].</p>
 
     <h2 class="hasAnchor" id="examples"><a class="anchor" href="#examples"></a>Examples</h2>
     <pre class="examples"><span class='co'># \donttest{</span>

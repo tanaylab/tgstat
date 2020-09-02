@@ -159,7 +159,7 @@ TGStat::~TGStat()
                 sem_close(s_fifo_sem);
 
             if (s_shm != (Shm *)MAP_FAILED)
-                munmap(s_shm, sizeof(Shm));
+                munmap((char *)s_shm, sizeof(Shm));   // needs to be char * for some versions of Solaris
 
             unlink(get_fifo_name().c_str());
         }
@@ -201,21 +201,21 @@ TGStat::~TGStat()
 string TGStat::get_shm_sem_name()
 {
 	char buf[100];
-	sprintf(buf, "tgstat-shm-sem-%d", (int)getpid());
+	sprintf(buf, "/tgstat_shm_sem_%d", (int)getpid());
 	return buf;
 }
 
 string TGStat::get_fifo_sem_name()
 {
 	char buf[100];
-	sprintf(buf, "tgstat-fifo-sem-%d", (int)getpid());
+	sprintf(buf, "/tgstat_fifo_sem_%d", (int)getpid());
 	return buf;
 }
 
 string TGStat::get_fifo_name()
 {
 	char buf[100];
-    sprintf(buf, "/tmp/tgstat-fifo-%d", s_is_kid ? (int)getppid() : (int)getpid());
+    sprintf(buf, "/tmp/tgstat_fifo_%d", s_is_kid ? (int)getppid() : (int)getpid());
 	return buf;
 }
 
@@ -357,7 +357,7 @@ bool TGStat::wait_for_kid(int millisecs)
         vdebug("SIGINT fired? %d\n", s_sigint_fired);
         check_interrupt();
 
-        size_t num_running_pids = s_running_pids.size();
+        uint64_t num_running_pids = s_running_pids.size();
         check_kids_state(false);
 
         {
@@ -412,11 +412,11 @@ bool TGStat::wait_for_kids(int millisecs)
     return true;
 }
 
-int TGStat::read_multitask_fifo(void *buf, size_t bytes)
+int TGStat::read_multitask_fifo(void *buf, uint64_t bytes)
 {
     bool eof_reached = false;
     int retv;
-    size_t readlen = 0;
+    uint64_t readlen = 0;
     fd_set rfds;
     struct timeval tv;
 
@@ -465,7 +465,7 @@ int TGStat::read_multitask_fifo(void *buf, size_t bytes)
     return readlen;
 }
 
-void TGStat::write_multitask_fifo(const void *buf, size_t bytes)
+void TGStat::write_multitask_fifo(const void *buf, uint64_t bytes)
 {
     SemLocker sl(s_fifo_sem);
     if (write(s_fifo_fd, buf, bytes) == -1)
@@ -538,7 +538,7 @@ void TGStat::load_options()
 void TGStat::rnd_seed(uint64_t seed)
 {
     char buf[100];
-    sprintf(buf, "set.seed(%llu)", seed);
+    sprintf(buf, "set.seed(%lu)", seed);
     run_in_R(buf, m_env);
     GetRNGstate();
 }
@@ -613,6 +613,16 @@ void TGStat::get_open_fds(set<int> &fds)
             fds.insert(fdinfo[i].proc_fd);
     }
 #else
+
+#ifdef __sun
+    #ifdef __XOPEN_OR_POSIX
+        #define _dirfd(dir) (dir->d_fd)
+    #else
+        #define _dirfd(dir) (dir->dd_fd)
+    #endif
+#else
+    #define _dirfd(dir) dirfd(dir)
+#endif
 	DIR *dir = opendir("/proc/self/fd");
 	struct dirent *dirp;
 
@@ -621,7 +631,7 @@ void TGStat::get_open_fds(set<int> &fds)
     	while ((dirp = readdir(dir))) {
     		char *endptr;
     		int fd = strtol(dirp->d_name, &endptr, 10);
-    		if (!*endptr && fd != dirfd(dir)) // name is a number (it can be also ".", "..", whatever...)
+    		if (!*endptr && fd != _dirfd(dir)) // name is a number (it can be also ".", "..", whatever...)
     			fds.insert(fd);
     	}
 
@@ -698,7 +708,7 @@ SEXP rprotect(SEXP &expr)
 	return expr;
 }
 
-void runprotect(int count)
+void runprotect(unsigned count)
 {
 	if (TGStat::s_protect_counter < count)
 		errorcall(R_NilValue, "Number of calls to unprotect exceeds the number of calls to protect\n");

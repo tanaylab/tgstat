@@ -25,7 +25,7 @@ SEXP tgs_dist(SEXP _x, SEXP _attrs, SEXP _tidy, SEXP _threshold, SEXP _rrownames
 {
     SEXP answer = R_NilValue;
     void *shm = (double *)MAP_FAILED;
-    size_t shm_sizeof = 0;
+    uint64_t shm_sizeof = 0;
 
 	try {
         TGStat tgstat(_envir);
@@ -47,28 +47,26 @@ SEXP tgs_dist(SEXP _x, SEXP _attrs, SEXP _tidy, SEXP _threshold, SEXP _rrownames
         bool tidy = asLogical(_tidy);
         double threshold = fabs(asReal(_threshold));
 
-        size_t num_points = nrows(_x);
-        size_t num_dims = ncols(_x);
+        uint64_t num_points = nrows(_x);
+        uint64_t num_dims = ncols(_x);
 
         if (num_points < 1 || num_dims < 1)
             verror("\"x\" argument must be a matrix of numeric values");
 
-        size_t num_vals = num_points * num_dims;
+        uint64_t num_vals = num_points * num_dims;
         vector<double> vals;
-        bool nan_in_vals = false;
 
         vals.reserve(num_vals);
 
-        for (size_t i = 0; i < num_vals; ++i) {
-            if ((isReal(_x) && !R_FINITE(REAL(_x)[i])) || (isInteger(_x) && INTEGER(_x)[i] == NA_INTEGER)) {
+        for (uint64_t i = 0; i < num_vals; ++i) {
+            if ((isReal(_x) && !R_FINITE(REAL(_x)[i])) || (isInteger(_x) && INTEGER(_x)[i] == NA_INTEGER))
                 vals.push_back(numeric_limits<double>::quiet_NaN());
-                nan_in_vals = true;
-            } else
+            else
                 vals.push_back(isReal(_x) ? REAL(_x)[i] : INTEGER(_x)[i]);
         }
 
         vdebug("Allocating shared memory for results\n");
-        size_t res_size = num_points * num_points;
+        uint64_t res_size = num_points * num_points;
         shm_sizeof = sizeof(double) * res_size;
         shm = mmap(NULL, shm_sizeof, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
 
@@ -77,7 +75,7 @@ SEXP tgs_dist(SEXP _x, SEXP _attrs, SEXP _tidy, SEXP _threshold, SEXP _rrownames
 
         double *res = (double *)shm;
 
-        int num_processes = (int)min(num_points / 2, (size_t)g_tgstat->num_processes());
+        int num_processes = (int)min(num_points / 2, (uint64_t)g_tgstat->num_processes());
         double num_row4process = num_points / (double)num_processes;
 
         ProgressReporter progress;
@@ -88,26 +86,26 @@ SEXP tgs_dist(SEXP _x, SEXP _attrs, SEXP _tidy, SEXP _threshold, SEXP _rrownames
 
         for (int iprocess = 0; iprocess < num_processes; ++iprocess) {
             if (!TGStat::launch_process()) {     // child process
-                size_t srow[2] = { (size_t)(iprocess * num_row4process / 2.), (size_t)(num_points - (iprocess + 1) * num_row4process / 2.) };
-                size_t erow[2] = { (size_t)((iprocess + 1) * num_row4process / 2.), (size_t)(num_points - iprocess * num_row4process / 2.) };
-                size_t itr_idx = 0;
+                uint64_t srow[2] = { (uint64_t)(iprocess * num_row4process / 2.), (uint64_t)(num_points - (iprocess + 1) * num_row4process / 2.) };
+                uint64_t erow[2] = { (uint64_t)((iprocess + 1) * num_row4process / 2.), (uint64_t)(num_points - iprocess * num_row4process / 2.) };
+                uint64_t itr_idx = 0;
 
                 for (int ipart = 0; ipart < 2; ipart++) {
-                    for (size_t irow1 = 0; irow1 < num_points; ++irow1) {
-                        size_t start = max(srow[ipart], irow1 + 1);
+                    for (uint64_t irow1 = 0; irow1 < num_points; ++irow1) {
+                        uint64_t start = max(srow[ipart], irow1 + 1);
                         if (start >= erow[ipart])
                             break;
 
-                        size_t idx = start * num_points + irow1;
+                        uint64_t idx = start * num_points + irow1;
 
-                        for (size_t irow2 = start; irow2 < erow[ipart]; ++irow2) {
+                        for (uint64_t irow2 = start; irow2 < erow[ipart]; ++irow2) {
                             double dist = 0;
                             double dev;
-                            size_t count = 0;
-                            size_t idx1 = irow1;
-                            size_t idx2 = irow2;
+                            uint64_t count = 0;
+                            uint64_t idx1 = irow1;
+                            uint64_t idx2 = irow2;
 
-                            for (size_t icol = 0; icol < num_dims; ++icol) {
+                            for (uint64_t icol = 0; icol < num_dims; ++icol) {
                                 if (!std::isnan(vals[idx1]) && !std::isnan(vals[idx2])) {
                                     dev = vals[idx1] - vals[idx2];
                                     dist += dev * dev;
@@ -146,11 +144,11 @@ SEXP tgs_dist(SEXP _x, SEXP _attrs, SEXP _tidy, SEXP _threshold, SEXP _rrownames
 
             rprotect(answer = RSaneAllocVector(VECSXP, num_dims));
 
-            size_t answer_size = 0;
+            uint64_t answer_size = 0;
 
-            for (size_t ipoint1 = 0; ipoint1 < num_points; ++ipoint1) {
-                size_t idx2 = (ipoint1 + 1) * num_points + ipoint1;
-                for (size_t ipoint2 = ipoint1 + 1; ipoint2 < num_points; ++ipoint2) {
+            for (uint64_t ipoint1 = 0; ipoint1 < num_points; ++ipoint1) {
+                uint64_t idx2 = (ipoint1 + 1) * num_points + ipoint1;
+                for (uint64_t ipoint2 = ipoint1 + 1; ipoint2 < num_points; ++ipoint2) {
                     if (res[idx2] <= threshold)
                         ++answer_size;
                     idx2 += num_points;
@@ -165,13 +163,13 @@ SEXP tgs_dist(SEXP _x, SEXP _attrs, SEXP _tidy, SEXP _threshold, SEXP _rrownames
             rprotect(rcolnames = RSaneAllocVector(STRSXP, num_dims));
             rprotect(rrownames = RSaneAllocVector(INTSXP, answer_size));
 
-            for (size_t i = 0; i < num_dims; i++)
+            for (uint64_t i = 0; i < num_dims; i++)
                 SET_STRING_ELT(rcolnames, i, mkChar(COL_NAMES[i]));
 
-            size_t idx1 = 0;
-            for (size_t ipoint1 = 0; ipoint1 < num_points; ++ipoint1) {
-                size_t idx2 = (ipoint1 + 1) * num_points + ipoint1;
-                for (size_t ipoint2 = ipoint1 + 1; ipoint2 < num_points; ++ipoint2) {
+            uint64_t idx1 = 0;
+            for (uint64_t ipoint1 = 0; ipoint1 < num_points; ++ipoint1) {
+                uint64_t idx2 = (ipoint1 + 1) * num_points + ipoint1;
+                for (uint64_t ipoint2 = ipoint1 + 1; ipoint2 < num_points; ++ipoint2) {
                     if (res[idx2] <= threshold) {
                         INTEGER(rcol1)[idx1] = ipoint1 + 1;
                         INTEGER(rcol2)[idx1] = ipoint2 + 1;
@@ -198,14 +196,14 @@ SEXP tgs_dist(SEXP _x, SEXP _attrs, SEXP _tidy, SEXP _threshold, SEXP _rrownames
             setAttrib(answer, R_ClassSymbol, mkString("data.frame"));
             setAttrib(answer, R_RowNamesSymbol, rrownames);
         } else {
-            rprotect(answer = RSaneAllocVector(REALSXP, (size_t)num_points * (num_points - 1) / 2));
+            rprotect(answer = RSaneAllocVector(REALSXP, (uint64_t)num_points * (num_points - 1) / 2));
 
-            size_t idx1 = 0;
+            uint64_t idx1 = 0;
             double *d = REAL(answer);
 
-            for (size_t ipoint1 = 0; ipoint1 < num_points; ++ipoint1) {
-                size_t idx2 = (ipoint1 + 1) * num_points + ipoint1;
-                for (size_t ipoint2 = ipoint1 + 1; ipoint2 < num_points; ++ipoint2) {
+            for (uint64_t ipoint1 = 0; ipoint1 < num_points; ++ipoint1) {
+                uint64_t idx2 = (ipoint1 + 1) * num_points + ipoint1;
+                for (uint64_t ipoint2 = ipoint1 + 1; ipoint2 < num_points; ++ipoint2) {
                     d[idx1++] = res[idx2];
                     idx2 += num_points;
                 }
@@ -217,7 +215,7 @@ SEXP tgs_dist(SEXP _x, SEXP _attrs, SEXP _tidy, SEXP _threshold, SEXP _rrownames
         }
     } catch (TGLException &e) {
         if (!TGStat::is_kid() && shm != (double *)MAP_FAILED) {
-            munmap(shm, shm_sizeof);
+            munmap((char *)shm, shm_sizeof);     // needs to be char * for some versions of Solaris
             shm = (double *)MAP_FAILED;
         }
 		rerror("%s", e.msg());
@@ -226,7 +224,7 @@ SEXP tgs_dist(SEXP _x, SEXP _attrs, SEXP _tidy, SEXP _threshold, SEXP _rrownames
     }
 
     if (!TGStat::is_kid() && shm != (double *)MAP_FAILED) {
-        munmap(shm, shm_sizeof);
+        munmap((char *)shm, shm_sizeof);     // needs to be char * for some versions of Solaris
         shm = (double *)MAP_FAILED;
     }
 	rreturn(answer);
@@ -264,16 +262,16 @@ SEXP tgs_dist_blas(SEXP _x, SEXP _attrs, SEXP _tidy, SEXP _threshold, SEXP _rrow
         bool tidy = asLogical(_tidy);
         double threshold = fabs(asReal(_threshold));
 
-        size_t num_points = nrows(_x);
-        size_t num_dims = ncols(_x);
+        uint64_t num_points = nrows(_x);
+        uint64_t num_dims = ncols(_x);
         int num_points32 = (int)num_points;
         int num_dims32 = (int)num_dims;
 
         if (num_points < 1 || num_dims < 1)
             verror("\"x\" argument must be a matrix of numeric values");
 
-        size_t num_vals = num_points * num_dims;
-        size_t res_size = num_points * num_points;
+        uint64_t num_vals = num_points * num_dims;
+        uint64_t res_size = num_points * num_points;
         bool nan_in_vals = false;
 
         // some BLAS implementations ask to align double arrays to 64 for improved efficiency
@@ -286,7 +284,7 @@ SEXP tgs_dist_blas(SEXP _x, SEXP _attrs, SEXP _tidy, SEXP _threshold, SEXP _rrow
         if (posix_memalign((void **)&mem.res, 64, sizeof(double) * res_size))
             verror("%s", strerror(errno));
 
-        for (size_t i = 0; i < num_vals; ++i) {
+        for (uint64_t i = 0; i < num_vals; ++i) {
             if ((isReal(_x) && !R_FINITE(REAL(_x)[i])) || (isInteger(_x) && INTEGER(_x)[i] == NA_INTEGER)) {
                 mem.m[i] = mem.mask[i] = 0.;
                 nan_in_vals = true;
@@ -318,7 +316,7 @@ SEXP tgs_dist_blas(SEXP _x, SEXP _attrs, SEXP _tidy, SEXP _threshold, SEXP _rrow
 
         if (nan_in_vals) {
             // m <- m^2
-            for (size_t i = 0; i < num_vals; ++i)
+            for (uint64_t i = 0; i < num_vals; ++i)
                 mem.m[i] = mem.m[i] * mem.m[i];
 
             // res <- num_dims * m^2 %*% t(mask) + num_dims * mask %*% t(m^2) + num_dims * res
@@ -346,9 +344,9 @@ SEXP tgs_dist_blas(SEXP _x, SEXP _attrs, SEXP _tidy, SEXP _threshold, SEXP _rrow
             }
 
             // sqrt(res / n)
-            for (size_t ipoint1 = 0, idx = 0; ipoint1 < num_points; ++ipoint1) {
+            for (uint64_t ipoint1 = 0, idx = 0; ipoint1 < num_points; ++ipoint1) {
                 idx += ipoint1 + 1;
-                for (size_t ipoint2 = ipoint1 + 1; ipoint2 < num_points; ++ipoint2) {
+                for (uint64_t ipoint2 = ipoint1 + 1; ipoint2 < num_points; ++ipoint2) {
                     mem.res[idx] = sqrt(mem.res[idx] / mem.n[idx]);
                     ++idx;
                 }
@@ -358,17 +356,17 @@ SEXP tgs_dist_blas(SEXP _x, SEXP _attrs, SEXP _tidy, SEXP _threshold, SEXP _rrow
         } else {
             vector<double> s_v2(num_points, 0.);
 
-            for (size_t idim = 0, idx = 0; idim < num_dims; ++idim) {
-                for (size_t ipoint = 0; ipoint < num_points; ++ipoint) {
+            for (uint64_t idim = 0, idx = 0; idim < num_dims; ++idim) {
+                for (uint64_t ipoint = 0; ipoint < num_points; ++ipoint) {
                     s_v2[ipoint] += mem.m[idx] * mem.m[idx];
                     ++idx;
                 }
             }
 
             // sqrt(res + s_x^2 + s_y^2)
-            for (size_t ipoint1 = 0, idx = 0; ipoint1 < num_points; ++ipoint1) {
+            for (uint64_t ipoint1 = 0, idx = 0; ipoint1 < num_points; ++ipoint1) {
                 idx += ipoint1 + 1;
-                for (size_t ipoint2 = ipoint1 + 1; ipoint2 < num_points; ++ipoint2) {
+                for (uint64_t ipoint2 = ipoint1 + 1; ipoint2 < num_points; ++ipoint2) {
                     mem.res[idx] = sqrt(max(mem.res[idx] + s_v2[ipoint1] + s_v2[ipoint2], 0.));
                     ++idx;
                 }
@@ -395,11 +393,11 @@ SEXP tgs_dist_blas(SEXP _x, SEXP _attrs, SEXP _tidy, SEXP _threshold, SEXP _rrow
 
             rprotect(answer = RSaneAllocVector(VECSXP, num_dims));
 
-            size_t answer_size = 0;
+            uint64_t answer_size = 0;
 
-            for (size_t ipoint1 = 0, idx = 0; ipoint1 < num_points; ++ipoint1) {
+            for (uint64_t ipoint1 = 0, idx = 0; ipoint1 < num_points; ++ipoint1) {
                 idx += ipoint1 + 1;
-                for (size_t ipoint2 = ipoint1 + 1; ipoint2 < num_points; ++ipoint2) {
+                for (uint64_t ipoint2 = ipoint1 + 1; ipoint2 < num_points; ++ipoint2) {
                     if (mem.res[idx] <= threshold)
                         ++answer_size;
                     ++idx;
@@ -414,15 +412,15 @@ SEXP tgs_dist_blas(SEXP _x, SEXP _attrs, SEXP _tidy, SEXP _threshold, SEXP _rrow
             rprotect(rcolnames = RSaneAllocVector(STRSXP, num_dims));
             rprotect(rrownames = RSaneAllocVector(INTSXP, answer_size));
 
-            for (size_t i = 0; i < num_dims; i++)
+            for (uint64_t i = 0; i < num_dims; i++)
                 SET_STRING_ELT(rcolnames, i, mkChar(COL_NAMES[i]));
 
-            size_t idx1 = 0;
-            size_t idx2 = 0;
+            uint64_t idx1 = 0;
+            uint64_t idx2 = 0;
 
-            for (size_t ipoint1 = 0; ipoint1 < num_points; ++ipoint1) {
+            for (uint64_t ipoint1 = 0; ipoint1 < num_points; ++ipoint1) {
                 idx2 += ipoint1 + 1;
-                for (size_t ipoint2 = ipoint1 + 1; ipoint2 < num_points; ++ipoint2) {
+                for (uint64_t ipoint2 = ipoint1 + 1; ipoint2 < num_points; ++ipoint2) {
                     if (mem.res[idx2] <= threshold) {
                         INTEGER(rcol1)[idx1] = ipoint1 + 1;
                         INTEGER(rcol2)[idx1] = ipoint2 + 1;
@@ -449,15 +447,15 @@ SEXP tgs_dist_blas(SEXP _x, SEXP _attrs, SEXP _tidy, SEXP _threshold, SEXP _rrow
             setAttrib(answer, R_ClassSymbol, mkString("data.frame"));
             setAttrib(answer, R_RowNamesSymbol, rrownames);
         } else {
-            rprotect(answer = RSaneAllocVector(REALSXP, (size_t)num_points * (num_points - 1) / 2));
+            rprotect(answer = RSaneAllocVector(REALSXP, (uint64_t)num_points * (num_points - 1) / 2));
 
-            size_t idx1 = 0;
-            size_t idx2 = 0;
+            uint64_t idx1 = 0;
+            uint64_t idx2 = 0;
             double *d = REAL(answer);
 
-            for (size_t ipoint1 = 0; ipoint1 < num_points; ++ipoint1) {
+            for (uint64_t ipoint1 = 0; ipoint1 < num_points; ++ipoint1) {
                 idx2 += ipoint1 + 1;
-                for (size_t ipoint2 = ipoint1 + 1; ipoint2 < num_points; ++ipoint2)
+                for (uint64_t ipoint2 = ipoint1 + 1; ipoint2 < num_points; ++ipoint2)
                     d[idx1++] = mem.res[idx2++];
             }
 

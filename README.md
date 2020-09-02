@@ -22,7 +22,7 @@ Installation
 In order to install `tgstat`:
 
 ``` r
-install.packages("tgstat")
+remotes::install_github("tanaylab/tgstat")
 ```
 
 Examples
@@ -48,7 +48,7 @@ Pearson correlation without BLAS, no NAs:
 options(tgs_use.blas=F)
 system.time(tgs_cor(m))
 #>    user  system elapsed 
-#>  19.868   1.614   1.186
+#>  19.819   1.588   1.129
 ```
 
 Same with BLAS:
@@ -58,7 +58,7 @@ Same with BLAS:
 options(tgs_use.blas=T)
 system.time(tgs_cor(m))
 #>    user  system elapsed 
-#>   2.107   0.259   0.431
+#>   2.073   0.262   0.430
 ```
 
 Base R version:
@@ -66,7 +66,7 @@ Base R version:
 ``` r
 system.time(cor(m))
 #>    user  system elapsed 
-#>  20.200   0.104  20.352
+#>  17.884   0.097  18.023
 ```
 
 Pearson correlation without BLAS, with NAs:
@@ -75,7 +75,7 @@ Pearson correlation without BLAS, with NAs:
 options(tgs_use.blas=F)
 system.time(tgs_cor(m_with_NAs, pairwise.complete.obs=T))
 #>    user  system elapsed 
-#>  61.170   1.929   1.947
+#>  62.454   1.508   1.557
 ```
 
 Same with BLAS:
@@ -84,7 +84,7 @@ Same with BLAS:
 options(tgs_use.blas=T)
 system.time(tgs_cor(m_with_NAs, pairwise.complete.obs=T))
 #>    user  system elapsed 
-#>   7.836   0.774   0.711
+#>   6.162   0.863   0.654
 ```
 
 Base R version:
@@ -92,7 +92,7 @@ Base R version:
 ``` r
 system.time(cor(m_with_NAs, use="pairwise.complete.obs"))
 #>    user  system elapsed 
-#> 259.318   0.778 260.711
+#> 251.409   0.150 252.150
 ```
 
 ### Fast computation of distance matrices
@@ -102,9 +102,9 @@ Distance without BLAS, no NAs:
 ``` r
 options(tgs_use.blas=F)
 system.time(tgs_dist(m))
-#> 87%...100%
+#> 83%...100%
 #>    user  system elapsed 
-#> 255.964   1.623   4.773
+#> 272.206   1.433   4.524
 ```
 
 Same with BLAS:
@@ -113,7 +113,7 @@ Same with BLAS:
 options(tgs_use.blas=T)
 system.time(tgs_dist(m))
 #>    user  system elapsed 
-#>   2.183   0.253   0.301
+#>   1.917   0.322   0.293
 ```
 
 Base R:
@@ -121,7 +121,7 @@ Base R:
 ``` r
 system.time(dist(m, method="euclidean"))
 #>    user  system elapsed 
-#> 159.341   0.182 159.901
+#> 142.932   0.083 143.350
 ```
 
 Notes regarding the usage of `BLAS`

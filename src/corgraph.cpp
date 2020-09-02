@@ -27,7 +27,7 @@ SEXP tgs_cor_graph(SEXP _ranks, SEXP _knn, SEXP _k_expand, SEXP _k_beta, SEXP _e
         int *pcol1;
         int *pcol2;
         int *prank;
-        size_t num_ranks;
+        uint64_t num_ranks;
 
         if ((!isReal(_k_beta) && !isInteger(_k_beta)) || xlength(_k_beta) != 1)
             verror("\"k_beta\" argument must be a numeric value");
@@ -73,15 +73,15 @@ SEXP tgs_cor_graph(SEXP _ranks, SEXP _knn, SEXP _k_expand, SEXP _k_beta, SEXP _e
 
         vdebug("Building the graph\n");
 
-        size_t knn = (size_t)knn_d;
+        uint64_t knn = (uint64_t)knn_d;
         unsigned num_points = 0;
-        unordered_map<pair<unsigned, unsigned>, size_t> ij2weight;
-        unordered_map<pair<unsigned, unsigned>, size_t> ij2rank;
-        size_t max_weight = knn * knn * k_expand;
+        unordered_map<pair<unsigned, unsigned>, uint64_t> ij2weight;
+        unordered_map<pair<unsigned, unsigned>, uint64_t> ij2rank;
+        uint64_t max_weight = knn * knn * k_expand;
 
         vdebug("Reading ranks\n");
         ij2rank.reserve(num_ranks);
-        for (size_t i = 0; i < num_ranks; ++i)
+        for (uint64_t i = 0; i < num_ranks; ++i)
             ij2rank[{pcol1[i], pcol2[i]}] = prank[i];
 
         vdebug("Building edges weights\n");
@@ -93,7 +93,7 @@ SEXP tgs_cor_graph(SEXP _ranks, SEXP _knn, SEXP _k_expand, SEXP _k_beta, SEXP _e
             if (ij.first < ij.second) {
                 auto itr = ij2rank.find({ij.second, ij.first});
                 if (itr != ij2rank.end()) {
-                    size_t weight = r.second * itr->second;    // weight = rank[i,j] * rank[j,i]
+                    uint64_t weight = r.second * itr->second;    // weight = rank[i,j] * rank[j,i]
                     if (weight <= max_weight)
                         ij2weight[ij] = ij2weight[{ij.second, ij.first}] = weight;
                 }
@@ -107,7 +107,7 @@ SEXP tgs_cor_graph(SEXP _ranks, SEXP _knn, SEXP _k_expand, SEXP _k_beta, SEXP _e
 
         struct Edge {
             unsigned node;
-            size_t weight;
+            uint64_t weight;
             Edge(unsigned _node, unsigned _weight) : node(_node), weight(_weight) {}
             bool operator<(const Edge &o) const { return weight < o.weight || (weight == o.weight && node < o.node); }
         };
@@ -156,11 +156,11 @@ SEXP tgs_cor_graph(SEXP _ranks, SEXP _knn, SEXP _k_expand, SEXP _k_beta, SEXP _e
         enum { COL1, COL2, WEIGHT, NUM_COLS };
         const char *COL_NAMES[NUM_COLS] = { "col1", "col2", "weight" };
 
-        size_t answer_size = 0;
+        uint64_t answer_size = 0;
         SEXP ranswer, rcol1, rcol2, rweight, rrownames, rcolnames, rlevels;
 
         for (const auto &edges : outgoing)
-            answer_size += min(edges.size(), knn);
+            answer_size += min((uint64_t)edges.size(), knn);
 
         rprotect(ranswer = RSaneAllocVector(VECSXP, NUM_COLS));
         rprotect(rcol1 = RSaneAllocVector(INTSXP, answer_size));
@@ -184,7 +184,7 @@ SEXP tgs_cor_graph(SEXP _ranks, SEXP _knn, SEXP _k_expand, SEXP _k_beta, SEXP _e
         for (int i = 0; i < NUM_COLS; i++)
             SET_STRING_ELT(rcolnames, i, mkChar(COL_NAMES[i]));
 
-        size_t idx = 0;
+        uint64_t idx = 0;
         for (auto iedges = outgoing.begin(); iedges < outgoing.end(); ++iedges) {
             double rank = 0;
 

@@ -1,6 +1,8 @@
 #ifndef TGSTAT_H_
 #define TGSTAT_H_
 
+#include <errno.h>
+#include <stdlib.h>
 #include <string>
 #include <set>
 #include <vector>
@@ -50,7 +52,7 @@ void vdebug(const char *fmt, ...);
 SEXP rprotect(SEXP &expr);
 
 // Unprotect the last "count" object
-void runprotect(int count);
+void runprotect(unsigned count);
 
 // Unprotects object expr and sets it to R_NilValue. Works slower than runprotect(unsigned)!
 void runprotect(SEXP &expr);
@@ -95,18 +97,28 @@ SEXP get_rvector_col(SEXP v, const char *colname, const char *varname, bool erro
 
 string get_bound_colname(const char *str, unsigned maxlen = 40);
 
-template<typename T> void pack_data(void *&ptr, const T &data, size_t n) {
-	size_t size = sizeof(data) * n;
+template<typename T> void pack_data(void *&ptr, const T &data, uint64_t n) {
+	uint64_t size = sizeof(data) * n;
 	memcpy(ptr, &data, size);
 	ptr = (char *)ptr + size;
 }
 
-template<typename T> void unpack_data(void *&ptr, T &data, size_t n) {
-	size_t size = sizeof(data) * n;
+template<typename T> void unpack_data(void *&ptr, T &data, uint64_t n) {
+	uint64_t size = sizeof(data) * n;
 	memcpy(&data, ptr, size);
 	ptr = (char *)ptr + size;
 }
 
+#ifdef __sun
+
+inline int posix_memalign(void **memptr, uint64_t alignment, uint64_t size) {
+    *memptr = memalign(alignment, size);
+    if (!*memptr)
+        return EINVAL;
+    return 0;
+}
+
+#endif
 
 #define MAX_KIDS 1000
 
@@ -151,8 +163,8 @@ public:
     static bool wait_for_kids(int millisecs);
 
     // returns number of bytes read or 0 for EOF; the parent process that uses fifo does not need to call then wait_for_kids()
-    static int read_multitask_fifo(void *buf, size_t bytes);
-    static void write_multitask_fifo(const void *buf, size_t bytes);
+    static int read_multitask_fifo(void *buf, uint64_t bytes);
+    static void write_multitask_fifo(const void *buf, uint64_t bytes);
 
     static bool is_kid() { return s_is_kid; }
 
@@ -226,7 +238,7 @@ protected:
 
 	friend void check_interrupt();
 	friend SEXP rprotect(SEXP &expr);
-	friend void runprotect(int count);
+	friend void runprotect(unsigned count);
 	friend void runprotect(SEXP &expr);
 	friend void runprotect(vector<SEXP> &exprs);
 	friend void runprotect_all();

@@ -21,8 +21,8 @@ extern "C" {
 SEXP tgs_knn(SEXP _x, SEXP _knn, SEXP _diag, SEXP _threshold, SEXP _envir)
 {
     SEXP answer = R_NilValue;
-    size_t *res = (size_t *)MAP_FAILED;
-    size_t res_sizeof = 0;
+    uint64_t *res = (uint64_t *)MAP_FAILED;
+    uint64_t res_sizeof = 0;
 
 	try {
         TGStat tgstat(_envir);
@@ -37,19 +37,19 @@ SEXP tgs_knn(SEXP _x, SEXP _knn, SEXP _diag, SEXP _threshold, SEXP _envir)
             verror("\"knn\" argument must be a positive integer");
 
         double threshold = asReal(_threshold);
-        size_t knn = asInteger(_knn);
+        uint64_t knn = asInteger(_knn);
         bool diag = asLogical(_diag);
         bool tidy;
-        size_t num_pairs = 0;
-        vector<size_t> point2size;
+        uint64_t num_pairs = 0;
+        vector<uint64_t> point2size;
         int *pcol1 = NULL;
         int *pcol2 = NULL;
         double *data;
-        auto cmp = [&data](size_t idx1, size_t idx2) { return data[idx1] > data[idx2] || (data[idx1] == data[idx2] && idx1 < idx2); };
+        auto cmp = [&data](uint64_t idx1, uint64_t idx2) { return data[idx1] > data[idx2] || (data[idx1] == data[idx2] && idx1 < idx2); };
 
-        vector<size_t> sorted_rows;     // contains number of rows of _x sorted by col1
-        size_t num_rows;
-        size_t num_cols;
+        vector<uint64_t> sorted_rows;     // contains number of rows of _x sorted by col1
+        uint64_t num_rows;
+        uint64_t num_cols;
 
         vdebug("Preparing for multitasking...\n");
         if (isReal(_x) && xlength(_x) >= 1) {    // x is a matrix
@@ -67,9 +67,9 @@ SEXP tgs_knn(SEXP _x, SEXP _knn, SEXP _diag, SEXP _threshold, SEXP _envir)
             point2size.resize(num_cols, 0);
 
             {
-                size_t idx = 0;
-                for (size_t icol = 0; icol < num_cols; ++icol) {
-                    for (size_t irow = 0; irow < num_rows; ++irow) {
+                uint64_t idx = 0;
+                for (uint64_t icol = 0; icol < num_cols; ++icol) {
+                    for (uint64_t irow = 0; irow < num_rows; ++irow) {
                         if ((irow != icol || diag) && R_FINITE(data[idx]) && data[idx] >= threshold) {
                             ++point2size[icol];
                             ++num_pairs;
@@ -80,18 +80,18 @@ SEXP tgs_knn(SEXP _x, SEXP _knn, SEXP _diag, SEXP _threshold, SEXP _envir)
             }
 
             if (num_pairs) {
-                res_sizeof = sizeof(size_t) * num_pairs;
-                res = (size_t *)mmap(NULL, res_sizeof, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+                res_sizeof = sizeof(uint64_t) * num_pairs;
+                res = (uint64_t *)mmap(NULL, res_sizeof, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
 
-                if (res == (size_t *)MAP_FAILED)
+                if (res == (uint64_t *)MAP_FAILED)
                     verror("Failed to allocate shared memory: %s", strerror(errno));
 
                 {
-                    size_t idx1 = 0;
-                    size_t idx2 = 0;
+                    uint64_t idx1 = 0;
+                    uint64_t idx2 = 0;
 
-                    for (size_t icol = 0; icol < num_cols; ++icol) {
-                        for (size_t irow = 0; irow < num_rows; ++irow) {
+                    for (uint64_t icol = 0; icol < num_cols; ++icol) {
+                        for (uint64_t irow = 0; irow < num_rows; ++irow) {
                             if ((irow != icol || diag) && R_FINITE(data[idx1]) && data[idx1] >= threshold)
                                 res[idx2++] = idx1;
                             ++idx1;
@@ -109,8 +109,8 @@ SEXP tgs_knn(SEXP _x, SEXP _knn, SEXP _diag, SEXP _threshold, SEXP _envir)
 
             num_rows = xlength(rcol1);
 
-            if ((!isInteger(rcol1) && !isFactor(rcol1)) || (!isInteger(rcol2) && !isFactor(rcol1)) || xlength(rcol2) != num_rows ||
-                (!isInteger(rval) && !isReal(rval)) || xlength(rval) != num_rows)
+            if ((!isInteger(rcol1) && !isFactor(rcol1)) || (!isInteger(rcol2) && !isFactor(rcol1)) || (unsigned)xlength(rcol2) != num_rows ||
+                (!isInteger(rval) && !isReal(rval)) || (unsigned)xlength(rval) != num_rows)
                 verror("Invalid format of \"x\" argument");
 
             bool sort_needed = false;
@@ -119,12 +119,12 @@ SEXP tgs_knn(SEXP _x, SEXP _knn, SEXP _diag, SEXP _threshold, SEXP _envir)
             pcol2 = INTEGER(rcol2);
             data = REAL(rval);
 
-            auto cmp_rows = [&pcol1, &pcol2](size_t idx1, size_t idx2) {
+            auto cmp_rows = [&pcol1, &pcol2](uint64_t idx1, uint64_t idx2) {
                                 return pcol1[idx1] < pcol1[idx2] || (pcol1[idx1] == pcol1[idx2] && pcol2[idx1] < pcol2[idx2]);
                             };
 
             sorted_rows.resize(num_rows);
-            for (size_t i = 0; i < num_rows; ++i) {
+            for (uint64_t i = 0; i < num_rows; ++i) {
                 if (i && pcol1[i - 1] > pcol1[i])
                     sort_needed = true;
 
@@ -148,13 +148,13 @@ SEXP tgs_knn(SEXP _x, SEXP _knn, SEXP _diag, SEXP _threshold, SEXP _envir)
             }
 
             if (num_pairs) {
-                res_sizeof = sizeof(size_t) * num_pairs;
-                res = (size_t *)mmap(NULL, res_sizeof, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+                res_sizeof = sizeof(uint64_t) * num_pairs;
+                res = (uint64_t *)mmap(NULL, res_sizeof, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
 
-                if (res == (size_t *)MAP_FAILED)
+                if (res == (uint64_t *)MAP_FAILED)
                     verror("Failed to allocate shared memory: %s", strerror(errno));
 
-                size_t idx = 0;
+                uint64_t idx = 0;
                 for (auto irow = sorted_rows.begin(); irow != sorted_rows.end(); ++irow) {
                     if (R_FINITE(data[*irow]) && data[*irow] >= threshold)
                         res[idx++] = *irow;
@@ -163,7 +163,7 @@ SEXP tgs_knn(SEXP _x, SEXP _knn, SEXP _diag, SEXP _threshold, SEXP _envir)
         } else
             verror("Invalid format of \"x\" argument");
 
-        int num_processes = (int)min(num_pairs / 1000000, (size_t)g_tgstat->num_processes());
+        int num_processes = (int)min(num_pairs / 1000000, (uint64_t)g_tgstat->num_processes());
 
         if (num_pairs)
             num_processes = max(num_processes, 1);
@@ -176,14 +176,14 @@ SEXP tgs_knn(SEXP _x, SEXP _knn, SEXP _diag, SEXP _threshold, SEXP _envir)
 
         for (int iprocess = 0; iprocess < num_processes; ++iprocess) {
             if (!TGStat::launch_process()) {     // child process
-                size_t spoint = point2size.size() * (iprocess / (double)num_processes);
-                size_t epoint = point2size.size() * ((iprocess + 1) / (double)num_processes);
-                size_t idx = 0;
+                uint64_t spoint = point2size.size() * (iprocess / (double)num_processes);
+                uint64_t epoint = point2size.size() * ((iprocess + 1) / (double)num_processes);
+                uint64_t idx = 0;
 
-                for (size_t i = 0; i < spoint; ++i)
+                for (uint64_t i = 0; i < spoint; ++i)
                     idx += point2size[i];
 
-                for (size_t ipoint = spoint; ipoint < epoint; ++ipoint) {
+                for (uint64_t ipoint = spoint; ipoint < epoint; ++ipoint) {
                     if (point2size[ipoint] > knn)
                         partial_sort(res + idx, res + idx + knn, res + idx + point2size[ipoint], cmp);
                     else
@@ -206,7 +206,7 @@ SEXP tgs_knn(SEXP _x, SEXP _knn, SEXP _diag, SEXP _threshold, SEXP _envir)
         const char *COL_NAMES[NUM_COLS] = { "col1", "col2", "val", "rank" };
 
         SEXP rcol1, rcol2, rval, rrank, rrownames, rcolnames, rold_colnames;
-        size_t answer_size = 0;
+        uint64_t answer_size = 0;
 
         vdebug("PACKING\n");
         for (auto point_size : point2size)
@@ -236,15 +236,15 @@ SEXP tgs_knn(SEXP _x, SEXP _knn, SEXP _diag, SEXP _threshold, SEXP _envir)
                 SET_STRING_ELT(rcolnames, VAL, STRING_ELT(rold_colnames, 2));
         }
 
-        size_t row = 0;
-        size_t idx = 0;
+        uint64_t row = 0;
+        uint64_t idx = 0;
         int rank = 1;
 
         if (tidy) {
-            for (size_t ipoint = 0; ipoint < point2size.size(); ++ipoint) {
-                size_t point_knn = min(knn, point2size[ipoint]);
+            for (uint64_t ipoint = 0; ipoint < point2size.size(); ++ipoint) {
+                uint64_t point_knn = min(knn, point2size[ipoint]);
 
-                for (size_t i = 0; i < point_knn; ++i) {
+                for (uint64_t i = 0; i < point_knn; ++i) {
                     INTEGER(rcol1)[row] = pcol1[res[idx + i]];
                     INTEGER(rcol2)[row] = pcol2[res[idx + i]];
                     REAL(rval)[row] = data[res[idx + i]];
@@ -260,10 +260,10 @@ SEXP tgs_knn(SEXP _x, SEXP _knn, SEXP _diag, SEXP _threshold, SEXP _envir)
                 idx += point2size[ipoint];
             }
         } else {
-            for (size_t icol = 0; icol < num_cols; ++icol) {
-                size_t point_knn = min(knn, point2size[icol]);
+            for (uint64_t icol = 0; icol < num_cols; ++icol) {
+                uint64_t point_knn = min(knn, point2size[icol]);
 
-                for (size_t i = 0; i < point_knn; ++i) {
+                for (uint64_t i = 0; i < point_knn; ++i) {
                     INTEGER(rcol1)[row] = icol + 1;
                     INTEGER(rcol2)[row] = res[idx + i] % num_rows + 1;
                     REAL(rval)[row] = data[res[idx + i]];
@@ -298,18 +298,18 @@ SEXP tgs_knn(SEXP _x, SEXP _knn, SEXP _diag, SEXP _threshold, SEXP _envir)
 
         vdebug("END\n");
     } catch (TGLException &e) {
-        if (!TGStat::is_kid() && res != (size_t *)MAP_FAILED) {
-            munmap(res, res_sizeof);
-            res = (size_t *)MAP_FAILED;
+        if (!TGStat::is_kid() && res != (uint64_t *)MAP_FAILED) {
+            munmap((char *)res, res_sizeof);  // needs to be char * for some versions of Solaris
+            res = (uint64_t *)MAP_FAILED;
         }
 		rerror("%s", e.msg());
 	} catch (const bad_alloc &e) {
         rerror("Out of memory");
     }
 
-    if (!TGStat::is_kid() && res != (size_t *)MAP_FAILED) {
-        munmap(res, res_sizeof);
-        res = (size_t *)MAP_FAILED;
+    if (!TGStat::is_kid() && res != (uint64_t *)MAP_FAILED) {
+        munmap((char *)res, res_sizeof);  // needs to be char * for some versions of Solaris
+        res = (uint64_t *)MAP_FAILED;
     }
 	rreturn(answer);
 }

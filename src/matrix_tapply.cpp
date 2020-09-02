@@ -84,7 +84,6 @@ void init_sum_data(SEXP rargs, SEXP rarg_names, SEXP renvir, SumData *sum_data)
 void init_mean_data(SEXP rargs, SEXP rarg_names, SEXP renvir, MeanData *mean_data)
 {
     vdebug("overriding R's \"mean\" function");
-    int num_unnamed_args = 0;
     bool trim_set = false;
     bool na_rm_set = false;
 
@@ -132,7 +131,7 @@ SEXP tgs_matrix_tapply(SEXP _x, SEXP _index, SEXP _fn, SEXP _fn_name, SEXP _args
 {
     SEXP answer = R_NilValue;
     double *res = (double *)MAP_FAILED;
-    size_t res_sizeof = 0;
+    uint64_t res_sizeof = 0;
 
     try {
         TGStat tgstat(_envir);
@@ -152,13 +151,14 @@ SEXP tgs_matrix_tapply(SEXP _x, SEXP _index, SEXP _fn, SEXP _fn_name, SEXP _args
                               !isInteger(_xp) || xlength(_xp) != INTEGER(_rdims)[1] + 1)))
             verror("\"x\" argument must be a matrix of numeric values");
 
-        size_t num_rows = INTEGER(_rdims)[0];   // do not use nrows(): it doesn't work for sparse (i.e. dgCMatrix) matrix
-        size_t num_cols = INTEGER(_rdims)[1];
+        SEXP _xdimnames = _xclass == R_NilValue ? getAttrib(_x, R_DimNamesSymbol) : getAttrib(_x, install("Dimnames"));
+        uint64_t num_rows = INTEGER(_rdims)[0];   // do not use nrows(): it doesn't work for sparse (i.e. dgCMatrix) matrix
+        uint64_t num_cols = INTEGER(_rdims)[1];
 
         if (!isFactor(_index) || xlength(_index) < 1)
             verror("\"index\" argument must be a factor");
 
-        if (xlength(_index) != num_cols)
+        if ((uint64_t)xlength(_index) != num_cols)
             verror("Arguments \"x\" and \"index\" must have same length");
 
         if (!isFunction(_fn) || xlength(_fn) != 1)
@@ -172,7 +172,7 @@ SEXP tgs_matrix_tapply(SEXP _x, SEXP _index, SEXP _fn, SEXP _fn_name, SEXP _args
         SEXP rarg_names = getAttrib(_args, R_NamesSymbol);
         SEXP rcall;
         SEXP rindex_levels = getAttrib(_index, R_LevelsSymbol);
-        size_t num_groups = xlength(rindex_levels);
+        uint64_t num_groups = (uint64_t)xlength(rindex_levels);
         bool is_sum = fn_name == "sum";
         SumData sum_data;
         bool is_mean = fn_name == "mean";
@@ -198,15 +198,15 @@ SEXP tgs_matrix_tapply(SEXP _x, SEXP _index, SEXP _fn, SEXP _fn_name, SEXP _args
 
         vector<vector<int>> group2cols(num_groups);
 
-        for (int i = 0; i < num_cols; ++i) {
+        for (uint64_t i = 0; i < num_cols; ++i) {
             int group = INTEGER(_index)[i] - 1;
-            if (group < 0 || group >= num_groups)
+            if (group < 0 || (unsigned)group >= num_groups)
                 verror("Invalid group index %d, must be in [0, %d] range", group, (int)num_groups);
             group2cols[group].push_back(i);
         }
 
         vdebug("Preparing for multitasking...\n");
-        int num_processes = (int)min(num_rows / 10, (size_t)(g_tgstat->num_processes() / 2));
+        int num_processes = (int)min(num_rows / 10, (uint64_t)(g_tgstat->num_processes() / 2));
 
         // sum and mean are simple functions with complexity O(N). The overhead of extreme parallelization might obliterate the gain.
         if (is_sum || is_mean)
@@ -223,15 +223,15 @@ SEXP tgs_matrix_tapply(SEXP _x, SEXP _index, SEXP _fn, SEXP _fn_name, SEXP _args
 
         for (int iprocess = 0; iprocess < num_processes; ++iprocess) {
             if (!TGStat::launch_process()) {     // child process
-                size_t srow = num_rows * (iprocess / (double)num_processes);
-                size_t erow = num_rows * ((iprocess + 1) / (double)num_processes);
+                uint64_t srow = num_rows * (iprocess / (double)num_processes);
+                uint64_t erow = num_rows * ((iprocess + 1) / (double)num_processes);
                 int *int_vals = _xclass == R_NilValue ? (isInteger(_x) ? INTEGER(_x) : NULL) : (isInteger(_xx) ? INTEGER(_xx) : NULL);
                 double *dbl_vals = _xclass == R_NilValue ? (isReal(_x) ? REAL(_x) : NULL) : (isReal(_xx) ? REAL(_xx) : NULL);
                 int *rows_sparse = _xclass == R_NilValue ? NULL : INTEGER(_xi);
                 int *col_offsets_sparse = _xclass == R_NilValue ? NULL : INTEGER(_xp);
                 vector<int> gcol2offset_sparse;   // translates between idx within the group and index within "x"/"i" attributes of dgCMatrix
 
-                for (size_t igroup = 0; igroup < num_groups; ++igroup) {
+                for (uint64_t igroup = 0; igroup < num_groups; ++igroup) {
                     auto &group_cols = group2cols[igroup];
 
                     if (group_cols.empty())
@@ -245,7 +245,7 @@ SEXP tgs_matrix_tapply(SEXP _x, SEXP _index, SEXP _fn, SEXP _fn_name, SEXP _args
                     }
 
                     if (is_sum) {
-                        for (int irow = srow; irow < erow; ++irow) {
+                        for (auto irow = srow; irow < erow; ++irow) {
                             double sum = sum_data.pre_eval_sum;
 
                             if (_xclass == R_NilValue) {     // _x is regular matrix
@@ -262,8 +262,8 @@ SEXP tgs_matrix_tapply(SEXP _x, SEXP _index, SEXP _fn, SEXP _fn_name, SEXP _args
                             } else {    // _x is sparse matrix of dgCMatrix type
                                 if (isReal(_xx)) {
                                     for (auto icol = group_cols.begin(); icol != group_cols.end(); ++icol) {
-                                        size_t idx = icol - group_cols.begin();
-                                        if (gcol2offset_sparse[idx] < col_offsets_sparse[*icol + 1] && rows_sparse[gcol2offset_sparse[idx]] == irow) {
+                                        uint64_t idx = icol - group_cols.begin();
+                                        if (gcol2offset_sparse[idx] < col_offsets_sparse[*icol + 1] && rows_sparse[gcol2offset_sparse[idx]] == (int)irow) {
                                             double val = dbl_vals[gcol2offset_sparse[idx]];
                                             if (!std::isnan(val) || !sum_data.na_rm)
                                                 sum += val;
@@ -272,8 +272,8 @@ SEXP tgs_matrix_tapply(SEXP _x, SEXP _index, SEXP _fn, SEXP _fn_name, SEXP _args
                                     }
                                 } else {
                                     for (auto icol = group_cols.begin(); icol != group_cols.end(); ++icol) {
-                                        size_t idx = icol - group_cols.begin();
-                                        if (gcol2offset_sparse[idx] < col_offsets_sparse[*icol + 1] && rows_sparse[gcol2offset_sparse[idx]] == irow) {
+                                        uint64_t idx = icol - group_cols.begin();
+                                        if (gcol2offset_sparse[idx] < col_offsets_sparse[*icol + 1] && rows_sparse[gcol2offset_sparse[idx]] == (int)irow) {
                                             sum += int_vals[gcol2offset_sparse[idx]];
                                             ++gcol2offset_sparse[idx];
                                         }
@@ -284,9 +284,9 @@ SEXP tgs_matrix_tapply(SEXP _x, SEXP _index, SEXP _fn, SEXP _fn_name, SEXP _args
                             res[num_groups * irow + igroup] = std::isnan(sum) ? NA_REAL : sum;
                         }
                     } else if (is_mean) {
-                        for (int irow = srow; irow < erow; ++irow) {
+                        for (auto irow = srow; irow < erow; ++irow) {
                             double sum = 0;
-                            size_t num_vals = 0;
+                            uint64_t num_vals = 0;
 
                             if (_xclass == R_NilValue) {     // _x is regular matrix
                                 if (isReal(_x)) {
@@ -306,8 +306,8 @@ SEXP tgs_matrix_tapply(SEXP _x, SEXP _index, SEXP _fn, SEXP _fn_name, SEXP _args
                             } else {    // _x is sparse matrix of dgCMatrix type
                                 if (isReal(_xx)) {
                                     for (auto icol = group_cols.begin(); icol != group_cols.end(); ++icol) {
-                                        size_t idx = icol - group_cols.begin();
-                                        if (gcol2offset_sparse[idx] < col_offsets_sparse[*icol + 1] && rows_sparse[gcol2offset_sparse[idx]] == irow) {
+                                        uint64_t idx = icol - group_cols.begin();
+                                        if (gcol2offset_sparse[idx] < col_offsets_sparse[*icol + 1] && rows_sparse[gcol2offset_sparse[idx]] == (int)irow) {
                                             double val = dbl_vals[gcol2offset_sparse[idx]];
                                             if (!std::isnan(val) || !mean_data.na_rm) {
                                                 sum += val;
@@ -319,8 +319,8 @@ SEXP tgs_matrix_tapply(SEXP _x, SEXP _index, SEXP _fn, SEXP _fn_name, SEXP _args
                                     }
                                 } else {
                                     for (auto icol = group_cols.begin(); icol != group_cols.end(); ++icol) {
-                                        size_t idx = icol - group_cols.begin();
-                                        if (gcol2offset_sparse[idx] < col_offsets_sparse[*icol + 1] && rows_sparse[gcol2offset_sparse[idx]] == irow) {
+                                        uint64_t idx = icol - group_cols.begin();
+                                        if (gcol2offset_sparse[idx] < col_offsets_sparse[*icol + 1] && rows_sparse[gcol2offset_sparse[idx]] == (int)irow) {
                                             sum += int_vals[gcol2offset_sparse[idx]];
                                             ++gcol2offset_sparse[idx];
                                             ++num_vals;
@@ -362,7 +362,7 @@ SEXP tgs_matrix_tapply(SEXP _x, SEXP _index, SEXP _fn, SEXP _fn_name, SEXP _args
                             }
                         }
 
-                        for (int irow = srow; irow < erow; ++irow) {
+                        for (auto irow = srow; irow < erow; ++irow) {
                             if (_xclass == R_NilValue) {     // _x is regular matrix
                                 if (isReal(_x)) {
                                     for (auto icol = group_cols.begin(); icol != group_cols.end(); ++icol)
@@ -374,8 +374,8 @@ SEXP tgs_matrix_tapply(SEXP _x, SEXP _index, SEXP _fn, SEXP _fn_name, SEXP _args
                             } else {    // _x is sparse matrix of dgCMatrix type
                                 if (isReal(_xx)) {
                                     for (auto icol = group_cols.begin(); icol != group_cols.end(); ++icol) {
-                                        size_t idx = icol - group_cols.begin();
-                                        if (gcol2offset_sparse[idx] < col_offsets_sparse[*icol + 1] && rows_sparse[gcol2offset_sparse[idx]] == irow) {
+                                        uint64_t idx = icol - group_cols.begin();
+                                        if (gcol2offset_sparse[idx] < col_offsets_sparse[*icol + 1] && rows_sparse[gcol2offset_sparse[idx]] == (int)irow) {
                                             dbl_group[idx] = dbl_vals[gcol2offset_sparse[idx]];
                                             ++gcol2offset_sparse[idx];
                                         } else
@@ -383,8 +383,8 @@ SEXP tgs_matrix_tapply(SEXP _x, SEXP _index, SEXP _fn, SEXP _fn_name, SEXP _args
                                     }
                                 } else {
                                     for (auto icol = group_cols.begin(); icol != group_cols.end(); ++icol) {
-                                        size_t idx = icol - group_cols.begin();
-                                        if (gcol2offset_sparse[idx] < col_offsets_sparse[*icol + 1] && rows_sparse[gcol2offset_sparse[idx]] == irow) {
+                                        uint64_t idx = icol - group_cols.begin();
+                                        if (gcol2offset_sparse[idx] < col_offsets_sparse[*icol + 1] && rows_sparse[gcol2offset_sparse[idx]] == (int)irow) {
                                             int_group[idx] = int_vals[gcol2offset_sparse[idx]];
                                             ++gcol2offset_sparse[idx];
                                         } else
@@ -433,11 +433,11 @@ SEXP tgs_matrix_tapply(SEXP _x, SEXP _index, SEXP _fn, SEXP _fn_name, SEXP _args
 
         rprotect(dimnames = RSaneAllocVector(VECSXP, 2));
         SET_VECTOR_ELT(dimnames, 0, rindex_levels);
-        SET_VECTOR_ELT(dimnames, 1, R_NilValue);
+        SET_VECTOR_ELT(dimnames, 1, !isNull(_xdimnames) && xlength(_xdimnames) > 0 ? VECTOR_ELT(_xdimnames, 0) : R_NilValue);
         setAttrib(answer, R_DimNamesSymbol, dimnames);
     } catch (TGLException &e) {
         if (!TGStat::is_kid() && res != (double *)MAP_FAILED) {
-            munmap(res, res_sizeof);
+            munmap((char *)res, res_sizeof);  // needs to be char * for some versions of Solaris
             res = (double *)MAP_FAILED;
         }
         rerror("%s", e.msg());
@@ -446,7 +446,7 @@ SEXP tgs_matrix_tapply(SEXP _x, SEXP _index, SEXP _fn, SEXP _fn_name, SEXP _args
     }
 
     if (!TGStat::is_kid() && res != (double *)MAP_FAILED) {
-        munmap(res, res_sizeof);
+        munmap((char *)res, res_sizeof);  // needs to be char * for some versions of Solaris
         res = (double *)MAP_FAILED;
     }
 

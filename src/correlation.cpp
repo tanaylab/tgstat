@@ -26,7 +26,7 @@ SEXP tgs_cor(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _tidy, S
 {
     SEXP answer = R_NilValue;
     double *res = (double *)MAP_FAILED;
-    size_t res_sizeof = 0;
+    uint64_t res_sizeof = 0;
 
 	try {
         TGStat tgstat(_envir);
@@ -55,13 +55,13 @@ SEXP tgs_cor(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _tidy, S
         bool spearman = asLogical(_spearman);
         bool tidy = asLogical(_tidy);
         double threshold = fabs(asReal(_threshold));
-        size_t num_rows = nrows(_x);
-        size_t num_cols = ncols(_x);
+        uint64_t num_rows = nrows(_x);
+        uint64_t num_cols = ncols(_x);
 
         if (num_rows < 1 || num_cols < 1)
             verror("\"x\" argument must be a matrix of numeric values");
 
-        size_t num_vals = num_rows * num_cols;
+        uint64_t num_vals = num_rows * num_cols;
         bool nan_in_vals = false;
         vector<bool> nan_in_col(num_cols, false);
         vector<double> sums(num_cols, 0);
@@ -79,7 +79,7 @@ SEXP tgs_cor(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _tidy, S
 
         vals.reserve(num_vals);
 
-        for (size_t i = 0; i < num_vals; ++i) {
+        for (uint64_t i = 0; i < num_vals; ++i) {
             if ((isReal(_x) && !R_FINITE(REAL(_x)[i])) || (isInteger(_x) && INTEGER(_x)[i] == NA_INTEGER)) {
                 nan_in_col[i / num_rows] = true;
                 nan_in_vals = true;
@@ -91,10 +91,10 @@ SEXP tgs_cor(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _tidy, S
         // replace values with ranks if spearman=T
         if (spearman) {
             pvals.reserve(num_vals);
-            for (size_t i = 0; i < num_vals; ++i)
+            for (uint64_t i = 0; i < num_vals; ++i)
                 pvals.push_back(&vals[i]);
 
-            for (size_t icol = 0; icol < num_cols; ++icol) {
+            for (uint64_t icol = 0; icol < num_cols; ++icol) {
                 if (nan_in_col[icol] && !pairwise_complete_obs)
                     continue;
 
@@ -125,9 +125,9 @@ SEXP tgs_cor(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _tidy, S
             }
         }
 
-        for (size_t irow = 0; irow < num_rows; ++irow) {
-            size_t idx = irow;
-            for (size_t icol = 0; icol < num_cols; ++icol) {
+        for (uint64_t irow = 0; irow < num_rows; ++irow) {
+            uint64_t idx = irow;
+            for (uint64_t icol = 0; icol < num_cols; ++icol) {
                 if (!nan_in_col[icol]) {
                     sums[icol] += vals[idx];
                     sums_square[icol] += vals[idx] * vals[idx];
@@ -136,7 +136,7 @@ SEXP tgs_cor(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _tidy, S
             }
         }
 
-        for (size_t icol = 0; icol < num_cols; ++icol) {
+        for (uint64_t icol = 0; icol < num_cols; ++icol) {
             if (!nan_in_col[icol]) {
                 means[icol] = sums[icol] / num_rows;
 
@@ -147,17 +147,17 @@ SEXP tgs_cor(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _tidy, S
         }
 
         vdebug("Allocating shared memory for results\n");
-        size_t res_size = num_cols * num_cols;
+        uint64_t res_size = num_cols * num_cols;
         res_sizeof = sizeof(double) * res_size;
         res = (double *)mmap(NULL, res_sizeof, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
 
         if (res == (double *)MAP_FAILED)
             verror("Failed to allocate shared memory: %s", strerror(errno));
 
-        for (size_t i = 0; i < res_size; ++i)
+        for (uint64_t i = 0; i < res_size; ++i)
             res[i] = numeric_limits<double>::quiet_NaN();
 
-        int num_processes = (int)min(max((size_t)1, num_cols / 10), (size_t)g_tgstat->num_processes());
+        int num_processes = (int)min(max((uint64_t)1, num_cols / 10), (uint64_t)g_tgstat->num_processes());
         double num_cols4process = num_cols / (double)num_processes;
 
         ProgressReporter progress;
@@ -168,30 +168,30 @@ SEXP tgs_cor(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _tidy, S
 
         for (int iprocess = 0; iprocess < num_processes; ++iprocess) {
             if (!TGStat::launch_process()) {     // child process
-                size_t scol[2] = { (size_t)(iprocess * num_cols4process / 2.), (size_t)(num_cols - (iprocess + 1) * num_cols4process / 2.) };
-                size_t ecol[2] = { (size_t)((iprocess + 1) * num_cols4process / 2.), (size_t)(num_cols - iprocess * num_cols4process / 2.) };
-                size_t itr_idx = 0;
+                uint64_t scol[2] = { (uint64_t)(iprocess * num_cols4process / 2.), (uint64_t)(num_cols - (iprocess + 1) * num_cols4process / 2.) };
+                uint64_t ecol[2] = { (uint64_t)((iprocess + 1) * num_cols4process / 2.), (uint64_t)(num_cols - iprocess * num_cols4process / 2.) };
+                uint64_t itr_idx = 0;
 
                 for (int ipart = 0; ipart < 2; ipart++) {
-                    for (size_t icol1 = 0; icol1 < num_cols; ++icol1) {
-                        size_t start = max(scol[ipart], icol1 + 1);
+                    for (uint64_t icol1 = 0; icol1 < num_cols; ++icol1) {
+                        uint64_t start = max(scol[ipart], icol1 + 1);
                         if (start >= ecol[ipart])
                             break;
 
-                        for (size_t icol2 = start; icol2 < ecol[ipart]; ++icol2) {
-                            size_t idx = icol1 * num_cols + icol2;
+                        for (uint64_t icol2 = start; icol2 < ecol[ipart]; ++icol2) {
+                            uint64_t idx = icol1 * num_cols + icol2;
 
                             if (nan_in_vals && pairwise_complete_obs) {
-                                size_t idx1 = icol1 * num_rows;
-                                size_t idx2 = icol2 * num_rows;
+                                uint64_t idx1 = icol1 * num_rows;
+                                uint64_t idx2 = icol2 * num_rows;
                                 double sum1 = 0;
                                 double sum2 = 0;
                                 double sum_square1 = 0;
                                 double sum_square2 = 0;
-                                double mean1, mean2, stddev1, stddev2;
+                                double mean1, mean2;
 
                                 if (spearman) {
-                                    size_t indices[2] = { idx1, idx2 };
+                                    uint64_t indices[2] = { idx1, idx2 };
                                     vector<double *>::iterator sivals[2] = { pvals.begin() + idx1, pvals.begin() + idx2 };
                                     vector<double *>::iterator eivals[2] = { sivals[0] + num_rows, sivals[1] + num_rows };
                                     double *spvals[2] = { &vals.front() + idx1, &vals.front() + idx2 };
@@ -201,8 +201,8 @@ SEXP tgs_cor(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _tidy, S
                                         memcpy(&col_vals[i]->front(), &nan_col.front(), num_rows * sizeof(double));
 
                                         auto last_ival = sivals[i];
-                                        size_t num_preceeding_vals = 0;
-                                        size_t last_num_preceeding_vals = 0;
+                                        uint64_t num_preceeding_vals = 0;
+                                        uint64_t last_num_preceeding_vals = 0;
 
                                         for (auto ival = sivals[i]; ; ++ival) {
                                             if (ival == eivals[i] || **ival != **last_ival || std::isnan(**ival)) {
@@ -227,9 +227,9 @@ SEXP tgs_cor(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _tidy, S
                                     pcol_vals2 = &vals.front() + idx2;
                                 }
 
-                                size_t num_finite_pairs = 0;
+                                uint64_t num_finite_pairs = 0;
                                 res[idx] = 0;
-                                for (size_t i = 0; i < num_rows; ++i) {
+                                for (uint64_t i = 0; i < num_rows; ++i) {
                                     double val1 = pcol_vals1[i];
                                     double val2 = pcol_vals2[i];
 
@@ -256,9 +256,9 @@ SEXP tgs_cor(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _tidy, S
                                 } else
                                     res[idx] = numeric_limits<double>::quiet_NaN();
                             } else if (!nan_in_col[icol1] && !nan_in_col[icol2]) {
-                                size_t idx1 = icol1 * num_rows;
-                                size_t idx2 = icol2 * num_rows;
-                                size_t end_idx1 = idx1 + num_rows;
+                                uint64_t idx1 = icol1 * num_rows;
+                                uint64_t idx2 = icol2 * num_rows;
+                                uint64_t end_idx1 = idx1 + num_rows;
 
                                 res[idx] = 0;
                                 while (idx1 < end_idx1)
@@ -292,13 +292,13 @@ SEXP tgs_cor(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _tidy, S
 
             rprotect(answer = RSaneAllocVector(VECSXP, NUM_COLS));
 
-            size_t answer_size = 0;
-            auto cmp = [&res](size_t idx1, size_t idx2) { return fabs(res[idx1]) > fabs(res[idx2]); };
-            priority_queue<size_t, vector<size_t>, decltype(cmp)> q(cmp);
+            uint64_t answer_size = 0;
+            auto cmp = [&res](uint64_t idx1, uint64_t idx2) { return fabs(res[idx1]) > fabs(res[idx2]); };
+            priority_queue<uint64_t, vector<uint64_t>, decltype(cmp)> q(cmp);
 
-            for (size_t icol1 = 0; icol1 < num_cols; ++icol1) {
-                size_t idx = icol1;
-                for (size_t icol2 = 0; icol2 < icol1; ++icol2) {
+            for (uint64_t icol1 = 0; icol1 < num_cols; ++icol1) {
+                uint64_t idx = icol1;
+                for (uint64_t icol2 = 0; icol2 < icol1; ++icol2) {
                     if (!std::isnan(res[idx]) && fabs(res[idx]) >= threshold)
                         ++answer_size;
                     idx += num_cols;
@@ -317,10 +317,10 @@ SEXP tgs_cor(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _tidy, S
                 SET_STRING_ELT(rcolnames, i, mkChar(COL_NAMES[i]));
 
             if (answer_size) {
-                size_t i = 0;
-                for (size_t icol1 = 0; icol1 < num_cols; ++icol1) {
-                    for (size_t icol2 = icol1 + 1; icol2 < num_cols; ++icol2) {
-                        size_t idx = (size_t)icol1 * num_cols + icol2;
+                uint64_t i = 0;
+                for (uint64_t icol1 = 0; icol1 < num_cols; ++icol1) {
+                    for (uint64_t icol2 = icol1 + 1; icol2 < num_cols; ++icol2) {
+                        uint64_t idx = (uint64_t)icol1 * num_cols + icol2;
                         if (!std::isnan(res[idx]) && fabs(res[idx]) >= threshold) {
                             INTEGER(rcol1)[i] = icol1 + 1;
                             INTEGER(rcol2)[i] = icol2 + 1;
@@ -348,10 +348,10 @@ SEXP tgs_cor(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _tidy, S
             setAttrib(answer, R_RowNamesSymbol, rrownames);
         } else {
             // copy the matrix below the diagonal to the upper part (the two parts are identical since cor(X,Y)=cor(Y,X)
-            for (size_t icol1 = 0; icol1 < (size_t)num_cols; ++icol1) {
-                size_t idx1 = icol1 * num_cols;
-                size_t idx2 = icol1;
-                for (size_t icol2 = 0; icol2 < icol1; ++icol2) {
+            for (uint64_t icol1 = 0; icol1 < (uint64_t)num_cols; ++icol1) {
+                uint64_t idx1 = icol1 * num_cols;
+                uint64_t idx2 = icol1;
+                for (uint64_t icol2 = 0; icol2 < icol1; ++icol2) {
                     res[idx1] = res[idx2];
                     idx1++;
                     idx2 += num_cols;
@@ -359,7 +359,7 @@ SEXP tgs_cor(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _tidy, S
                 res[icol1 * (num_cols + 1)] = num_rows > 1 ? 1. : NA_REAL;
             }
 
-            for (size_t i = 0; i < res_size; ++i) {
+            for (uint64_t i = 0; i < res_size; ++i) {
                 if (std::isnan(res[i]))
                     res[i] = NA_REAL;
             }
@@ -384,7 +384,7 @@ SEXP tgs_cor(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _tidy, S
         }
     } catch (TGLException &e) {
         if (!TGStat::is_kid() && res != (double *)MAP_FAILED) {
-            munmap(res, res_sizeof);
+            munmap((char *)res, res_sizeof);  // needs to be char * for some versions of Solaris
             res = (double *)MAP_FAILED;
         }
 		rerror("%s", e.msg());
@@ -393,7 +393,7 @@ SEXP tgs_cor(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _tidy, S
     }
 
     if (!TGStat::is_kid() && res != (double *)MAP_FAILED) {
-        munmap(res, res_sizeof);
+        munmap((char *)res, res_sizeof);  // needs to be char * for some versions of Solaris
         res = (double *)MAP_FAILED;
     }
 	rreturn(answer);
@@ -403,7 +403,7 @@ SEXP tgs_cross_cor(SEXP _x, SEXP _y, SEXP _pairwise_complete_obs, SEXP _spearman
 {
     SEXP answer = R_NilValue;
     double *res = (double *)MAP_FAILED;
-    size_t res_sizeof = 0;
+    uint64_t res_sizeof = 0;
 
 	try {
         TGStat tgstat(_envir);
@@ -442,8 +442,8 @@ SEXP tgs_cross_cor(SEXP _x, SEXP _y, SEXP _pairwise_complete_obs, SEXP _spearman
         bool spearman = asLogical(_spearman);
         bool tidy = asLogical(_tidy);
         double threshold = fabs(asReal(_threshold));
-        size_t num_rows = nrows(_x);
-        size_t num_cols[2] = { (size_t)ncols(_x), (size_t)ncols(_y) };
+        uint64_t num_rows = nrows(_x);
+        uint64_t num_cols[2] = { (uint64_t)ncols(_x), (uint64_t)ncols(_y) };
 
         if (num_rows < 1 || num_cols[0] < 1)
             verror("\"x\" argument must be a matrix of numeric values");
@@ -451,7 +451,7 @@ SEXP tgs_cross_cor(SEXP _x, SEXP _y, SEXP _pairwise_complete_obs, SEXP _spearman
         if (num_cols[1] < 1)
             verror("\"y\" argument must be a matrix of numeric values");
 
-        size_t num_vals[2] = { num_rows * num_cols[0], num_rows * num_cols[1] };
+        uint64_t num_vals[2] = { num_rows * num_cols[0], num_rows * num_cols[1] };
         bool nan_in_vals = false;
         vector<bool> nan_in_col[2];
         vector<double> sums[2];
@@ -479,7 +479,7 @@ SEXP tgs_cross_cor(SEXP _x, SEXP _y, SEXP _pairwise_complete_obs, SEXP _spearman
         for (int k = 0; k < 2; ++k) {
             SEXP x = k ? _y : _x;
 
-            for (size_t i = 0; i < num_vals[k]; ++i) {
+            for (uint64_t i = 0; i < num_vals[k]; ++i) {
                 if ((isReal(x) && !R_FINITE(REAL(x)[i])) || (isInteger(x) && INTEGER(x)[i] == NA_INTEGER)) {
                     nan_in_col[k][i / num_rows] = true;
                     nan_in_vals = true;
@@ -493,10 +493,10 @@ SEXP tgs_cross_cor(SEXP _x, SEXP _y, SEXP _pairwise_complete_obs, SEXP _spearman
         if (spearman) {
             for (int k = 0; k < 2; ++k) {
                 pvals[k].reserve(num_vals[k]);
-                for (size_t i = 0; i < num_vals[k]; ++i)
+                for (uint64_t i = 0; i < num_vals[k]; ++i)
                     pvals[k].push_back(&vals[k][i]);
 
-                for (size_t icol = 0; icol < num_cols[k]; ++icol) {
+                for (uint64_t icol = 0; icol < num_cols[k]; ++icol) {
                     if (nan_in_col[k][icol] && !pairwise_complete_obs)
                         continue;
 
@@ -529,9 +529,9 @@ SEXP tgs_cross_cor(SEXP _x, SEXP _y, SEXP _pairwise_complete_obs, SEXP _spearman
         }
 
         for (int k = 0; k < 2; ++k) {
-            for (size_t irow = 0; irow < num_rows; ++irow) {
-                size_t idx = irow;
-                for (size_t icol = 0; icol < num_cols[k]; ++icol) {
+            for (uint64_t irow = 0; irow < num_rows; ++irow) {
+                uint64_t idx = irow;
+                for (uint64_t icol = 0; icol < num_cols[k]; ++icol) {
                     if (!nan_in_col[k][icol]) {
                         sums[k][icol] += vals[k][idx];
                         sums_square[k][icol] += vals[k][idx] * vals[k][idx];
@@ -540,7 +540,7 @@ SEXP tgs_cross_cor(SEXP _x, SEXP _y, SEXP _pairwise_complete_obs, SEXP _spearman
                 }
             }
 
-            for (size_t icol = 0; icol < num_cols[k]; ++icol) {
+            for (uint64_t icol = 0; icol < num_cols[k]; ++icol) {
                 if (!nan_in_col[k][icol]) {
                     means[k][icol] = sums[k][icol] / num_rows;
 
@@ -552,20 +552,20 @@ SEXP tgs_cross_cor(SEXP _x, SEXP _y, SEXP _pairwise_complete_obs, SEXP _spearman
         }
 
         vdebug("Allocating shared memory for results\n");
-        size_t res_size = num_cols[0] * num_cols[1];
+        uint64_t res_size = num_cols[0] * num_cols[1];
         res_sizeof = sizeof(double) * res_size;
         res = (double *)mmap(NULL, res_sizeof, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
 
         if (res == (double *)MAP_FAILED)
             verror("Failed to allocate shared memory: %s", strerror(errno));
 
-        for (size_t i = 0; i < res_size; ++i)
+        for (uint64_t i = 0; i < res_size; ++i)
             res[i] = numeric_limits<double>::quiet_NaN();
 
         // We split Y columns between different processes (and not X) because when
         // child process writes its result to res, the location at res will be a contiguous
         // chunk of memory. (res is organized like that: x1y1, x2y1, ..., x1y2, x2y2, ...)
-        int num_processes = (int)min(max((size_t)1, num_cols[1] / 10), (size_t)g_tgstat->num_processes());
+        int num_processes = (int)min(max((uint64_t)1, num_cols[1] / 10), (uint64_t)g_tgstat->num_processes());
         double num_cols4process = num_cols[1] / (double)num_processes;
 
         ProgressReporter progress;
@@ -576,24 +576,24 @@ SEXP tgs_cross_cor(SEXP _x, SEXP _y, SEXP _pairwise_complete_obs, SEXP _spearman
 
         for (int iprocess = 0; iprocess < num_processes; ++iprocess) {
             if (!TGStat::launch_process()) {     // child process
-                size_t scol = (size_t)(iprocess * num_cols4process);
-                size_t ecol = (size_t)((iprocess + 1) * num_cols4process);
-                size_t idx = scol * num_cols[0];
-                size_t itr_idx = 0;
+                uint64_t scol = (uint64_t)(iprocess * num_cols4process);
+                uint64_t ecol = (uint64_t)((iprocess + 1) * num_cols4process);
+                uint64_t idx = scol * num_cols[0];
+                uint64_t itr_idx = 0;
 
-                for (size_t icol2 = scol; icol2 < ecol; ++icol2) {
-                    for (size_t icol1 = 0; icol1 < num_cols[0]; ++icol1, ++idx) {
+                for (uint64_t icol2 = scol; icol2 < ecol; ++icol2) {
+                    for (uint64_t icol1 = 0; icol1 < num_cols[0]; ++icol1, ++idx) {
                         if (nan_in_vals && pairwise_complete_obs) {
-                            size_t idx1 = icol1 * num_rows;
-                            size_t idx2 = icol2 * num_rows;
+                            uint64_t idx1 = icol1 * num_rows;
+                            uint64_t idx2 = icol2 * num_rows;
                             double sum1 = 0;
                             double sum2 = 0;
                             double sum_square1 = 0;
                             double sum_square2 = 0;
-                            double mean1, mean2, stddev1, stddev2;
+                            double mean1, mean2;
 
                             if (spearman) {
-                                size_t indices[2] = { idx1, idx2 };
+                                uint64_t indices[2] = { idx1, idx2 };
                                 vector<double *>::iterator sivals[2] = { pvals[0].begin() + idx1, pvals[1].begin() + idx2 };
                                 vector<double *>::iterator eivals[2] = { sivals[0] + num_rows, sivals[1] + num_rows };
                                 double *spvals[2] = { &vals[0].front() + idx1, &vals[1].front() + idx2 };
@@ -603,8 +603,8 @@ SEXP tgs_cross_cor(SEXP _x, SEXP _y, SEXP _pairwise_complete_obs, SEXP _spearman
                                     memcpy(&col_vals[i]->front(), &nan_col.front(), num_rows * sizeof(double));
 
                                     auto last_ival = sivals[i];
-                                    size_t num_preceeding_vals = 0;
-                                    size_t last_num_preceeding_vals = 0;
+                                    uint64_t num_preceeding_vals = 0;
+                                    uint64_t last_num_preceeding_vals = 0;
 
                                     for (auto ival = sivals[i]; ; ++ival) {
                                         if (ival == eivals[i] || **ival != **last_ival || std::isnan(**ival)) {
@@ -629,9 +629,9 @@ SEXP tgs_cross_cor(SEXP _x, SEXP _y, SEXP _pairwise_complete_obs, SEXP _spearman
                                 pcol_vals2 = &vals[1].front() + idx2;
                             }
 
-                            size_t num_finite_pairs = 0;
+                            uint64_t num_finite_pairs = 0;
                             res[idx] = 0;
-                            for (size_t i = 0; i < num_rows; ++i) {
+                            for (uint64_t i = 0; i < num_rows; ++i) {
                                 double val1 = pcol_vals1[i];
                                 double val2 = pcol_vals2[i];
 
@@ -658,9 +658,9 @@ SEXP tgs_cross_cor(SEXP _x, SEXP _y, SEXP _pairwise_complete_obs, SEXP _spearman
                             } else
                                 res[idx] = numeric_limits<double>::quiet_NaN();
                         } else if (!nan_in_col[0][icol1] && !nan_in_col[1][icol2]) {
-                            size_t idx1 = icol1 * num_rows;
-                            size_t idx2 = icol2 * num_rows;
-                            size_t end_idx1 = idx1 + num_rows;
+                            uint64_t idx1 = icol1 * num_rows;
+                            uint64_t idx2 = icol2 * num_rows;
+                            uint64_t end_idx1 = idx1 + num_rows;
 
                             res[idx] = 0;
                             while (idx1 < end_idx1)
@@ -696,9 +696,9 @@ SEXP tgs_cross_cor(SEXP _x, SEXP _y, SEXP _pairwise_complete_obs, SEXP _spearman
 
             rprotect(answer = RSaneAllocVector(VECSXP, NUM_COLS));
 
-            size_t answer_size = 0;
+            uint64_t answer_size = 0;
 
-            for (size_t i = 0; i < res_size; ++i) {
+            for (uint64_t i = 0; i < res_size; ++i) {
                 if (!std::isnan(res[i]) && fabs(res[i]) >= threshold)
                     ++answer_size;
             }
@@ -715,10 +715,10 @@ SEXP tgs_cross_cor(SEXP _x, SEXP _y, SEXP _pairwise_complete_obs, SEXP _spearman
                 SET_STRING_ELT(rcolnames, i, mkChar(COL_NAMES[i]));
 
             if (answer_size) {
-                size_t idx_answer = 0;
-                for (size_t icol1 = 0; icol1 < num_cols[0]; ++icol1) {
-                    size_t idx_m = icol1;
-                    for (size_t icol2 = 0; icol2 < num_cols[1]; ++icol2) {
+                uint64_t idx_answer = 0;
+                for (uint64_t icol1 = 0; icol1 < num_cols[0]; ++icol1) {
+                    uint64_t idx_m = icol1;
+                    for (uint64_t icol2 = 0; icol2 < num_cols[1]; ++icol2) {
                         if (!std::isnan(res[idx_m]) && fabs(res[idx_m]) >= threshold) {
                             INTEGER(rcol1)[idx_answer] = icol1 + 1;
                             INTEGER(rcol2)[idx_answer] = icol2 + 1;
@@ -751,7 +751,7 @@ SEXP tgs_cross_cor(SEXP _x, SEXP _y, SEXP _pairwise_complete_obs, SEXP _spearman
             SEXP dim;
             SEXP dimnames;
 
-            for (size_t i = 0; i < res_size; ++i) {
+            for (uint64_t i = 0; i < res_size; ++i) {
                 if (std::isnan(res[i]))
                     res[i] = NA_REAL;
             }
@@ -771,7 +771,7 @@ SEXP tgs_cross_cor(SEXP _x, SEXP _y, SEXP _pairwise_complete_obs, SEXP _spearman
         }
     } catch (TGLException &e) {
         if (!TGStat::is_kid() && res != (double *)MAP_FAILED) {
-            munmap(res, res_sizeof);
+            munmap((char *)res, res_sizeof);  // needs to be char * for some versions of Solaris
             res = (double *)MAP_FAILED;
         }
 		rerror("%s", e.msg());
@@ -780,7 +780,7 @@ SEXP tgs_cross_cor(SEXP _x, SEXP _y, SEXP _pairwise_complete_obs, SEXP _spearman
     }
 
     if (!TGStat::is_kid() && res != (double *)MAP_FAILED) {
-        munmap(res, res_sizeof);
+        munmap((char *)res, res_sizeof);  // needs to be char * for some versions of Solaris
         res = (double *)MAP_FAILED;
     }
 	rreturn(answer);
@@ -828,16 +828,16 @@ SEXP tgs_cor_blas(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _ti
         bool spearman = asLogical(_spearman);
         bool tidy = asLogical(_tidy);
         double threshold = fabs(asReal(_threshold));
-        size_t num_dims = nrows(_x);
-        size_t num_points = ncols(_x);
+        uint64_t num_dims = nrows(_x);
+        uint64_t num_points = ncols(_x);
         int num_dims32 = (int)num_dims;
         int num_points32 = (int)num_points;
 
         if (num_dims < 1 || num_points < 1)
             verror("\"x\" argument must be a matrix of numeric values");
 
-        size_t num_vals = num_points * num_dims;
-        size_t res_size = num_points * num_points;
+        uint64_t num_vals = num_points * num_dims;
+        uint64_t res_size = num_points * num_points;
         bool nan_in_vals = false;
         vector<bool> nan_in_point(num_points, false);
 
@@ -849,7 +849,7 @@ SEXP tgs_cor_blas(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _ti
         if (posix_memalign((void **)&mem.mask, 64, sizeof(double) * num_vals))
             verror("%s", strerror(errno));
 
-        for (size_t i = 0; i < num_vals; ++i) {
+        for (uint64_t i = 0; i < num_vals; ++i) {
             if ((isReal(_x) && !R_FINITE(REAL(_x)[i])) || (isInteger(_x) && INTEGER(_x)[i] == NA_INTEGER)) {
                 mem.m[i] = mem.mask[i] = 0.;
                 nan_in_vals = true;
@@ -871,10 +871,10 @@ SEXP tgs_cor_blas(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _ti
         if (spearman) {
             vector<double *> pvals;
             pvals.reserve(num_vals);
-            for (size_t i = 0; i < num_vals; ++i)
+            for (uint64_t i = 0; i < num_vals; ++i)
                 pvals.push_back(&mem.m[i]);
 
-            for (size_t ipoint = 0; ipoint < num_points; ++ipoint) {
+            for (uint64_t ipoint = 0; ipoint < num_points; ++ipoint) {
                 if (nan_in_point[ipoint])
                     continue;
 
@@ -956,9 +956,9 @@ SEXP tgs_cor_blas(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _ti
             }
 
             //     cov_n <- cov_n - (s_x * t(s_x)) / n
-            for (size_t ipoint1 = 0, idx1 = 0; ipoint1 < num_points; ++ipoint1) {
+            for (uint64_t ipoint1 = 0, idx1 = 0; ipoint1 < num_points; ++ipoint1) {
                 idx1 += ipoint1 + 1;
-                for (size_t ipoint2 = ipoint1 + 1, idx2 = ipoint2 * num_points + ipoint1; ipoint2 < num_points; ++ipoint2) {
+                for (uint64_t ipoint2 = ipoint1 + 1, idx2 = ipoint2 * num_points + ipoint1; ipoint2 < num_points; ++ipoint2) {
                     mem.cov_n[idx1] -= mem.s_x[idx1] * mem.s_x[idx2] / mem.n[idx1];
                     ++idx1;
                     idx2 += num_points;
@@ -967,7 +967,7 @@ SEXP tgs_cor_blas(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _ti
             check_interrupt();
 
             //    m <- m * m
-            for (size_t i = 0; i < num_vals; ++i)
+            for (uint64_t i = 0; i < num_vals; ++i)
                 mem.m[i] *= mem.m[i];
 
             check_interrupt();
@@ -985,9 +985,9 @@ SEXP tgs_cor_blas(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _ti
             }
 
             //     var_n <- var_n - (s_x * s_x) / n
-            for (size_t ipoint1 = 0, idx1 = 0; ipoint1 < num_points; ++ipoint1) {
+            for (uint64_t ipoint1 = 0, idx1 = 0; ipoint1 < num_points; ++ipoint1) {
                 idx1 += ipoint1 + 1;
-                for (size_t ipoint2 = ipoint1 + 1, idx2 = ipoint2 * num_points + ipoint1; ipoint2 < num_points; ++ipoint2) {
+                for (uint64_t ipoint2 = ipoint1 + 1, idx2 = ipoint2 * num_points + ipoint1; ipoint2 < num_points; ++ipoint2) {
                     mem.var_n[idx1] -= mem.s_x[idx1] * mem.s_x[idx1] / mem.n[idx1];
                     mem.var_n[idx2] -= mem.s_x[idx2] * mem.s_x[idx2] / mem.n[idx1];
                     ++idx1;
@@ -997,9 +997,9 @@ SEXP tgs_cor_blas(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _ti
             check_interrupt();
 
             //     res <- cov_n / sqrt(var_n * t(var_n))
-            for (size_t ipoint1 = 0, idx1 = 0; ipoint1 < num_points; ++ipoint1) {
+            for (uint64_t ipoint1 = 0, idx1 = 0; ipoint1 < num_points; ++ipoint1) {
                 idx1 += ipoint1 + 1;
-                for (size_t ipoint2 = ipoint1 + 1, idx2 = ipoint2 * num_points + ipoint1; ipoint2 < num_points; ++ipoint2) {
+                for (uint64_t ipoint2 = ipoint1 + 1, idx2 = ipoint2 * num_points + ipoint1; ipoint2 < num_points; ++ipoint2) {
                     mem.res[idx1] = mem.res[idx2] = mem.cov_n[idx1] / sqrt(mem.var_n[idx1] * mem.var_n[idx2]);
                     ++idx1;
                     idx2 += num_points;
@@ -1007,7 +1007,7 @@ SEXP tgs_cor_blas(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _ti
             }
             check_interrupt();
 
-            for (size_t idx = 0; idx < res_size; idx += num_points + 1)
+            for (uint64_t idx = 0; idx < res_size; idx += num_points + 1)
                 mem.res[idx] = 1.;
             check_interrupt();
 
@@ -1026,9 +1026,9 @@ SEXP tgs_cor_blas(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _ti
             vector<double> means(num_points, 0);
             vector<double> stddevs(num_points, 0);
 
-            for (size_t idim = 0; idim < num_dims; ++idim) {
-                size_t idx = idim;
-                for (size_t ipoint = 0; ipoint < num_points; ++ipoint) {
+            for (uint64_t idim = 0; idim < num_dims; ++idim) {
+                uint64_t idx = idim;
+                for (uint64_t ipoint = 0; ipoint < num_points; ++ipoint) {
                     if (!nan_in_point[ipoint]) {
                         sums[ipoint] += mem.m[idx];
                         sums_square[ipoint] += mem.m[idx] * mem.m[idx];
@@ -1038,7 +1038,7 @@ SEXP tgs_cor_blas(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _ti
             }
             check_interrupt();
 
-            for (size_t ipoint = 0; ipoint < num_points; ++ipoint) {
+            for (uint64_t ipoint = 0; ipoint < num_points; ++ipoint) {
                 if (!nan_in_point[ipoint]) {
                     means[ipoint] = sums[ipoint] / num_dims;
 
@@ -1061,9 +1061,9 @@ SEXP tgs_cor_blas(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _ti
                 progress.report(1);
             }
 
-            for (size_t ipoint1 = 0, idx1 = 0; ipoint1 < num_points; ++ipoint1) {
+            for (uint64_t ipoint1 = 0, idx1 = 0; ipoint1 < num_points; ++ipoint1) {
                 idx1 += ipoint1 + 1;
-                for (size_t ipoint2 = ipoint1 + 1, idx2 = ipoint2 * num_points + ipoint1; ipoint2 < num_points; ++ipoint2) {
+                for (uint64_t ipoint2 = ipoint1 + 1, idx2 = ipoint2 * num_points + ipoint1; ipoint2 < num_points; ++ipoint2) {
                     if (nan_in_point[ipoint1] || nan_in_point[ipoint2])
                         mem.res[idx1] = mem.res[idx2] = NA_REAL;
                     else
@@ -1075,10 +1075,10 @@ SEXP tgs_cor_blas(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _ti
             check_interrupt();
 
             if (num_dims > 1) {
-                for (size_t idx = 0; idx < res_size; idx += num_points + 1)
+                for (uint64_t idx = 0; idx < res_size; idx += num_points + 1)
                     mem.res[idx] = 1.;
             } else {
-                for (size_t idx = 0; idx < res_size; idx += num_points + 1)
+                for (uint64_t idx = 0; idx < res_size; idx += num_points + 1)
                     mem.res[idx] = NA_REAL;
             }
 
@@ -1091,7 +1091,7 @@ SEXP tgs_cor_blas(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _ti
 //memcpy(mem.res, mem.var_n, sizeof(double) * res_size);
 //{
 //SEXP rdims;
-//rprotect(answer = RSaneAllocVector(REALSXP, (size_t)num_points * num_points));
+//rprotect(answer = RSaneAllocVector(REALSXP, (uint64_t)num_points * num_points));
 //rprotect(rdims = RSaneAllocVector(INTSXP, 2));
 //INTEGER(rdims)[0] = INTEGER(rdims)[1] = num_points;
 //setAttrib(answer, R_DimSymbol, rdims);
@@ -1110,11 +1110,11 @@ SEXP tgs_cor_blas(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _ti
 
             rprotect(answer = RSaneAllocVector(VECSXP, NUM_COLS));
 
-            size_t answer_size = 0;
+            uint64_t answer_size = 0;
 
-            for (size_t icol1 = 0; icol1 < num_points; ++icol1) {
-                size_t idx = icol1;
-                for (size_t icol2 = 0; icol2 < icol1; ++icol2) {
+            for (uint64_t icol1 = 0; icol1 < num_points; ++icol1) {
+                uint64_t idx = icol1;
+                for (uint64_t icol2 = 0; icol2 < icol1; ++icol2) {
                     if (!std::isnan(mem.res[idx]) && fabs(mem.res[idx]) >= threshold)
                         ++answer_size;
                     idx += num_points;
@@ -1133,10 +1133,10 @@ SEXP tgs_cor_blas(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _ti
                 SET_STRING_ELT(rcolnames, i, mkChar(COL_NAMES[i]));
 
             if (answer_size) {
-                size_t i = 0;
-                for (size_t icol1 = 0; icol1 < num_points; ++icol1) {
-                    for (size_t icol2 = icol1 + 1; icol2 < num_points; ++icol2) {
-                        size_t idx = (size_t)icol1 * num_points + icol2;
+                uint64_t i = 0;
+                for (uint64_t icol1 = 0; icol1 < num_points; ++icol1) {
+                    for (uint64_t icol2 = icol1 + 1; icol2 < num_points; ++icol2) {
+                        uint64_t idx = (uint64_t)icol1 * num_points + icol2;
                         if (!std::isnan(mem.res[idx]) && fabs(mem.res[idx]) >= threshold) {
                             INTEGER(rcol1)[i] = icol1 + 1;
                             INTEGER(rcol2)[i] = icol2 + 1;
@@ -1165,7 +1165,7 @@ SEXP tgs_cor_blas(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _ti
         } else {
             SEXP dim;
 
-            for (size_t i = 0; i < res_size; ++i) {
+            for (uint64_t i = 0; i < res_size; ++i) {
                 if (std::isnan(mem.res[i]))
                     mem.res[i] = NA_REAL;
             }
@@ -1261,8 +1261,8 @@ SEXP tgs_cross_cor_blas(SEXP _x, SEXP _y, SEXP _pairwise_complete_obs, SEXP _spe
         bool spearman = asLogical(_spearman);
         bool tidy = asLogical(_tidy);
         double threshold = fabs(asReal(_threshold));
-        size_t num_dims = nrows(_x);
-        size_t num_points[2] = { (size_t)ncols(_x), (size_t)ncols(_y) };
+        uint64_t num_dims = nrows(_x);
+        uint64_t num_points[2] = { (uint64_t)ncols(_x), (uint64_t)ncols(_y) };
         int num_dims32 = (int)num_dims;
         int num_points32[2] = { (int)num_points[0], (int)num_points[1] };
 
@@ -1272,8 +1272,8 @@ SEXP tgs_cross_cor_blas(SEXP _x, SEXP _y, SEXP _pairwise_complete_obs, SEXP _spe
         if (num_points[1] < 1)
             verror("\"y\" argument must be a matrix of numeric values");
 
-        size_t num_vals[2] = { num_points[0] * num_dims, num_points[1] * num_dims };
-        size_t res_size = num_points[0] * num_points[1];
+        uint64_t num_vals[2] = { num_points[0] * num_dims, num_points[1] * num_dims };
+        uint64_t res_size = num_points[0] * num_points[1];
         bool nan_in_vals = false;
         vector<bool> nan_in_point[2];
 
@@ -1289,7 +1289,7 @@ SEXP tgs_cross_cor_blas(SEXP _x, SEXP _y, SEXP _pairwise_complete_obs, SEXP _spe
 
             SEXP x = k ? _y : _x;
 
-            for (size_t i = 0; i < num_vals[k]; ++i) {
+            for (uint64_t i = 0; i < num_vals[k]; ++i) {
                 if ((isReal(x) && !R_FINITE(REAL(x)[i])) || (isInteger(x) && INTEGER(x)[i] == NA_INTEGER)) {
                     mem.m[k][i] = mem.mask[k][i] = 0.;
                     nan_in_vals = true;
@@ -1315,10 +1315,10 @@ SEXP tgs_cross_cor_blas(SEXP _x, SEXP _y, SEXP _pairwise_complete_obs, SEXP _spe
                 pvals.clear();
                 pvals.reserve(num_vals[k]);
 
-                for (size_t i = 0; i < num_vals[k]; ++i)
+                for (uint64_t i = 0; i < num_vals[k]; ++i)
                     pvals.push_back(&mem.m[k][i]);
 
-                for (size_t ipoint = 0; ipoint < num_points[k]; ++ipoint) {
+                for (uint64_t ipoint = 0; ipoint < num_points[k]; ++ipoint) {
                     if (nan_in_point[k][ipoint])
                         continue;
 
@@ -1413,13 +1413,13 @@ SEXP tgs_cross_cor_blas(SEXP _x, SEXP _y, SEXP _pairwise_complete_obs, SEXP _spe
             }
 
             //     cov_n <- cov_n - (s_x * s_y) / n
-            for (size_t i = 0; i < res_size; ++i)
+            for (uint64_t i = 0; i < res_size; ++i)
                 mem.cov_n[i] -= mem.s_x[i] * mem.s_y[i] / mem.n[i];
             check_interrupt();
 
             //    m <- m * m
             for (int k = 0; k < 2; ++k) {
-                for (size_t i = 0; i < num_vals[k]; ++i)
+                for (uint64_t i = 0; i < num_vals[k]; ++i)
                     mem.m[k][i] *= mem.m[k][i];
                 check_interrupt();
             }
@@ -1437,7 +1437,7 @@ SEXP tgs_cross_cor_blas(SEXP _x, SEXP _y, SEXP _pairwise_complete_obs, SEXP _spe
             }
 
             //     varx_n <- varx_n - (s_x * s_x) / n
-            for (size_t i = 0; i < res_size; ++i)
+            for (uint64_t i = 0; i < res_size; ++i)
                 mem.varx_n[i] -= mem.s_x[i] * mem.s_x[i] / mem.n[i];
             check_interrupt();
 
@@ -1453,12 +1453,12 @@ SEXP tgs_cross_cor_blas(SEXP _x, SEXP _y, SEXP _pairwise_complete_obs, SEXP _spe
             }
 
             //     vary_n <- vary_n - (s_y * s_y) / n
-            for (size_t i = 0; i < res_size; ++i)
+            for (uint64_t i = 0; i < res_size; ++i)
                 mem.vary_n[i] -= mem.s_y[i] * mem.s_y[i] / mem.n[i];
             check_interrupt();
 
             //     res <- cov_n / sqrt(varx_n * vary_n)
-            for (size_t i = 0; i < res_size; ++i)
+            for (uint64_t i = 0; i < res_size; ++i)
                 mem.res[i] = mem.cov_n[i] / sqrt(mem.varx_n[i] * mem.vary_n[i]);
             check_interrupt();
             progress.report_last();
@@ -1482,9 +1482,9 @@ SEXP tgs_cross_cor_blas(SEXP _x, SEXP _y, SEXP _pairwise_complete_obs, SEXP _spe
                 means[k].resize(num_points[k], 0);
                 stddevs[k].resize(num_points[k], 0);
 
-                for (size_t idim = 0; idim < num_dims; ++idim) {
-                    size_t idx = idim;
-                    for (size_t ipoint = 0; ipoint < num_points[k]; ++ipoint) {
+                for (uint64_t idim = 0; idim < num_dims; ++idim) {
+                    uint64_t idx = idim;
+                    for (uint64_t ipoint = 0; ipoint < num_points[k]; ++ipoint) {
                         if (!nan_in_point[k][ipoint]) {
                             sums[k][ipoint] += mem.m[k][idx];
                             sums_square[k][ipoint] += mem.m[k][idx] * mem.m[k][idx];
@@ -1494,7 +1494,7 @@ SEXP tgs_cross_cor_blas(SEXP _x, SEXP _y, SEXP _pairwise_complete_obs, SEXP _spe
                 }
                 check_interrupt();
 
-                for (size_t ipoint = 0; ipoint < num_points[k]; ++ipoint) {
+                for (uint64_t ipoint = 0; ipoint < num_points[k]; ++ipoint) {
                     if (!nan_in_point[k][ipoint]) {
                         means[k][ipoint] = sums[k][ipoint] / num_dims;
 
@@ -1518,8 +1518,8 @@ SEXP tgs_cross_cor_blas(SEXP _x, SEXP _y, SEXP _pairwise_complete_obs, SEXP _spe
                 progress.report(1);
             }
 
-            for (size_t ipoint2 = 0, idx = 0; ipoint2 < num_points[1]; ++ipoint2) {
-                for (size_t ipoint1 = 0; ipoint1 < num_points[0]; ++ipoint1) {
+            for (uint64_t ipoint2 = 0, idx = 0; ipoint2 < num_points[1]; ++ipoint2) {
+                for (uint64_t ipoint1 = 0; ipoint1 < num_points[0]; ++ipoint1) {
                     if (nan_in_point[0][ipoint1] || nan_in_point[1][ipoint2])
                         mem.res[idx] = NA_REAL;
                     else
@@ -1545,9 +1545,9 @@ SEXP tgs_cross_cor_blas(SEXP _x, SEXP _y, SEXP _pairwise_complete_obs, SEXP _spe
 
             rprotect(answer = RSaneAllocVector(VECSXP, NUM_COLS));
 
-            size_t answer_size = 0;
+            uint64_t answer_size = 0;
 
-            for (size_t i = 0; i < res_size; ++i) {
+            for (uint64_t i = 0; i < res_size; ++i) {
                 if (!std::isnan(mem.res[i]) && fabs(mem.res[i]) >= threshold)
                     ++answer_size;
             }
@@ -1564,10 +1564,10 @@ SEXP tgs_cross_cor_blas(SEXP _x, SEXP _y, SEXP _pairwise_complete_obs, SEXP _spe
                 SET_STRING_ELT(rcolnames, i, mkChar(COL_NAMES[i]));
 
             if (answer_size) {
-                size_t idx_answer = 0;
-                for (size_t icol1 = 0; icol1 < num_points[0]; ++icol1) {
-                    size_t idx_m = icol1;
-                    for (size_t icol2 = 0; icol2 < num_points[1]; ++icol2) {
+                uint64_t idx_answer = 0;
+                for (uint64_t icol1 = 0; icol1 < num_points[0]; ++icol1) {
+                    uint64_t idx_m = icol1;
+                    for (uint64_t icol2 = 0; icol2 < num_points[1]; ++icol2) {
                         if (!std::isnan(mem.res[idx_m]) && fabs(mem.res[idx_m]) >= threshold) {
                             INTEGER(rcol1)[idx_answer] = icol1 + 1;
                             INTEGER(rcol2)[idx_answer] = icol2 + 1;
@@ -1600,7 +1600,7 @@ SEXP tgs_cross_cor_blas(SEXP _x, SEXP _y, SEXP _pairwise_complete_obs, SEXP _spe
             SEXP dim;
             SEXP dimnames;
 
-            for (size_t i = 0; i < res_size; ++i) {
+            for (uint64_t i = 0; i < res_size; ++i) {
                 if (std::isnan(mem.res[i]))
                     mem.res[i] = NA_REAL;
             }

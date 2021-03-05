@@ -22,7 +22,7 @@ Installation
 In order to install `tgstat`:
 
 ``` r
-remotes::install_github("tanaylab/tgstat")
+install.packages("tgstat")
 ```
 
 Examples

@@ -1,6 +1,7 @@
 # tgstat 2.3.17
 
 - Fix compilation issues with R 4.2.0
+- Use roxygen2 and markdown for documentation
 
 # tgstat 2.3.16
 

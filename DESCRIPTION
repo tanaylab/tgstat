@@ -3,10 +3,10 @@ Type: Package
 Title: Amos Tanay's Group High Performance Statistical Utilities
 Version: 2.3.17
 Depends: R (>= 3.5.0)
-Imports: utils
+Imports: utils    
 SystemRequirements: C++11
 OS_type: unix
-Date: 2020-09-02
+Date: 2022-04-13
 Author: Michael Hoichman
 Maintainer: Michael Hoichman <misha@hoichman.com>
 Description: A collection of high performance utilities to compute distance,
@@ -17,9 +17,17 @@ Description: A collection of high performance utilities to compute distance,
     Elad Chomsky, Zohar Meir, Michael Hoichman, Aviezer Lifshitz & Amos Tanay,
     2019 <doi:10.1186/s13059-019-1812-2>).
 License: GPL-2
+Encoding: UTF-8
 LazyLoad: yes
-RoxygenNote: 6.1.1
+RoxygenNote: 7.1.2
 NeedsCompilation: yes
-Packaged: 2020-09-02 18:10:14 UTC; hoichman
-Authors@R: person("Michael", "Hoichman", email = "misha@hoichman.com", role = c("aut", "cre"))
+Authors@R: c(
+    person("Michael", "Hoichman", email = "misha@hoichman.com", role = c("aut", "cre")), 
+    person("Aviezer", "Lifshitz", , "aviezer.lifshitz@weizmann.ac.il", role = c("aut"))
+    )
 BugReports: https://github.com/tanaylab/tgstat/issues
+Roxygen: list(markdown = TRUE)
+Suggests: 
+    knitr,
+    rmarkdown
+VignetteBuilder: knitr

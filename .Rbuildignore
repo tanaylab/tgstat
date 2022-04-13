@@ -1,8 +1,11 @@
 ^.*\.Rproj$
 ^\.Rproj\.user$
-README\.md
-NEWS\.md
+^README\.md$
+^README\.Rmd$
+^NEWS\.md$
 ^push_misha_manual$
 ^_pkgdown\.yml$
 ^\.git\.*
 ^\.gitignore\.*
+^README_cache$
+^cran-comments\.md$

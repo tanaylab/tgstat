@@ -14,7 +14,6 @@ knitr::opts_chunk$set(
 ```
 <!-- badges: start -->
 [![CRAN status](https://www.r-pkg.org/badges/version/tgstat)](https://CRAN.R-project.org/package=tgstat)
-[![Travis build status](https://travis-ci.com/tanaylab/tgstat.svg?branch=master)](https://travis-ci.org/tanaylab/tgstat)
 <!-- badges: end -->
 
 # tgstat
@@ -27,7 +26,13 @@ optimized functions provided by the Basic Linear Algebra Subprograms (BLAS) libr
 
 ## Installation
 
-In order to install `tgstat`:
+Install from CRAN: 
+
+```{r, eval = FALSE}
+install.packages("tgstat")
+```
+
+For the development version:
 
 ```{r, eval = FALSE}
 remotes::install_github("tanaylab/tgstat")
@@ -118,7 +123,6 @@ system.time(dist(m, method="euclidean"))
 Many optimized BLAS implementations are available, both proprietary (e.g. Intel's MKL,
 Apple's vecLib) and opensource (e.g. OpenBLAS, ATLAS). Unfortunately, R often uses by default
 the reference BLAS implementation, which is known to have poor performance.
-
 
 Having `tgstat` rely on the reference BLAS will result in very poor performance and is strongly
 discouraged. If your R implementation uses an optimized BLAS, set `options(tgs_use.blas=TRUE)`

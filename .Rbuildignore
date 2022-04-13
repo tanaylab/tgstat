@@ -2,3 +2,7 @@
 ^\.Rproj\.user$
 README\.md
 NEWS\.md
+^push_misha_manual$
+^_pkgdown\.yml$
+^\.git\.*
+^\.gitignore\.*

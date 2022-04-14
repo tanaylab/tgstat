@@ -13,6 +13,7 @@
 #'
 #' @name tgstat-package
 #' @useDynLib tgstat tgs_cor_blas tgs_cor_graph tgs_cross_cor tgs_cross_cor_blas tgs_cross_cor_knn tgs_dist_blas tgs_graph2cluster tgs_graph2cluster_multi_edges tgs_graph2cluster_multi_full tgs_graph2cluster_multi_hash
+#' @importFrom utils head tail
 #' @aliases tgstat-package tgstat
 #' @docType package
 #' @keywords package

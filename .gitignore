@@ -6,3 +6,6 @@ src/*.o
 src/*.so
 src/*.dll
 README_cache/*
+inst/doc
+README_cache/
+..Rcheck

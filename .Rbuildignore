@@ -2,7 +2,6 @@
 ^\.Rproj\.user$
 ^README\.md$
 ^README\.Rmd$
-^NEWS\.md$
 ^push_misha_manual$
 ^_pkgdown\.yml$
 ^\.git\.*

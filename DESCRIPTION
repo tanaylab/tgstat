@@ -1,33 +1,36 @@
-Package: tgstat
 Type: Package
+Package: tgstat
 Title: Amos Tanay's Group High Performance Statistical Utilities
 Version: 2.3.17
-Depends: R (>= 3.5.0)
-Imports: utils    
-SystemRequirements: C++11
-OS_type: unix
 Date: 2022-04-13
-Author: Michael Hoichman
-Maintainer: Michael Hoichman <misha@hoichman.com>
-Description: A collection of high performance utilities to compute distance,
-    correlation, auto correlation, clustering and other tasks.
-    Contains graph clustering algorithm described in "MetaCell: analysis of
-    single-cell RNA-seq data using K-nn graph partitions" (Yael Baran,
-    Akhiad Bercovich, Arnau Sebe-Pedros, Yaniv Lubling, Amir Giladi,
-    Elad Chomsky, Zohar Meir, Michael Hoichman, Aviezer Lifshitz & Amos Tanay,
+Authors@R: c(
+    person("Michael", "Hoichman", , "misha@hoichman.com", role = "aut"),
+    person("Aviezer", "Lifshitz", , "aviezer.lifshitz@weizmann.ac.il", role = c("aut", "cre"))
+  )  
+Author: Michael Hoichman [aut], Aviezer Lifshitz [aut, cre]
+Maintainer: Aviezer Lifshitz <aviezer.lifshitz@weizmann.ac.il>
+Description: A collection of high performance utilities to compute
+    distance, correlation, auto correlation, clustering and other tasks.
+    Contains graph clustering algorithm described in "MetaCell: analysis
+    of single-cell RNA-seq data using K-nn graph partitions" (Yael Baran,
+    Akhiad Bercovich, Arnau Sebe-Pedros, Yaniv Lubling, Amir Giladi, Elad
+    Chomsky, Zohar Meir, Michael Hoichman, Aviezer Lifshitz & Amos Tanay,
     2019 <doi:10.1186/s13059-019-1812-2>).
 License: GPL-2
-Encoding: UTF-8
-LazyLoad: yes
-RoxygenNote: 7.1.2
-NeedsCompilation: yes
-Authors@R: c(
-    person("Michael", "Hoichman", email = "misha@hoichman.com", role = c("aut", "cre")), 
-    person("Aviezer", "Lifshitz", , "aviezer.lifshitz@weizmann.ac.il", role = c("aut"))
-    )
 BugReports: https://github.com/tanaylab/tgstat/issues
-Roxygen: list(markdown = TRUE)
+Depends: 
+    R (>= 3.5.0)
+Imports: 
+    utils
 Suggests: 
     knitr,
     rmarkdown
-VignetteBuilder: knitr
+VignetteBuilder: 
+    knitr
+Encoding: UTF-8
+LazyLoad: yes
+NeedsCompilation: yes
+OS_type: unix
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.1.2
+SystemRequirements: C++11

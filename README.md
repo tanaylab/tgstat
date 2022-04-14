@@ -27,11 +27,11 @@ Examples
 --------
 
 ``` r
-set.seed(seed=1)
+set.seed(seed=60427)
 rows = 3000
 cols = 3000
-vals<-sample(1:(rows*cols/2), rows*cols, replace=T)
-m<-matrix(vals, nrow=rows, ncol=cols)
+vals <- sample(1:(rows*cols/2), rows*cols, replace=T)
+m <- matrix(vals, nrow=rows, ncol=cols)
 m_with_NAs <- m
 m_with_NAs[sample(1:(rows*cols), rows*cols / 10)] <- NA
 dim(m)
@@ -46,7 +46,7 @@ Pearson correlation without BLAS, no NAs:
 options(tgs_use.blas=F)
 system.time(tgs_cor(m))
 #>    user  system elapsed 
-#>  14.945   2.845   2.174
+#>  14.379   2.668   1.529
 ```
 
 Same with BLAS:
@@ -56,7 +56,7 @@ Same with BLAS:
 options(tgs_use.blas=T)
 system.time(tgs_cor(m))
 #>    user  system elapsed 
-#>   3.523   0.319   0.369
+#>   3.817   0.290   0.383
 ```
 
 Base R version:
@@ -64,7 +64,7 @@ Base R version:
 ``` r
 system.time(cor(m))
 #>    user  system elapsed 
-#>  21.995   0.097  22.092
+#>  22.380   0.241  22.621
 ```
 
 Pearson correlation without BLAS, with NAs:
@@ -73,7 +73,7 @@ Pearson correlation without BLAS, with NAs:
 options(tgs_use.blas=F)
 system.time(tgs_cor(m_with_NAs, pairwise.complete.obs=T))
 #>    user  system elapsed 
-#>  46.349   3.502   2.478
+#>  46.391   3.161   2.031
 ```
 
 Same with BLAS:
@@ -82,7 +82,7 @@ Same with BLAS:
 options(tgs_use.blas=T)
 system.time(tgs_cor(m_with_NAs, pairwise.complete.obs=T))
 #>    user  system elapsed 
-#>  11.149   1.172   0.641
+#>  10.867   1.591   0.646
 ```
 
 Base R version:
@@ -90,7 +90,7 @@ Base R version:
 ``` r
 system.time(cor(m_with_NAs, use="pairwise.complete.obs"))
 #>    user  system elapsed 
-#> 301.754   0.185 301.928
+#> 301.038   0.240 301.271
 ```
 
 ### Fast computation of distance matrices
@@ -101,7 +101,7 @@ Distance without BLAS, no NAs:
 options(tgs_use.blas=F)
 system.time(tgs_dist(m))
 #>    user  system elapsed 
-#> 181.801   3.820   3.178
+#> 170.500   3.372   3.375
 ```
 
 Same with BLAS:
@@ -110,7 +110,7 @@ Same with BLAS:
 options(tgs_use.blas=T)
 system.time(tgs_dist(m))
 #>    user  system elapsed 
-#>   5.265   0.441   0.337
+#>   5.463   0.442   0.335
 ```
 
 Base R:
@@ -118,7 +118,7 @@ Base R:
 ``` r
 system.time(dist(m, method="euclidean"))
 #>    user  system elapsed 
-#> 144.471   0.174 144.641
+#> 159.417   0.067 159.481
 ```
 
 Notes regarding the usage of `BLAS`

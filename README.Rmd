@@ -41,11 +41,11 @@ remotes::install_github("tanaylab/tgstat")
 ## Examples
 
 ```{r, eval=TRUE}
-set.seed(seed=1)
+set.seed(seed=60427)
 rows = 3000
 cols = 3000
-vals<-sample(1:(rows*cols/2), rows*cols, replace=T)
-m<-matrix(vals, nrow=rows, ncol=cols)
+vals <- sample(1:(rows*cols/2), rows*cols, replace=T)
+m <- matrix(vals, nrow=rows, ncol=cols)
 m_with_NAs <- m
 m_with_NAs[sample(1:(rows*cols), rows*cols / 10)] <- NA
 dim(m)

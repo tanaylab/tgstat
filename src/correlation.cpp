@@ -1,3 +1,4 @@
+#define USE_FC_LEN_T
 #include <algorithm>
 #include <cmath>
 #include <errno.h>
@@ -15,6 +16,9 @@
 #endif
 #ifdef error
 #undef error
+#endif
+#ifndef FCONE
+# define FCONE
 #endif
 
 #include "ProgressReporter.h"
@@ -900,7 +904,7 @@ SEXP tgs_cor_blas(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _ti
         }
 
         if (pairwise_complete_obs && nan_in_vals) {
-            // correlation with pairwise complete jobs is calculated as:
+            // correlation with pairwise complete obs is calculated as:
             //     n <- t(mask) %*% mask
             //     s_x <- t(mask) %*% m
             //     cov_n <- (t(m) %*% m) - (s_x * t(s_x)) / n
@@ -928,7 +932,7 @@ SEXP tgs_cor_blas(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _ti
                 char trans = 'T';
                 double alpha = 1;
                 double beta = 0;
-                F77_NAME(dsyrk)(&uplo, &trans, &num_points32, &num_dims32, &alpha, mem.mask, &num_dims32, &beta, mem.n, &num_points32);
+                F77_NAME(dsyrk)(&uplo, &trans, &num_points32, &num_dims32, &alpha, mem.mask, &num_dims32, &beta, mem.n, &num_points32 FCONE FCONE);
                 check_interrupt();
                 progress.report(1);
             }
@@ -939,7 +943,7 @@ SEXP tgs_cor_blas(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _ti
                 char transb = 'N';
                 double alpha = 1;
                 double beta = 0;
-                F77_NAME(dgemm)(&transa, &transb, &num_points32, &num_points32, &num_dims32, &alpha, mem.mask, &num_dims32, mem.m, &num_dims32, &beta, mem.s_x, &num_points32);
+                F77_NAME(dgemm)(&transa, &transb, &num_points32, &num_points32, &num_dims32, &alpha, mem.mask, &num_dims32, mem.m, &num_dims32, &beta, mem.s_x, &num_points32 FCONE FCONE);
                 check_interrupt();
                 progress.report(1);
             }
@@ -950,7 +954,7 @@ SEXP tgs_cor_blas(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _ti
                 char trans = 'T';
                 double alpha = 1;
                 double beta = 0;
-                F77_NAME(dsyrk)(&uplo, &trans, &num_points32, &num_dims32, &alpha, mem.m, &num_dims32, &beta, mem.cov_n, &num_points32);
+                F77_NAME(dsyrk)(&uplo, &trans, &num_points32, &num_dims32, &alpha, mem.m, &num_dims32, &beta, mem.cov_n, &num_points32 FCONE FCONE);
                 check_interrupt();
                 progress.report(1);
             }
@@ -979,7 +983,7 @@ SEXP tgs_cor_blas(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _ti
                 char transb = 'N';
                 double alpha = 1;
                 double beta = 0;
-                F77_NAME(dgemm)(&transa, &transb, &num_points32, &num_points32, &num_dims32, &alpha, mem.mask, &num_dims32, mem.m, &num_dims32, &beta, mem.var_n, &num_points32);
+                F77_NAME(dgemm)(&transa, &transb, &num_points32, &num_points32, &num_dims32, &alpha, mem.mask, &num_dims32, mem.m, &num_dims32, &beta, mem.var_n, &num_points32 FCONE FCONE);
                 check_interrupt();
                 progress.report(1);
             }
@@ -1056,7 +1060,7 @@ SEXP tgs_cor_blas(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _ti
                 char trans = 'T';
                 double alpha = 1;
                 double beta = 0;
-                F77_NAME(dsyrk)(&uplo, &trans, &num_points32, &num_dims32, &alpha, mem.m, &num_dims32, &beta, mem.res, &num_points32);
+                F77_NAME(dsyrk)(&uplo, &trans, &num_points32, &num_dims32, &alpha, mem.m, &num_dims32, &beta, mem.res, &num_points32 FCONE FCONE);
                 check_interrupt();
                 progress.report(1);
             }
@@ -1374,7 +1378,7 @@ SEXP tgs_cross_cor_blas(SEXP _x, SEXP _y, SEXP _pairwise_complete_obs, SEXP _spe
                 char transb = 'N';
                 double alpha = 1;
                 double beta = 0;
-                F77_NAME(dgemm)(&transa, &transb, &num_points32[0], &num_points32[1], &num_dims32, &alpha, mem.mask[0], &num_dims32, mem.mask[1], &num_dims32, &beta, mem.n, &num_points32[0]);
+                F77_NAME(dgemm)(&transa, &transb, &num_points32[0], &num_points32[1], &num_dims32, &alpha, mem.mask[0], &num_dims32, mem.mask[1], &num_dims32, &beta, mem.n, &num_points32[0] FCONE FCONE);
                 check_interrupt();
                 progress.report(1);
             }
@@ -1385,7 +1389,7 @@ SEXP tgs_cross_cor_blas(SEXP _x, SEXP _y, SEXP _pairwise_complete_obs, SEXP _spe
                 char transb = 'N';
                 double alpha = 1;
                 double beta = 0;
-                F77_NAME(dgemm)(&transa, &transb, &num_points32[0], &num_points32[1], &num_dims32, &alpha, mem.m[0], &num_dims32, mem.mask[1], &num_dims32, &beta, mem.s_x, &num_points32[0]);
+                F77_NAME(dgemm)(&transa, &transb, &num_points32[0], &num_points32[1], &num_dims32, &alpha, mem.m[0], &num_dims32, mem.mask[1], &num_dims32, &beta, mem.s_x, &num_points32[0] FCONE FCONE);
                 check_interrupt();
                 progress.report(1);
             }
@@ -1396,7 +1400,7 @@ SEXP tgs_cross_cor_blas(SEXP _x, SEXP _y, SEXP _pairwise_complete_obs, SEXP _spe
                 char transb = 'N';
                 double alpha = 1;
                 double beta = 0;
-                F77_NAME(dgemm)(&transa, &transb, &num_points32[0], &num_points32[1], &num_dims32, &alpha, mem.mask[0], &num_dims32, mem.m[1], &num_dims32, &beta, mem.s_y, &num_points32[0]);
+                F77_NAME(dgemm)(&transa, &transb, &num_points32[0], &num_points32[1], &num_dims32, &alpha, mem.mask[0], &num_dims32, mem.m[1], &num_dims32, &beta, mem.s_y, &num_points32[0] FCONE FCONE);
                 check_interrupt();
                 progress.report(1);
             }
@@ -1407,7 +1411,7 @@ SEXP tgs_cross_cor_blas(SEXP _x, SEXP _y, SEXP _pairwise_complete_obs, SEXP _spe
                 char transb = 'N';
                 double alpha = 1;
                 double beta = 0;
-                F77_NAME(dgemm)(&transa, &transb, &num_points32[0], &num_points32[1], &num_dims32, &alpha, mem.m[0], &num_dims32, mem.m[1], &num_dims32, &beta, mem.cov_n, &num_points32[0]);
+                F77_NAME(dgemm)(&transa, &transb, &num_points32[0], &num_points32[1], &num_dims32, &alpha, mem.m[0], &num_dims32, mem.m[1], &num_dims32, &beta, mem.cov_n, &num_points32[0] FCONE FCONE);
                 check_interrupt();
                 progress.report(1);
             }
@@ -1431,7 +1435,7 @@ SEXP tgs_cross_cor_blas(SEXP _x, SEXP _y, SEXP _pairwise_complete_obs, SEXP _spe
                 char transb = 'N';
                 double alpha = 1;
                 double beta = 0;
-                F77_NAME(dgemm)(&transa, &transb, &num_points32[0], &num_points32[1], &num_dims32, &alpha, mem.m[0], &num_dims32, mem.mask[1], &num_dims32, &beta, mem.varx_n, &num_points32[0]);
+                F77_NAME(dgemm)(&transa, &transb, &num_points32[0], &num_points32[1], &num_dims32, &alpha, mem.m[0], &num_dims32, mem.mask[1], &num_dims32, &beta, mem.varx_n, &num_points32[0] FCONE FCONE);
                 check_interrupt();
                 progress.report(1);
             }
@@ -1447,7 +1451,7 @@ SEXP tgs_cross_cor_blas(SEXP _x, SEXP _y, SEXP _pairwise_complete_obs, SEXP _spe
                 char transb = 'N';
                 double alpha = 1;
                 double beta = 0;
-                F77_NAME(dgemm)(&transa, &transb, &num_points32[0], &num_points32[1], &num_dims32, &alpha, mem.mask[0], &num_dims32, mem.m[1], &num_dims32, &beta, mem.vary_n, &num_points32[0]);
+                F77_NAME(dgemm)(&transa, &transb, &num_points32[0], &num_points32[1], &num_dims32, &alpha, mem.mask[0], &num_dims32, mem.m[1], &num_dims32, &beta, mem.vary_n, &num_points32[0] FCONE FCONE);
                 check_interrupt();
                 progress.report(1);
             }
@@ -1513,7 +1517,8 @@ SEXP tgs_cross_cor_blas(SEXP _x, SEXP _y, SEXP _pairwise_complete_obs, SEXP _spe
                 char transb = 'N';
                 double alpha = 1;
                 double beta = 0;
-                F77_NAME(dgemm)(&transa, &transb, &num_points32[0], &num_points32[1], &num_dims32, &alpha, mem.m[0], &num_dims32, mem.m[1], &num_dims32, &beta, mem.res, &num_points32[0]);
+                F77_NAME(dgemm)
+                (&transa, &transb, &num_points32[0], &num_points32[1], &num_dims32, &alpha, mem.m[0], &num_dims32, mem.m[1], &num_dims32, &beta, mem.res, &num_points32[0] FCONE FCONE);
                 check_interrupt();
                 progress.report(1);
             }

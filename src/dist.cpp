@@ -1,3 +1,4 @@
+#define USE_FC_LEN_T
 #include <algorithm>
 #include <cmath>
 #include <errno.h>
@@ -14,6 +15,9 @@
 #endif
 #ifdef error
 #undef error
+#endif
+#ifndef FCONE
+#define FCONE
 #endif
 
 #include "ProgressReporter.h"
@@ -309,7 +313,7 @@ SEXP tgs_dist_blas(SEXP _x, SEXP _attrs, SEXP _tidy, SEXP _threshold, SEXP _rrow
             char trans = 'N';
             double alpha = -2;
             double beta = 0;
-            F77_NAME(dsyrk)(&uplo, &trans, &num_points32, &num_dims32, &alpha, mem.m, &num_points32, &beta, mem.res, &num_points32);
+            F77_NAME(dsyrk)(&uplo, &trans, &num_points32, &num_dims32, &alpha, mem.m, &num_points32, &beta, mem.res, &num_points32 FCONE FCONE);
             check_interrupt();
             progress.report(1);
         }
@@ -325,7 +329,7 @@ SEXP tgs_dist_blas(SEXP _x, SEXP _attrs, SEXP _tidy, SEXP _threshold, SEXP _rrow
                 char trans = 'N';
                 double alpha = num_dims;
                 double beta = num_dims;
-                F77_NAME(dsyr2k)(&uplo, &trans, &num_points32, &num_dims32, &alpha, mem.m, &num_points32, mem.mask, &num_points32, &beta, mem.res, &num_points32);
+                F77_NAME(dsyr2k)(&uplo, &trans, &num_points32, &num_dims32, &alpha, mem.m, &num_points32, mem.mask, &num_points32, &beta, mem.res, &num_points32 FCONE FCONE);
                 check_interrupt();
                 progress.report(1);
             }
@@ -338,7 +342,7 @@ SEXP tgs_dist_blas(SEXP _x, SEXP _attrs, SEXP _tidy, SEXP _threshold, SEXP _rrow
                 double beta = 0;
                 if (posix_memalign((void **)&mem.n, 64, sizeof(double) * res_size))
                     verror("%s", strerror(errno));
-                F77_NAME(dsyrk)(&uplo, &trans, &num_points32, &num_dims32, &alpha, mem.mask, &num_points32, &beta, mem.n, &num_points32);
+                F77_NAME(dsyrk)(&uplo, &trans, &num_points32, &num_dims32, &alpha, mem.mask, &num_points32, &beta, mem.n, &num_points32 FCONE FCONE);
                 check_interrupt();
                 progress.report(1);
             }

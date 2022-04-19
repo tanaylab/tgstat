@@ -1,3 +1,8 @@
+template:
+  params:
+    bootstrap: 5
+    bootswatch: cosmo
+  
 navbar:
   structure:
     left:
@@ -12,12 +17,6 @@ navbar:
     home:
       icon: fa-home fa-lg
       href: index.html
-    tutorials:
-      icon: fa-road
-      text: User Manual
-      href: articles/manual.pdf
     reference:
       text: Reference
       href: reference/index.html
-
-pdf: /net/mraid14/export/data/tools/lib/tgstat/tgstat/doc/manual.pdf

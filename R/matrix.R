@@ -16,7 +16,8 @@
 #' @param ... optional arguments to 'fun'
 #' @return A matrix of length(index) X nrow(x) size. Each \code{[i,j]} element
 #' represents the result of applying 'fun' to
-#' \code{x[i,which(index==levels(index)[j])]}.
+#' \code{x[i,which(index==levels(index)[j])]}. \cr
+#' Note that the return value is a dense matrix even when \code{x} is sparse.
 #' @keywords ~apply ~tapply
 #' @examples
 #' \donttest{

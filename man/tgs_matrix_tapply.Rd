@@ -20,7 +20,8 @@ number of columns in 'x'. The elements are coerced to factors by
 \value{
 A matrix of length(index) X nrow(x) size. Each \code{[i,j]} element
 represents the result of applying 'fun' to
-\code{x[i,which(index==levels(index)[j])]}.
+\code{x[i,which(index==levels(index)[j])]}. \cr
+Note that the return value is a dense matrix even when \code{x} is sparse.
 }
 \description{
 For each matrix row apply a function to each cell of a ragged array, that is

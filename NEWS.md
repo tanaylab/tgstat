@@ -1,3 +1,7 @@
+# tgstat 2.3.18 
+
+* Fixed a compilation warning on M1 macs. 
+
 # tgstat 2.3.17
 
 - Fix compilation issues with R 4.2.0

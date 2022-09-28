@@ -4,9 +4,7 @@
 
 ## Changes
 
-* Fixed compilation on R pre-4.2.0.
-* Changed maintainer to Aviezer Lifshitz (aviezer.lifshitz@weizmann.ac.il). Email was sent to CRAN from the previous maintainer (Michael Hoichman, misha@hoichman.com). 
-* Use roxygen2 and markdown for documentation.
+* Fixed a compilation warning on M1 macs.
 
 ## rchk notes
 

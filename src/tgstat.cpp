@@ -537,9 +537,10 @@ void TGStat::load_options()
 
 void TGStat::rnd_seed(uint64_t seed)
 {
-    char buf[100];
-    sprintf(buf, "set.seed(%lu)", seed);
-    run_in_R(buf, m_env);
+    SEXP e;
+    PROTECT(e = lang2(install("set.seed"), ScalarInteger(seed)));
+    R_tryEval(e, m_env, NULL);
+    UNPROTECT(1);
     GetRNGstate();
 }
 

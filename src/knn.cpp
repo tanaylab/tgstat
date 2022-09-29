@@ -39,7 +39,7 @@ SEXP tgs_knn(SEXP _x, SEXP _knn, SEXP _diag, SEXP _threshold, SEXP _envir)
         double threshold = asReal(_threshold);
         uint64_t knn = asInteger(_knn);
         bool diag = asLogical(_diag);
-        bool tidy;
+        bool tidy = false;
         uint64_t num_pairs = 0;
         vector<uint64_t> point2size;
         int *pcol1 = NULL;
@@ -48,8 +48,8 @@ SEXP tgs_knn(SEXP _x, SEXP _knn, SEXP _diag, SEXP _threshold, SEXP _envir)
         auto cmp = [&data](uint64_t idx1, uint64_t idx2) { return data[idx1] > data[idx2] || (data[idx1] == data[idx2] && idx1 < idx2); };
 
         vector<uint64_t> sorted_rows;     // contains number of rows of _x sorted by col1
-        uint64_t num_rows;
-        uint64_t num_cols;
+        uint64_t num_rows = 0;
+        uint64_t num_cols = 0;
 
         vdebug("Preparing for multitasking...\n");
         if (isReal(_x) && xlength(_x) >= 1) {    // x is a matrix
@@ -160,8 +160,9 @@ SEXP tgs_knn(SEXP _x, SEXP _knn, SEXP _diag, SEXP _threshold, SEXP _envir)
                         res[idx++] = *irow;
                 }
             }
-        } else
+        } else {
             verror("Invalid format of \"x\" argument");
+        }
 
         int num_processes = (int)min(num_pairs / 1000000, (uint64_t)g_tgstat->num_processes());
 

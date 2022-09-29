@@ -539,7 +539,7 @@ void TGStat::rnd_seed(uint64_t seed)
 {
     SEXP e;
     PROTECT(e = lang2(install("set.seed"), ScalarInteger(seed)));
-    SEXP res = R_tryEval(e, m_env, NULL);
+    R_tryEval(e, m_env, NULL);
     UNPROTECT(1);
     GetRNGstate();
 }

@@ -9,3 +9,4 @@ README_cache/*
 inst/doc
 README_cache/
 ..Rcheck
+.vscode

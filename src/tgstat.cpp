@@ -201,21 +201,21 @@ TGStat::~TGStat()
 string TGStat::get_shm_sem_name()
 {
 	char buf[100];
-	sprintf(buf, "/tgstat_shm_sem_%d", (int)getpid());
+	snprintf(buf, sizeof(buf), "/tgstat_shm_sem_%d", (int)getpid());
 	return buf;
 }
 
 string TGStat::get_fifo_sem_name()
 {
 	char buf[100];
-	sprintf(buf, "/tgstat_fifo_sem_%d", (int)getpid());
+	snprintf(buf, sizeof(buf), "/tgstat_fifo_sem_%d", (int)getpid());
 	return buf;
 }
 
 string TGStat::get_fifo_name()
 {
 	char buf[100];
-    sprintf(buf, "/tmp/tgstat_fifo_%d", s_is_kid ? (int)getppid() : (int)getpid());
+    snprintf(buf, sizeof(buf), "/tmp/tgstat_fifo_%d", s_is_kid ? (int)getppid() : (int)getpid());
 	return buf;
 }
 
@@ -538,8 +538,9 @@ void TGStat::load_options()
 void TGStat::rnd_seed(uint64_t seed)
 {
     SEXP e;
-    PROTECT(e = lang2(install("set.seed"), ScalarInteger(seed)));
-    R_tryEval(e, m_env, NULL);
+    SEXP sseed = install("set.seed");
+    PROTECT(e = lang2(sseed, ScalarInteger(seed)));
+    SEXP res = R_tryEval(e, m_env, NULL);
     UNPROTECT(1);
     GetRNGstate();
 }

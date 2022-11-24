@@ -6,10 +6,10 @@ output:
 
 ```{r, echo = FALSE}
 knitr::opts_chunk$set(
-  collapse = TRUE,
-  comment = "#>",
-  fig.path = "README-",
-  cache = TRUE
+    collapse = TRUE,
+    comment = "#>",
+    fig.path = "README-",
+    cache = TRUE
 )
 ```
 <!-- badges: start -->
@@ -41,13 +41,13 @@ remotes::install_github("tanaylab/tgstat")
 ## Examples
 
 ```{r, eval=TRUE}
-set.seed(seed=60427)
-rows = 3000
-cols = 3000
-vals <- sample(1:(rows*cols/2), rows*cols, replace=T)
-m <- matrix(vals, nrow=rows, ncol=cols)
+set.seed(seed = 60427)
+rows <- 3000
+cols <- 3000
+vals <- sample(1:(rows * cols / 2), rows * cols, replace = T)
+m <- matrix(vals, nrow = rows, ncol = cols)
 m_with_NAs <- m
-m_with_NAs[sample(1:(rows*cols), rows*cols / 10)] <- NA
+m_with_NAs[sample(1:(rows * cols), rows * cols / 10)] <- NA
 dim(m)
 ```
 
@@ -56,7 +56,7 @@ dim(m)
 Pearson correlation without BLAS, no NAs:
  
 ```{r, eval = TRUE}
-options(tgs_use.blas=F)
+options(tgs_use.blas = F)
 system.time(tgs_cor(m))
 ```
 
@@ -64,7 +64,7 @@ Same with BLAS:
  
 ```{r, eval = TRUE}
 # tgs_cor, with BLAS, no NAs, pearson
-options(tgs_use.blas=T)
+options(tgs_use.blas = T)
 system.time(tgs_cor(m))
 ```
 
@@ -77,21 +77,21 @@ system.time(cor(m))
 Pearson correlation without BLAS, with NAs:
  
 ```{r, eval = TRUE}
-options(tgs_use.blas=F)
-system.time(tgs_cor(m_with_NAs, pairwise.complete.obs=T))
+options(tgs_use.blas = F)
+system.time(tgs_cor(m_with_NAs, pairwise.complete.obs = T))
 ```
 
 Same with BLAS:
  
 ```{r, eval = TRUE}
-options(tgs_use.blas=T)
-system.time(tgs_cor(m_with_NAs, pairwise.complete.obs=T))
+options(tgs_use.blas = T)
+system.time(tgs_cor(m_with_NAs, pairwise.complete.obs = T))
 ```
 
 Base R version:
 
 ```{r, eval = TRUE}
-system.time(cor(m_with_NAs, use="pairwise.complete.obs"))
+system.time(cor(m_with_NAs, use = "pairwise.complete.obs"))
 ```
 
 ### Fast computation of distance matrices
@@ -99,21 +99,21 @@ system.time(cor(m_with_NAs, use="pairwise.complete.obs"))
 Distance without BLAS, no NAs:
 
 ```{r, eval = TRUE}
-options(tgs_use.blas=F)
+options(tgs_use.blas = F)
 system.time(tgs_dist(m))
 ```
 
 Same with BLAS:
 
 ```{r, eval = TRUE}
-options(tgs_use.blas=T)
+options(tgs_use.blas = T)
 system.time(tgs_dist(m))
 ```
 
 Base R:
 
 ```{r, eval = TRUE}
-system.time(dist(m, method="euclidean"))
+system.time(dist(m, method = "euclidean"))
 ```
 
 ## Notes regarding the usage of `BLAS`

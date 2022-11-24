@@ -1,3 +1,8 @@
+# tgstat 2.3.19 
+
+* Fixed rchk warning with the patch generously provided by Tomas Kalibera (thanks!).
+* Fixed a compilation warning on M1 macs.
+
 # tgstat 2.3.18 
 
 * Fixed a compilation warning on M1 macs. 

@@ -39,7 +39,7 @@
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="index.html">tgstat</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">2.3.17</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">2.3.19</span>
       </span>
     </div>
 
@@ -100,84 +100,84 @@
 <h2 id="installation">Installation<a class="anchor" aria-label="anchor" href="#installation"></a>
 </h2>
 <p>Install from CRAN:</p>
-<div class="sourceCode"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span class="fu"><a href="https://rdrr.io/r/utils/install.packages.html" class="external-link">install.packages</a></span><span class="op">(</span><span class="st">"tgstat"</span><span class="op">)</span></code></pre></div>
+<div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/install.packages.html" class="external-link">install.packages</a></span><span class="op">(</span><span class="st">"tgstat"</span><span class="op">)</span></span></code></pre></div>
 <p>For the development version:</p>
-<div class="sourceCode"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span class="fu">remotes</span><span class="fu">::</span><span class="fu"><a href="https://remotes.r-lib.org/reference/install_github.html" class="external-link">install_github</a></span><span class="op">(</span><span class="st">"tanaylab/tgstat"</span><span class="op">)</span></code></pre></div>
+<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu">remotes</span><span class="fu">::</span><span class="fu"><a href="https://remotes.r-lib.org/reference/install_github.html" class="external-link">install_github</a></span><span class="op">(</span><span class="st">"tanaylab/tgstat"</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="examples">Examples<a class="anchor" aria-label="anchor" href="#examples"></a>
 </h2>
-<div class="sourceCode"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span>seed<span class="op">=</span><span class="fl">60427</span><span class="op">)</span>
-<span class="va">rows</span> <span class="op">=</span> <span class="fl">3000</span>
-<span class="va">cols</span> <span class="op">=</span> <span class="fl">3000</span>
-<span class="va">vals</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sample.html" class="external-link">sample</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="op">(</span><span class="va">rows</span><span class="op">*</span><span class="va">cols</span><span class="op">/</span><span class="fl">2</span><span class="op">)</span>, <span class="va">rows</span><span class="op">*</span><span class="va">cols</span>, replace<span class="op">=</span><span class="cn">T</span><span class="op">)</span>
-<span class="va">m</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="va">vals</span>, nrow<span class="op">=</span><span class="va">rows</span>, ncol<span class="op">=</span><span class="va">cols</span><span class="op">)</span>
-<span class="va">m_with_NAs</span> <span class="op">&lt;-</span> <span class="va">m</span>
-<span class="va">m_with_NAs</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/sample.html" class="external-link">sample</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="op">(</span><span class="va">rows</span><span class="op">*</span><span class="va">cols</span><span class="op">)</span>, <span class="va">rows</span><span class="op">*</span><span class="va">cols</span> <span class="op">/</span> <span class="fl">10</span><span class="op">)</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="cn">NA</span>
-<span class="fu"><a href="https://rdrr.io/r/base/dim.html" class="external-link">dim</a></span><span class="op">(</span><span class="va">m</span><span class="op">)</span>
-<span class="co">#&gt; [1] 3000 3000</span></code></pre></div>
+<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span>seed<span class="op">=</span><span class="fl">60427</span><span class="op">)</span></span>
+<span><span class="va">rows</span> <span class="op">=</span> <span class="fl">3000</span></span>
+<span><span class="va">cols</span> <span class="op">=</span> <span class="fl">3000</span></span>
+<span><span class="va">vals</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sample.html" class="external-link">sample</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="op">(</span><span class="va">rows</span><span class="op">*</span><span class="va">cols</span><span class="op">/</span><span class="fl">2</span><span class="op">)</span>, <span class="va">rows</span><span class="op">*</span><span class="va">cols</span>, replace<span class="op">=</span><span class="cn">T</span><span class="op">)</span></span>
+<span><span class="va">m</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="va">vals</span>, nrow<span class="op">=</span><span class="va">rows</span>, ncol<span class="op">=</span><span class="va">cols</span><span class="op">)</span></span>
+<span><span class="va">m_with_NAs</span> <span class="op">&lt;-</span> <span class="va">m</span></span>
+<span><span class="va">m_with_NAs</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/sample.html" class="external-link">sample</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="op">(</span><span class="va">rows</span><span class="op">*</span><span class="va">cols</span><span class="op">)</span>, <span class="va">rows</span><span class="op">*</span><span class="va">cols</span> <span class="op">/</span> <span class="fl">10</span><span class="op">)</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="cn">NA</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/dim.html" class="external-link">dim</a></span><span class="op">(</span><span class="va">m</span><span class="op">)</span></span>
+<span><span class="co">#&gt; [1] 3000 3000</span></span></code></pre></div>
 <div class="section level3">
 <h3 id="fast-computation-of-correlation-matrices">Fast computation of correlation matrices<a class="anchor" aria-label="anchor" href="#fast-computation-of-correlation-matrices"></a>
 </h3>
 <p>Pearson correlation without BLAS, no NAs:</p>
-<div class="sourceCode"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span class="fu"><a href="https://rdrr.io/r/base/options.html" class="external-link">options</a></span><span class="op">(</span>tgs_use.blas<span class="op">=</span><span class="cn">F</span><span class="op">)</span>
-<span class="fu"><a href="https://rdrr.io/r/base/system.time.html" class="external-link">system.time</a></span><span class="op">(</span><span class="fu"><a href="reference/tgs_cor.html">tgs_cor</a></span><span class="op">(</span><span class="va">m</span><span class="op">)</span><span class="op">)</span>
-<span class="co">#&gt;    user  system elapsed </span>
-<span class="co">#&gt;  14.379   2.668   1.529</span></code></pre></div>
+<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/options.html" class="external-link">options</a></span><span class="op">(</span>tgs_use.blas<span class="op">=</span><span class="cn">F</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/system.time.html" class="external-link">system.time</a></span><span class="op">(</span><span class="fu"><a href="reference/tgs_cor.html">tgs_cor</a></span><span class="op">(</span><span class="va">m</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt;    user  system elapsed </span></span>
+<span><span class="co">#&gt;  14.379   2.668   1.529</span></span></code></pre></div>
 <p>Same with BLAS:</p>
-<div class="sourceCode"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span class="co"># tgs_cor, with BLAS, no NAs, pearson</span>
-<span class="fu"><a href="https://rdrr.io/r/base/options.html" class="external-link">options</a></span><span class="op">(</span>tgs_use.blas<span class="op">=</span><span class="cn">T</span><span class="op">)</span>
-<span class="fu"><a href="https://rdrr.io/r/base/system.time.html" class="external-link">system.time</a></span><span class="op">(</span><span class="fu"><a href="reference/tgs_cor.html">tgs_cor</a></span><span class="op">(</span><span class="va">m</span><span class="op">)</span><span class="op">)</span>
-<span class="co">#&gt;    user  system elapsed </span>
-<span class="co">#&gt;   3.817   0.290   0.383</span></code></pre></div>
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># tgs_cor, with BLAS, no NAs, pearson</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/options.html" class="external-link">options</a></span><span class="op">(</span>tgs_use.blas<span class="op">=</span><span class="cn">T</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/system.time.html" class="external-link">system.time</a></span><span class="op">(</span><span class="fu"><a href="reference/tgs_cor.html">tgs_cor</a></span><span class="op">(</span><span class="va">m</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt;    user  system elapsed </span></span>
+<span><span class="co">#&gt;   3.817   0.290   0.383</span></span></code></pre></div>
 <p>Base R version:</p>
-<div class="sourceCode"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span class="fu"><a href="https://rdrr.io/r/base/system.time.html" class="external-link">system.time</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/cor.html" class="external-link">cor</a></span><span class="op">(</span><span class="va">m</span><span class="op">)</span><span class="op">)</span>
-<span class="co">#&gt;    user  system elapsed </span>
-<span class="co">#&gt;  22.380   0.241  22.621</span></code></pre></div>
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/system.time.html" class="external-link">system.time</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/cor.html" class="external-link">cor</a></span><span class="op">(</span><span class="va">m</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt;    user  system elapsed </span></span>
+<span><span class="co">#&gt;  22.380   0.241  22.621</span></span></code></pre></div>
 <p>Pearson correlation without BLAS, with NAs:</p>
-<div class="sourceCode"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span class="fu"><a href="https://rdrr.io/r/base/options.html" class="external-link">options</a></span><span class="op">(</span>tgs_use.blas<span class="op">=</span><span class="cn">F</span><span class="op">)</span>
-<span class="fu"><a href="https://rdrr.io/r/base/system.time.html" class="external-link">system.time</a></span><span class="op">(</span><span class="fu"><a href="reference/tgs_cor.html">tgs_cor</a></span><span class="op">(</span><span class="va">m_with_NAs</span>, pairwise.complete.obs<span class="op">=</span><span class="cn">T</span><span class="op">)</span><span class="op">)</span>
-<span class="co">#&gt;    user  system elapsed </span>
-<span class="co">#&gt;  46.391   3.161   2.031</span></code></pre></div>
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/options.html" class="external-link">options</a></span><span class="op">(</span>tgs_use.blas<span class="op">=</span><span class="cn">F</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/system.time.html" class="external-link">system.time</a></span><span class="op">(</span><span class="fu"><a href="reference/tgs_cor.html">tgs_cor</a></span><span class="op">(</span><span class="va">m_with_NAs</span>, pairwise.complete.obs<span class="op">=</span><span class="cn">T</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt;    user  system elapsed </span></span>
+<span><span class="co">#&gt;  46.391   3.161   2.031</span></span></code></pre></div>
 <p>Same with BLAS:</p>
-<div class="sourceCode"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span class="fu"><a href="https://rdrr.io/r/base/options.html" class="external-link">options</a></span><span class="op">(</span>tgs_use.blas<span class="op">=</span><span class="cn">T</span><span class="op">)</span>
-<span class="fu"><a href="https://rdrr.io/r/base/system.time.html" class="external-link">system.time</a></span><span class="op">(</span><span class="fu"><a href="reference/tgs_cor.html">tgs_cor</a></span><span class="op">(</span><span class="va">m_with_NAs</span>, pairwise.complete.obs<span class="op">=</span><span class="cn">T</span><span class="op">)</span><span class="op">)</span>
-<span class="co">#&gt;    user  system elapsed </span>
-<span class="co">#&gt;  10.867   1.591   0.646</span></code></pre></div>
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/options.html" class="external-link">options</a></span><span class="op">(</span>tgs_use.blas<span class="op">=</span><span class="cn">T</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/system.time.html" class="external-link">system.time</a></span><span class="op">(</span><span class="fu"><a href="reference/tgs_cor.html">tgs_cor</a></span><span class="op">(</span><span class="va">m_with_NAs</span>, pairwise.complete.obs<span class="op">=</span><span class="cn">T</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt;    user  system elapsed </span></span>
+<span><span class="co">#&gt;  10.867   1.591   0.646</span></span></code></pre></div>
 <p>Base R version:</p>
-<div class="sourceCode"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span class="fu"><a href="https://rdrr.io/r/base/system.time.html" class="external-link">system.time</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/cor.html" class="external-link">cor</a></span><span class="op">(</span><span class="va">m_with_NAs</span>, use<span class="op">=</span><span class="st">"pairwise.complete.obs"</span><span class="op">)</span><span class="op">)</span>
-<span class="co">#&gt;    user  system elapsed </span>
-<span class="co">#&gt; 301.038   0.240 301.271</span></code></pre></div>
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/system.time.html" class="external-link">system.time</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/cor.html" class="external-link">cor</a></span><span class="op">(</span><span class="va">m_with_NAs</span>, use<span class="op">=</span><span class="st">"pairwise.complete.obs"</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt;    user  system elapsed </span></span>
+<span><span class="co">#&gt; 301.038   0.240 301.271</span></span></code></pre></div>
 </div>
 <div class="section level3">
 <h3 id="fast-computation-of-distance-matrices">Fast computation of distance matrices<a class="anchor" aria-label="anchor" href="#fast-computation-of-distance-matrices"></a>
 </h3>
 <p>Distance without BLAS, no NAs:</p>
-<div class="sourceCode"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span class="fu"><a href="https://rdrr.io/r/base/options.html" class="external-link">options</a></span><span class="op">(</span>tgs_use.blas<span class="op">=</span><span class="cn">F</span><span class="op">)</span>
-<span class="fu"><a href="https://rdrr.io/r/base/system.time.html" class="external-link">system.time</a></span><span class="op">(</span><span class="fu"><a href="reference/tgs_dist.html">tgs_dist</a></span><span class="op">(</span><span class="va">m</span><span class="op">)</span><span class="op">)</span>
-<span class="co">#&gt;    user  system elapsed </span>
-<span class="co">#&gt; 170.500   3.372   3.375</span></code></pre></div>
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/options.html" class="external-link">options</a></span><span class="op">(</span>tgs_use.blas<span class="op">=</span><span class="cn">F</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/system.time.html" class="external-link">system.time</a></span><span class="op">(</span><span class="fu"><a href="reference/tgs_dist.html">tgs_dist</a></span><span class="op">(</span><span class="va">m</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt;    user  system elapsed </span></span>
+<span><span class="co">#&gt; 170.500   3.372   3.375</span></span></code></pre></div>
 <p>Same with BLAS:</p>
-<div class="sourceCode"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span class="fu"><a href="https://rdrr.io/r/base/options.html" class="external-link">options</a></span><span class="op">(</span>tgs_use.blas<span class="op">=</span><span class="cn">T</span><span class="op">)</span>
-<span class="fu"><a href="https://rdrr.io/r/base/system.time.html" class="external-link">system.time</a></span><span class="op">(</span><span class="fu"><a href="reference/tgs_dist.html">tgs_dist</a></span><span class="op">(</span><span class="va">m</span><span class="op">)</span><span class="op">)</span>
-<span class="co">#&gt;    user  system elapsed </span>
-<span class="co">#&gt;   5.463   0.442   0.335</span></code></pre></div>
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/options.html" class="external-link">options</a></span><span class="op">(</span>tgs_use.blas<span class="op">=</span><span class="cn">T</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/system.time.html" class="external-link">system.time</a></span><span class="op">(</span><span class="fu"><a href="reference/tgs_dist.html">tgs_dist</a></span><span class="op">(</span><span class="va">m</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt;    user  system elapsed </span></span>
+<span><span class="co">#&gt;   5.463   0.442   0.335</span></span></code></pre></div>
 <p>Base R:</p>
-<div class="sourceCode"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span class="fu"><a href="https://rdrr.io/r/base/system.time.html" class="external-link">system.time</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/dist.html" class="external-link">dist</a></span><span class="op">(</span><span class="va">m</span>, method<span class="op">=</span><span class="st">"euclidean"</span><span class="op">)</span><span class="op">)</span>
-<span class="co">#&gt;    user  system elapsed </span>
-<span class="co">#&gt; 159.417   0.067 159.481</span></code></pre></div>
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/system.time.html" class="external-link">system.time</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/dist.html" class="external-link">dist</a></span><span class="op">(</span><span class="va">m</span>, method<span class="op">=</span><span class="st">"euclidean"</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt;    user  system elapsed </span></span>
+<span><span class="co">#&gt; 159.417   0.067 159.481</span></span></code></pre></div>
 </div>
 </div>
 <div class="section level2">
@@ -186,7 +186,7 @@
 </h2>
 <p><code>tgstat</code> runs best when R is linked with an optimized BLAS implementation.</p>
 <p>Many optimized BLAS implementations are available, both proprietary (e.g. Intel’s MKL, Apple’s vecLib) and opensource (e.g. OpenBLAS, ATLAS). Unfortunately, R often uses by default the reference BLAS implementation, which is known to have poor performance.</p>
-<p>Having <code>tgstat</code> rely on the reference BLAS will result in very poor performance and is strongly discouraged. If your R implementation uses an optimized BLAS, set <code>options(tgs_use.blas=TRUE)</code> to allow <code>tgstat</code> to make BLAS calls. Otherwise, set <code>options(tgs_use.blas=FALSE)</code> (default) which instructs <code>tgstat</code> to avoid BLAS and instead rely only on its own optimization methods. If in doubt, it is possible to run one of <code>tgstat</code> CPU intensive functions (e.g. <code>tgs_cor</code>) and compare its run time under both <code>options(tgs_use.blas=FALSE)</code>.</p>
+<p>Having <code>tgstat</code> rely on the reference BLAS will result in very poor performance and is strongly discouraged. If your R implementation uses an optimized BLAS, set <code>options(tgs_use.blas=TRUE)</code> to allow <code>tgstat</code> to make BLAS calls. Otherwise, set <code>options(tgs_use.blas=FALSE)</code> (default) which instructs <code>tgstat</code> to avoid BLAS and instead rely only on its own optimization methods. If in doubt, it is possible to run one of <code>tgstat</code> CPU intensive functions (e.g. <code>tgs_cor</code>) and compare its run time under both <code>options(tgs_use.blas=FALSE)</code>.</p>
 <p>Exact instructions for linking R with an optimized BLAS library are system dependent and are out of scope of this document.</p>
 </div>
 </div>
@@ -244,7 +244,7 @@
 
 <div class="pkgdown">
   <p></p>
-<p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.0.2.</p>
+<p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.0.6.</p>
 </div>
 
       </footer>

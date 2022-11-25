@@ -18,7 +18,7 @@ between a matrix columns."><!-- mathjax --><script src="https://cdnjs.cloudflare
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">tgstat</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">2.3.17</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">2.3.19</span>
       </span>
     </div>
 
@@ -71,50 +71,68 @@ between a matrix columns.</p>
     </div>
 
     <div id="ref-usage">
-    <div class="sourceCode"><pre class="sourceCode r"><code><span class="fu">tgs_cor</span><span class="op">(</span>
-  <span class="va">x</span>,
-  y <span class="op">=</span> <span class="cn">NULL</span>,
-  pairwise.complete.obs <span class="op">=</span> <span class="cn">FALSE</span>,
-  spearman <span class="op">=</span> <span class="cn">FALSE</span>,
-  tidy <span class="op">=</span> <span class="cn">FALSE</span>,
-  threshold <span class="op">=</span> <span class="fl">0</span>
-<span class="op">)</span>
-
-<span class="fu">tgs_cor_knn</span><span class="op">(</span>
-  <span class="va">x</span>,
-  <span class="va">y</span>,
-  <span class="va">knn</span>,
-  pairwise.complete.obs <span class="op">=</span> <span class="cn">FALSE</span>,
-  spearman <span class="op">=</span> <span class="cn">FALSE</span>,
-  threshold <span class="op">=</span> <span class="fl">0</span>
-<span class="op">)</span></code></pre></div>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">tgs_cor</span><span class="op">(</span></span>
+<span>  <span class="va">x</span>,</span>
+<span>  y <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  pairwise.complete.obs <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>  spearman <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>  tidy <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>  threshold <span class="op">=</span> <span class="fl">0</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu">tgs_cor_knn</span><span class="op">(</span></span>
+<span>  <span class="va">x</span>,</span>
+<span>  <span class="va">y</span>,</span>
+<span>  <span class="va">knn</span>,</span>
+<span>  pairwise.complete.obs <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>  spearman <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>  threshold <span class="op">=</span> <span class="fl">0</span></span>
+<span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div id="arguments">
     <h2>Arguments</h2>
     <dl><dt>x</dt>
 <dd><p>numeric matrix</p></dd>
+
+
 <dt>y</dt>
 <dd><p>numeric matrix</p></dd>
+
+
 <dt>pairwise.complete.obs</dt>
 <dd><p>see below</p></dd>
+
+
 <dt>spearman</dt>
 <dd><p>if 'TRUE' Spearman correlation is computed, otherwise
 Pearson</p></dd>
+
+
 <dt>tidy</dt>
 <dd><p>if 'TRUE' data is outputed in tidy format</p></dd>
+
+
 <dt>threshold</dt>
 <dd><p>absolute threshold above which values are outputed in tidy
 format</p></dd>
+
+
 <dt>knn</dt>
 <dd><p>the number of highest correlations returned per column</p></dd>
+
 </dl></div>
     <div id="value">
     <h2>Value</h2>
-    <p>'tgs_cor_knn' or 'tgs_cor' with 'tidy=TRUE' return a data frame,
+    
+
+<p>'tgs_cor_knn' or 'tgs_cor' with 'tidy=TRUE' return a data frame,
 where each row represents correlation between two pairs of columns from 'x'
 and 'y' (or two columns of 'x' itself if 'y==NULL'). 'tgs_cor' with the
-'tidy=FALSE' returns a matrix of correlation values, where <code>val[X,Y]</code>represents the correlation between columns X and Y of the input matrices (if
+'tidy=FALSE' returns a matrix of correlation values, where <code>val[X,Y]</code></p>
+
+
+<p>represents the correlation between columns X and Y of the input matrices (if
 'y' is not 'NULL') or the correlation between columns X and Y of 'x' (if 'y'
 is 'NULL').</p>
     </div>
@@ -154,37 +172,37 @@ reduce that to max((NCX+NCY)xNR,NCXxKNN).</p>
 
     <div id="ref-examples">
     <h2>Examples</h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span class="co"># \donttest{</span></span>
-<span class="r-in"><span class="co"># Note: all the available CPU cores might be used</span></span>
-<span class="r-in"></span>
-<span class="r-in"><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span>seed <span class="op">=</span> <span class="fl">0</span><span class="op">)</span></span>
-<span class="r-in"><span class="va">rows</span> <span class="op">&lt;-</span> <span class="fl">100</span></span>
-<span class="r-in"><span class="va">cols</span> <span class="op">&lt;-</span> <span class="fl">1000</span></span>
-<span class="r-in"><span class="va">vals</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sample.html" class="external-link">sample</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="op">(</span><span class="va">rows</span> <span class="op">*</span> <span class="va">cols</span> <span class="op">/</span> <span class="fl">2</span><span class="op">)</span>, <span class="va">rows</span> <span class="op">*</span> <span class="va">cols</span>, replace <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
-<span class="r-in"><span class="va">m</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="va">vals</span>, nrow <span class="op">=</span> <span class="va">rows</span>, ncol <span class="op">=</span> <span class="va">cols</span><span class="op">)</span></span>
-<span class="r-in"><span class="va">m</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/sample.html" class="external-link">sample</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="op">(</span><span class="va">rows</span> <span class="op">*</span> <span class="va">cols</span><span class="op">)</span>, <span class="va">rows</span> <span class="op">*</span> <span class="va">cols</span> <span class="op">/</span> <span class="fl">1000</span><span class="op">)</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="cn">NA</span></span>
-<span class="r-in"></span>
-<span class="r-in"><span class="va">r1</span> <span class="op">&lt;-</span> <span class="fu">tgs_cor</span><span class="op">(</span><span class="va">m</span>, spearman <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
-<span class="r-in"><span class="va">r2</span> <span class="op">&lt;-</span> <span class="fu">tgs_cor</span><span class="op">(</span><span class="va">m</span>, pairwise.complete.obs <span class="op">=</span> <span class="cn">TRUE</span>, spearman <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
-<span class="r-in"><span class="va">r3</span> <span class="op">&lt;-</span> <span class="fu">tgs_cor_knn</span><span class="op">(</span><span class="va">m</span>, <span class="cn">NULL</span>, <span class="fl">5</span>, spearman <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
-<span class="r-in"><span class="co"># }</span></span>
-<span class="r-in"></span>
-<span class="r-in"><span class="co"># \dontshow{</span></span>
-<span class="r-in"><span class="fu"><a href="https://rdrr.io/r/base/options.html" class="external-link">options</a></span><span class="op">(</span>tgs_use.blas <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
-<span class="r-in"><span class="fu"><a href="https://rdrr.io/r/base/options.html" class="external-link">options</a></span><span class="op">(</span>tgs_max.processes <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
-<span class="r-in"></span>
-<span class="r-in"><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span>seed <span class="op">=</span> <span class="fl">0</span><span class="op">)</span></span>
-<span class="r-in"><span class="va">rows</span> <span class="op">&lt;-</span> <span class="fl">100</span></span>
-<span class="r-in"><span class="va">cols</span> <span class="op">&lt;-</span> <span class="fl">100</span></span>
-<span class="r-in"><span class="va">vals</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sample.html" class="external-link">sample</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="op">(</span><span class="va">rows</span> <span class="op">*</span> <span class="va">cols</span> <span class="op">/</span> <span class="fl">2</span><span class="op">)</span>, <span class="va">rows</span> <span class="op">*</span> <span class="va">cols</span>, replace <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
-<span class="r-in"><span class="va">m</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="va">vals</span>, nrow <span class="op">=</span> <span class="va">rows</span>, ncol <span class="op">=</span> <span class="va">cols</span><span class="op">)</span></span>
-<span class="r-in"><span class="va">m</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/sample.html" class="external-link">sample</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="op">(</span><span class="va">rows</span> <span class="op">*</span> <span class="va">cols</span><span class="op">)</span>, <span class="va">rows</span> <span class="op">*</span> <span class="va">cols</span> <span class="op">/</span> <span class="fl">1000</span><span class="op">)</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="cn">NA</span></span>
-<span class="r-in"></span>
-<span class="r-in"><span class="va">r1</span> <span class="op">&lt;-</span> <span class="fu">tgs_cor</span><span class="op">(</span><span class="va">m</span>, spearman <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
-<span class="r-in"><span class="va">r2</span> <span class="op">&lt;-</span> <span class="fu">tgs_cor</span><span class="op">(</span><span class="va">m</span>, pairwise.complete.obs <span class="op">=</span> <span class="cn">TRUE</span>, spearman <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
-<span class="r-in"><span class="va">r3</span> <span class="op">&lt;-</span> <span class="fu">tgs_cor_knn</span><span class="op">(</span><span class="va">m</span>, <span class="cn">NULL</span>, <span class="fl">5</span>, spearman <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
-<span class="r-in"><span class="co"># }</span></span>
-<span class="r-in"></span>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="co"># \donttest{</span></span></span>
+<span class="r-in"><span><span class="co"># Note: all the available CPU cores might be used</span></span></span>
+<span class="r-in"><span></span></span>
+<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span>seed <span class="op">=</span> <span class="fl">0</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">rows</span> <span class="op">&lt;-</span> <span class="fl">100</span></span></span>
+<span class="r-in"><span><span class="va">cols</span> <span class="op">&lt;-</span> <span class="fl">1000</span></span></span>
+<span class="r-in"><span><span class="va">vals</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sample.html" class="external-link">sample</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="op">(</span><span class="va">rows</span> <span class="op">*</span> <span class="va">cols</span> <span class="op">/</span> <span class="fl">2</span><span class="op">)</span>, <span class="va">rows</span> <span class="op">*</span> <span class="va">cols</span>, replace <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">m</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="va">vals</span>, nrow <span class="op">=</span> <span class="va">rows</span>, ncol <span class="op">=</span> <span class="va">cols</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">m</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/sample.html" class="external-link">sample</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="op">(</span><span class="va">rows</span> <span class="op">*</span> <span class="va">cols</span><span class="op">)</span>, <span class="va">rows</span> <span class="op">*</span> <span class="va">cols</span> <span class="op">/</span> <span class="fl">1000</span><span class="op">)</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="cn">NA</span></span></span>
+<span class="r-in"><span></span></span>
+<span class="r-in"><span><span class="va">r1</span> <span class="op">&lt;-</span> <span class="fu">tgs_cor</span><span class="op">(</span><span class="va">m</span>, spearman <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">r2</span> <span class="op">&lt;-</span> <span class="fu">tgs_cor</span><span class="op">(</span><span class="va">m</span>, pairwise.complete.obs <span class="op">=</span> <span class="cn">TRUE</span>, spearman <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">r3</span> <span class="op">&lt;-</span> <span class="fu">tgs_cor_knn</span><span class="op">(</span><span class="va">m</span>, <span class="cn">NULL</span>, <span class="fl">5</span>, spearman <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="co"># }</span></span></span>
+<span class="r-in"><span></span></span>
+<span class="r-in"><span><span class="co"># \dontshow{</span></span></span>
+<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/options.html" class="external-link">options</a></span><span class="op">(</span>tgs_use.blas <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/options.html" class="external-link">options</a></span><span class="op">(</span>tgs_max.processes <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span></span>
+<span class="r-in"><span></span></span>
+<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span>seed <span class="op">=</span> <span class="fl">0</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">rows</span> <span class="op">&lt;-</span> <span class="fl">100</span></span></span>
+<span class="r-in"><span><span class="va">cols</span> <span class="op">&lt;-</span> <span class="fl">100</span></span></span>
+<span class="r-in"><span><span class="va">vals</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sample.html" class="external-link">sample</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="op">(</span><span class="va">rows</span> <span class="op">*</span> <span class="va">cols</span> <span class="op">/</span> <span class="fl">2</span><span class="op">)</span>, <span class="va">rows</span> <span class="op">*</span> <span class="va">cols</span>, replace <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">m</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="va">vals</span>, nrow <span class="op">=</span> <span class="va">rows</span>, ncol <span class="op">=</span> <span class="va">cols</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">m</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/sample.html" class="external-link">sample</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="op">(</span><span class="va">rows</span> <span class="op">*</span> <span class="va">cols</span><span class="op">)</span>, <span class="va">rows</span> <span class="op">*</span> <span class="va">cols</span> <span class="op">/</span> <span class="fl">1000</span><span class="op">)</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="cn">NA</span></span></span>
+<span class="r-in"><span></span></span>
+<span class="r-in"><span><span class="va">r1</span> <span class="op">&lt;-</span> <span class="fu">tgs_cor</span><span class="op">(</span><span class="va">m</span>, spearman <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">r2</span> <span class="op">&lt;-</span> <span class="fu">tgs_cor</span><span class="op">(</span><span class="va">m</span>, pairwise.complete.obs <span class="op">=</span> <span class="cn">TRUE</span>, spearman <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">r3</span> <span class="op">&lt;-</span> <span class="fu">tgs_cor_knn</span><span class="op">(</span><span class="va">m</span>, <span class="cn">NULL</span>, <span class="fl">5</span>, spearman <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="co"># }</span></span></span>
+<span class="r-in"><span></span></span>
 </code></pre></div>
     </div>
   </div>
@@ -199,7 +217,7 @@ reduce that to max((NCX+NCY)xNR,NCXxKNN).</p>
 </div>
 
 <div class="pkgdown">
-  <p></p><p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.0.2.</p>
+  <p></p><p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.0.6.</p>
 </div>
 
       </footer></div>

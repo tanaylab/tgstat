@@ -12,6 +12,7 @@
 #include <time.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <cstdint>
 
 #include <R.h>
 #include <Rinternals.h>

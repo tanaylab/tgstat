@@ -7,6 +7,7 @@
 #include <setjmp.h>
 #include <stdarg.h>
 #include <unistd.h>
+#include <cstdint>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/time.h>

@@ -67,7 +67,7 @@ unsigned graph2cluster(const int *pnode1, const int *pnode2, const double *pweig
         // select the next seed randomly with weight = node2weight
         float v = unif_rand() * weights_sum;
         float sum = 0;
-        unsigned seed;
+        unsigned seed = 0;
 
         for (auto i : cands) {
             sum += node2weight[i];

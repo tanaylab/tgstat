@@ -1,3 +1,7 @@
+# tgstat 2.3.20
+
+* added missing <cstdint> include in order to compile with gcc 13
+
 # tgstat 2.3.19 
 
 * Fixed rchk warning with the patch generously provided by Tomas Kalibera (thanks!).

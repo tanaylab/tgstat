@@ -4,8 +4,8 @@
 
 ## Changes
 
-* added missing <cstdint> include in order to compile with gcc 13
-* Removed old Date field from DESCRIPTION
+* Fixed compilation errors on clang16.
+
 
 
 

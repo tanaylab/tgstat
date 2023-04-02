@@ -29,6 +29,10 @@
 
 #define TGS_EXIT_SIG SIGTERM
 
+#ifndef MAP_ANONYMOUS
+# define MAP_ANONYMOUS MAP_ANON
+#endif
+
 #include "TGLException.h"
 
 using namespace std;

@@ -1,3 +1,11 @@
+# tgstat 2.3.23
+
+* Added missing <memory> header. 
+
+# tgstat 2.3.22
+
+* Fixed compilation errors on clang16.
+
 # tgstat 2.3.20
 
 * added missing <cstdint> include in order to compile with gcc 13

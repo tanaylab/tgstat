@@ -4,6 +4,16 @@
 #include <sys/mman.h>
 #include <unistd.h>
 #include <vector>
+#include <stdint.h>
+#include <string>
+#include <stdlib.h>
+#include <set>
+#include <pthread.h>
+#include <semaphore.h>
+#include <signal.h>
+#include <time.h>
+#include <sys/types.h>
+#include <cstdint>
 
 #include <R.h>
 #include <Rinternals.h>

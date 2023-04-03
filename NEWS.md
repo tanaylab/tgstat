@@ -1,3 +1,7 @@
+# tgstat 2.3.23
+
+* Added missing <memory> header. 
+
 # tgstat 2.3.22
 
 * Fixed compilation errors on clang16.

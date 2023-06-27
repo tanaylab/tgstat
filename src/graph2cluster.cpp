@@ -7,11 +7,11 @@
 #include <unistd.h>
 #include <sys/mman.h>
 
-#include <R.h>
-#include <Rinternals.h>
-
 #include "HashFunc.h"
 #include "RandomShuffle.h"
+
+#include <R.h>
+#include <Rinternals.h>
 
 #ifdef length
 #undef length

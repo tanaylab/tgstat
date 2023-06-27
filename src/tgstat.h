@@ -13,6 +13,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <cstdint>
+#include <memory>
 
 #include <R.h>
 #include <Rinternals.h>

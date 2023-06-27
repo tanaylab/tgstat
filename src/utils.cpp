@@ -1,6 +1,6 @@
+#include <cstdint>
 #include <R.h>
 #include <Rinternals.h>
-#include <cstdint>
 
 #ifdef length
 #undef length

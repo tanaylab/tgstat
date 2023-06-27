@@ -1,7 +1,7 @@
 Type: Package
 Package: tgstat
 Title: Amos Tanay's Group High Performance Statistical Utilities
-Version: 2.3.23
+Version: 2.3.24
 Authors@R: c(
     person("Michael", "Hoichman", , "misha@hoichman.com", role = "aut"),
     person("Aviezer", "Lifshitz", , "aviezer.lifshitz@weizmann.ac.il", role = c("aut", "cre"))
@@ -32,4 +32,3 @@ NeedsCompilation: yes
 OS_type: unix
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.2.3
-SystemRequirements: C++11

@@ -2,10 +2,11 @@
 #include <limits>
 #include <unordered_map>
 
+#include "HashFunc.h"
+
 #include <R.h>
 #include <Rinternals.h>
 
-#include "HashFunc.h"
 
 #ifdef length
 #undef length

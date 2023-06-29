@@ -17,7 +17,7 @@ Description: A collection of high performance utilities to compute
     2019 <doi:10.1186/s13059-019-1812-2>).
 License: GPL-2
 BugReports: https://github.com/tanaylab/tgstat/issues
-URL: https://tanaylab.github.io/tgstat/, https://github.com/tanaylab/tgstat
+URL: https://tanaylab.github.io/tgstat
 Depends: 
     R (>= 3.5.0)
 Imports: 

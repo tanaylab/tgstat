@@ -4,7 +4,7 @@
 
 ## Changes
 
-* Fixed compilation errors on clang17.
+* Fixed clang warnings 
 
 
 

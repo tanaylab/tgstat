@@ -1,3 +1,7 @@
+# tgstat 2.3.25
+
+* Fixed clang warnings.
+
 # tgstat 2.3.24
 
 * Fixed compilation errors on clang17.

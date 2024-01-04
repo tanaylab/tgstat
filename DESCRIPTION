@@ -1,7 +1,7 @@
 Type: Package
 Package: tgstat
 Title: Amos Tanay's Group High Performance Statistical Utilities
-Version: 2.3.24
+Version: 2.3.25
 Authors@R: c(
     person("Michael", "Hoichman", , "misha@hoichman.com", role = "aut"),
     person("Aviezer", "Lifshitz", , "aviezer.lifshitz@weizmann.ac.il", role = c("aut", "cre"))

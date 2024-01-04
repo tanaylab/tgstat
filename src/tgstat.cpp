@@ -484,8 +484,9 @@ void TGStat::handle_error(const char *msg)
 			}
 		}
 		rexit();
-	} else
-        errorcall(R_NilValue, msg);
+	} else {
+        errorcall(R_NilValue, "%s", msg);
+    }
 }
 
 void TGStat::set_alarm(int msecs)
@@ -695,7 +696,7 @@ void vdebug(const char *fmt, ...)
     	va_start(ap, fmt);
     	vsnprintf(buf, sizeof(buf), fmt, ap);
         va_end(ap);
-        REprintf(buf);
+        REprintf("%s", buf);
 
         if (!*fmt || (*fmt && fmt[strlen(fmt) - 1] != '\n'))
             REprintf("\n");

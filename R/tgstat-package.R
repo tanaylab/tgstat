@@ -1,5 +1,3 @@
-
-
 #' Tanay's group statistical utilities
 #'
 #' 'tgstat' package is intended to help users to efficiently analyze data in

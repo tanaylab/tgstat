@@ -10,19 +10,22 @@
     return(res)
 }
 
-.tgs_getOption <- function(x, default = NULL) {
-    if (missing(default)) {
-        return(options(x)[[1L]])
-    }
-    if (x %in% names(options())) {
-        return(options(x)[[1L]])
+.tgs_use_blas <- function() {
+    opt <- getOption("tgs_use.blas")
+    if (is.null(opt)) {
+        opt <- .tgs_guess_use_blas()
     } else {
-        return(default)
+        opt <- as.logical(opt)
     }
+    return(opt)
 }
 
-.tgs_use_blas <- function() {
-    .tgs_getOption("tgs_use.blas", F)
+.tgs_guess_use_blas <- function() {
+    blas <- basename(extSoftVersion()["BLAS"])
+    if (grepl("openblas", blas, ignore.case = TRUE) || grepl("mkl", blas, ignore.case = TRUE) || grepl("atlas", blas, ignore.case = TRUE) || grepl("gsl", blas, ignore.case = TRUE)) {
+        return(TRUE)
+    }
+    return(FALSE)
 }
 
 #' Checks whether all the elements of the vector are finite

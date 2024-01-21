@@ -1,4 +1,3 @@
-
 #' For each matrix row apply a function over a ragged array
 #'
 #' For each matrix row apply a function to each cell of a ragged array, that is

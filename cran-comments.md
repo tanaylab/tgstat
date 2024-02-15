@@ -4,7 +4,7 @@
 
 ## Changes
 
-* Fixed clang warnings 
+* This version guesses `tgs.use_blas` from environment if not set.
 
 
 

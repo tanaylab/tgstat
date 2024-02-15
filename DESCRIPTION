@@ -1,7 +1,7 @@
 Type: Package
 Package: tgstat
 Title: Amos Tanay's Group High Performance Statistical Utilities
-Version: 2.3.26
+Version: 2.3.27
 Authors@R: c(
     person("Michael", "Hoichman", , "misha@hoichman.com", role = "aut"),
     person("Aviezer", "Lifshitz", , "aviezer.lifshitz@weizmann.ac.il", role = c("aut", "cre"))
@@ -17,7 +17,7 @@ Description: A collection of high performance utilities to compute
     2019 <doi:10.1186/s13059-019-1812-2>).
 License: GPL-2
 BugReports: https://github.com/tanaylab/tgstat/issues
-URL: https://tanaylab.github.io/tgstat
+URL: https://tanaylab.github.io/tgstat/
 Depends: 
     R (>= 3.5.0)
 Imports: 

@@ -59,7 +59,7 @@ tgs_dist <- function(x, diag = FALSE, upper = FALSE, tidy = FALSE, threshold = I
 
     attrs <- list(
         Size = nrow(x), Labels = dimnames(x)[[1L]], Diag = diag,
-        Upper = upper, method = "euclidian", call = match.call(), class = "dist"
+        Upper = upper, method = "euclidean", call = match.call(), class = "dist"
     )
 
     if (.tgs_use_blas()) {

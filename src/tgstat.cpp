@@ -771,13 +771,28 @@ const char *get_glib_dir(SEXP envir)
 
 SEXP eval_in_R(SEXP parsed_command, SEXP envir)
 {
-	int check_error;
-	SEXP res;
+    int check_error;
+    SEXP res;
+    SEXP err_call;
 
-	rprotect(res = R_tryEval(parsed_command, envir, &check_error));
-	if (check_error)
-		verror(R_curErrorBuf());
-	return res;
+    rprotect(res = R_tryEval(parsed_command, envir, &check_error));
+    if (check_error)
+    {
+        // Get the last error message
+        PROTECT(err_call = Rf_lang1(Rf_install("geterrmessage")));
+        SEXP err_msg = R_tryEval(err_call, R_GlobalEnv, &check_error);
+        UNPROTECT(1);
+
+        if (!check_error && TYPEOF(err_msg) == STRSXP && LENGTH(err_msg) > 0)
+        {
+            verror(CHAR(STRING_ELT(err_msg, 0)));
+        }
+        else
+        {
+            verror("R evaluation error: Unknown error");
+        }
+    }
+    return res;
 }
 
 SEXP run_in_R(const char *command, SEXP envir)

@@ -1,6 +1,8 @@
 # tgstat 2.3.28 
 
 * Fixed *noRemap* additional issue by adding `Rf_` prefix in the c++ code.
+* Removed non-API calls to R: `R_curErrorBuf`, `SET_TYPEOF` in the c++ code.
+
 
 # tgstat 2.3.27
 

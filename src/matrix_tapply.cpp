@@ -42,12 +42,15 @@ void init_sum_data(SEXP rargs, SEXP rarg_names, SEXP renvir, SumData *sum_data)
 
     if (Rf_isNull(rarg_names))
         num_unnamed_args = Rf_length(rargs);
-    else {
-        for (int i = 0; i < Rf_length(rargs); ++i) {
+    else
+    {
+        for (int i = 0; i < Rf_length(rargs); ++i)
+        {
             const char *arg_name = CHAR(STRING_ELT(rarg_names, i));
             if (!*arg_name)
                 ++num_unnamed_args;
-            else if (!strcmp(arg_name, "na.rm")) {
+            else if (!strcmp(arg_name, "na.rm"))
+            {
                 SEXP retv = eval_in_R(VECTOR_ELT(rargs, i), renvir);
                 sum_data->na_rm = Rf_asLogical(retv);
                 runprotect(1);
@@ -57,11 +60,12 @@ void init_sum_data(SEXP rargs, SEXP rarg_names, SEXP renvir, SumData *sum_data)
 
     // Sum may accept more than one unnamed argument (vectors).
     // Calculate the sum now and add the value later to our matrix sum.
-    if (num_unnamed_args) {
+    if (num_unnamed_args)
+    {
         SEXP parsed_expr;
         SEXP cmd;
         ParseStatus status;
-        
+
         rprotect(cmd = Rf_ScalarString(Rf_mkChar("sum")));
         rprotect(parsed_expr = R_ParseVector(cmd, -1, &status, R_NilValue));
 
@@ -69,28 +73,31 @@ void init_sum_data(SEXP rargs, SEXP rarg_names, SEXP renvir, SumData *sum_data)
             verror("R parsing of expression \"sum\" failed");
 
         SEXP eval_expr = VECTOR_ELT(parsed_expr, 0);
-        SEXP rcall;
+        SEXP rcall = R_NilValue;
 
-        rprotect(rcall = Rf_allocList(1 + Rf_length(rargs)));
-        SET_TYPEOF(rcall, LANGSXP);
-        SETCAR(rcall, eval_expr);
-        SEXP s = rcall;
+        // Build the call using Rf_lcons
+        rprotect(rcall = Rf_lcons(eval_expr, R_NilValue));
+        SEXP tail = rcall;
 
-        for (int i = 0; i < Rf_length(rargs); ++i) {
-            s = CDR(s);
-            SETCAR(s, VECTOR_ELT(rargs, i));
-            if (!Rf_isNull(rarg_names)) {
+        for (int i = 0; i < Rf_length(rargs); ++i)
+        {
+            SEXP next = Rf_lcons(VECTOR_ELT(rargs, i), R_NilValue);
+            SETCDR(tail, next);
+            tail = next;
+            if (!Rf_isNull(rarg_names))
+            {
                 const char *arg_name = CHAR(STRING_ELT(rarg_names, i));
                 if (*arg_name)
-                    SET_TAG(s, Rf_install(arg_name));
+                    SET_TAG(next, Rf_install(arg_name));
             }
         }
+
         SEXP retv = eval_in_R(rcall, renvir);
         if (Rf_xlength(retv) != 1)
             verror("Evaluation of \"sum\" did not return a scalar");
-        
+
         sum_data->pre_eval_sum = Rf_asReal(retv);
-        runprotect(4);
+        runprotect(3); // Adjust protect count if necessary
     }
 }
 
@@ -183,7 +190,6 @@ SEXP tgs_matrix_tapply(SEXP _x, SEXP _index, SEXP _fn, SEXP _fn_name, SEXP _args
         // in case "fun=function(x) mean(x)", _fn_name will be a vector of strings
         string fn_name(Rf_xlength(_fn_name) == 1 ? CHAR(Rf_asChar(_fn_name)) : "");
         SEXP rarg_names = Rf_getAttrib(_args, R_NamesSymbol);
-        SEXP rcall;
         SEXP rindex_levels = Rf_getAttrib(_index, R_LevelsSymbol);
         uint64_t num_groups = (uint64_t)Rf_xlength(rindex_levels);
         bool is_sum = fn_name == "sum";
@@ -359,19 +365,20 @@ SEXP tgs_matrix_tapply(SEXP _x, SEXP _index, SEXP _fn, SEXP _fn_name, SEXP _args
 
                         // construct language expression for eval:
                         // function, vector of values, additional arguments in _args
-                        rprotect(rcall = Rf_allocList(2 + Rf_length(_args)));
-                        SET_TYPEOF(rcall, LANGSXP);
-                        SETCAR(rcall, _fn);
-                        SETCADR(rcall, rgroup);
+                        SEXP rcall = R_NilValue;
+                        rprotect(rcall = Rf_lcons(_fn, Rf_lcons(rgroup, R_NilValue)));
 
-                        SEXP s = CDR(rcall);
-                        for (int i = 0; i < Rf_length(_args); ++i) {
-                            s = CDR(s);
-                            SETCAR(s, VECTOR_ELT(_args, i));
-                            if (!Rf_isNull(rarg_names)) {
+                        SEXP tail = CDR(CDR(rcall));
+                        for (int i = 0; i < Rf_length(_args); ++i)
+                        {
+                            SEXP next = Rf_lcons(VECTOR_ELT(_args, i), R_NilValue);
+                            SETCDR(tail, next);
+                            tail = next;
+                            if (!Rf_isNull(rarg_names))
+                            {
                                 const char *arg_name = CHAR(STRING_ELT(rarg_names, i));
                                 if (*arg_name)
-                                    SET_TAG(s, Rf_install(arg_name));
+                                    SET_TAG(next, Rf_install(arg_name));
                             }
                         }
 

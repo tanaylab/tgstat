@@ -1,4 +1,7 @@
 #include <cstdint>
+#ifndef R_NO_REMAP
+#  define R_NO_REMAP
+#endif
 #include <R.h>
 #include <Rinternals.h>
 
@@ -17,14 +20,14 @@ SEXP tgs_finite(SEXP _x, SEXP _envir)
 {
 	try {
         TGStat tgstat(_envir);
-        uint64_t len = xlength(_x);
+        uint64_t len = Rf_xlength(_x);
 
-        if (!isReal(_x) && !isInteger(_x))
+        if (!Rf_isReal(_x) && !Rf_isInteger(_x))
             verror("\"x\" argument must be numeric or integer");
 
         for (uint64_t i = 0; i < len; ++i) {
-            if ((isReal(_x) && !R_FINITE(REAL(_x)[i])) || (isInteger(_x) && INTEGER(_x)[i] == NA_INTEGER))
-                rreturn(ScalarLogical(false));
+            if ((Rf_isReal(_x) && !R_FINITE(REAL(_x)[i])) || (Rf_isInteger(_x) && INTEGER(_x)[i] == NA_INTEGER))
+                rreturn(Rf_ScalarLogical(false));
         }
     } catch (TGLException &e) {
         rerror("%s", e.msg());
@@ -32,7 +35,7 @@ SEXP tgs_finite(SEXP _x, SEXP _envir)
         rerror("Out of memory");
     }
 
-    rreturn(ScalarLogical(true));
+    rreturn(Rf_ScalarLogical(true));
 }
 
 }

@@ -6,6 +6,9 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
+#ifndef R_NO_REMAP
+#  define R_NO_REMAP
+#endif
 #include <R.h>
 #include <Rinternals.h>
 #include <R_ext/BLAS.h>
@@ -34,25 +37,25 @@ SEXP tgs_dist(SEXP _x, SEXP _attrs, SEXP _tidy, SEXP _threshold, SEXP _rrownames
 	try {
         TGStat tgstat(_envir);
 
-		if ((!isReal(_x) && !isInteger(_x)) || xlength(_x) < 1)
+		if ((!Rf_isReal(_x) && !Rf_isInteger(_x)) || Rf_xlength(_x) < 1)
 			verror("\"x\" argument must be a matrix of numeric values");
 
-        if (!isLogical(_tidy) || xlength(_tidy) != 1)
+        if (!Rf_isLogical(_tidy) || Rf_xlength(_tidy) != 1)
             verror("\"tidy\" argument must be a logical value");
 
-        if ((!isReal(_threshold) && !isInteger(_threshold)) || xlength(_threshold) != 1)
+        if ((!Rf_isReal(_threshold) && !Rf_isInteger(_threshold)) || Rf_xlength(_threshold) != 1)
             verror("\"threshold\" argument must be a numeric value");
 
-        SEXP rdim = getAttrib(_x, R_DimSymbol);
+        SEXP rdim = Rf_getAttrib(_x, R_DimSymbol);
 
-        if (!isInteger(rdim) || xlength(rdim) != 2)
+        if (!Rf_isInteger(rdim) || Rf_xlength(rdim) != 2)
             verror("\"x\" argument must be a matrix of numeric values");
 
-        bool tidy = asLogical(_tidy);
-        double threshold = fabs(asReal(_threshold));
+        bool tidy = Rf_asLogical(_tidy);
+        double threshold = fabs(Rf_asReal(_threshold));
 
-        uint64_t num_points = nrows(_x);
-        uint64_t num_dims = ncols(_x);
+        uint64_t num_points = Rf_nrows(_x);
+        uint64_t num_dims = Rf_ncols(_x);
 
         if (num_points < 1 || num_dims < 1)
             verror("\"x\" argument must be a matrix of numeric values");
@@ -63,10 +66,10 @@ SEXP tgs_dist(SEXP _x, SEXP _attrs, SEXP _tidy, SEXP _threshold, SEXP _rrownames
         vals.reserve(num_vals);
 
         for (uint64_t i = 0; i < num_vals; ++i) {
-            if ((isReal(_x) && !R_FINITE(REAL(_x)[i])) || (isInteger(_x) && INTEGER(_x)[i] == NA_INTEGER))
+            if ((Rf_isReal(_x) && !R_FINITE(REAL(_x)[i])) || (Rf_isInteger(_x) && INTEGER(_x)[i] == NA_INTEGER))
                 vals.push_back(numeric_limits<double>::quiet_NaN());
             else
-                vals.push_back(isReal(_x) ? REAL(_x)[i] : INTEGER(_x)[i]);
+                vals.push_back(Rf_isReal(_x) ? REAL(_x)[i] : INTEGER(_x)[i]);
         }
 
         vdebug("Allocating shared memory for results\n");
@@ -168,7 +171,7 @@ SEXP tgs_dist(SEXP _x, SEXP _attrs, SEXP _tidy, SEXP _threshold, SEXP _rrownames
             rprotect(rrownames = RSaneAllocVector(INTSXP, answer_size));
 
             for (uint64_t i = 0; i < num_dims; i++)
-                SET_STRING_ELT(rcolnames, i, mkChar(COL_NAMES[i]));
+                SET_STRING_ELT(rcolnames, i, Rf_mkChar(COL_NAMES[i]));
 
             uint64_t idx1 = 0;
             for (uint64_t ipoint1 = 0; ipoint1 < num_points; ++ipoint1) {
@@ -186,19 +189,19 @@ SEXP tgs_dist(SEXP _x, SEXP _attrs, SEXP _tidy, SEXP _threshold, SEXP _rrownames
             }
 
             if (_rrownames != R_NilValue) {
-                setAttrib(rcol1, R_LevelsSymbol, _rrownames);
-                setAttrib(rcol1, R_ClassSymbol, mkString("factor"));
-                setAttrib(rcol2, R_LevelsSymbol, _rrownames);
-                setAttrib(rcol2, R_ClassSymbol, mkString("factor"));
+                Rf_setAttrib(rcol1, R_LevelsSymbol, _rrownames);
+                Rf_setAttrib(rcol1, R_ClassSymbol, Rf_mkString("factor"));
+                Rf_setAttrib(rcol2, R_LevelsSymbol, _rrownames);
+                Rf_setAttrib(rcol2, R_ClassSymbol, Rf_mkString("factor"));
             }
 
             SET_VECTOR_ELT(answer, ROW1, rcol1);
             SET_VECTOR_ELT(answer, ROW2, rcol2);
             SET_VECTOR_ELT(answer, DIST, rdist);
 
-            setAttrib(answer, R_NamesSymbol, rcolnames);
-            setAttrib(answer, R_ClassSymbol, mkString("data.frame"));
-            setAttrib(answer, R_RowNamesSymbol, rrownames);
+            Rf_setAttrib(answer, R_NamesSymbol, rcolnames);
+            Rf_setAttrib(answer, R_ClassSymbol, Rf_mkString("data.frame"));
+            Rf_setAttrib(answer, R_RowNamesSymbol, rrownames);
         } else {
             rprotect(answer = RSaneAllocVector(REALSXP, (uint64_t)num_points * (num_points - 1) / 2));
 
@@ -213,9 +216,9 @@ SEXP tgs_dist(SEXP _x, SEXP _attrs, SEXP _tidy, SEXP _threshold, SEXP _rrownames
                 }
             }
 
-            SEXP names = getAttrib(_attrs, R_NamesSymbol);
+            SEXP names = Rf_getAttrib(_attrs, R_NamesSymbol);
             for (int i = 0; i < LENGTH(_attrs); i++)
-                setAttrib(answer, install(translateChar(STRING_ELT(names, i))), VECTOR_ELT(_attrs, i));
+                Rf_setAttrib(answer, Rf_install(Rf_translateChar(STRING_ELT(names, i))), VECTOR_ELT(_attrs, i));
         }
     } catch (TGLException &e) {
         if (!TGStat::is_kid() && shm != (double *)MAP_FAILED) {
@@ -249,25 +252,25 @@ SEXP tgs_dist_blas(SEXP _x, SEXP _attrs, SEXP _tidy, SEXP _threshold, SEXP _rrow
 
         TGStat tgstat(_envir);
 
-		if ((!isReal(_x) && !isInteger(_x)) || xlength(_x) < 1)
+		if ((!Rf_isReal(_x) && !Rf_isInteger(_x)) || Rf_xlength(_x) < 1)
 			verror("\"x\" argument must be a matrix of numeric values");
 
-        if (!isLogical(_tidy) || xlength(_tidy) != 1)
+        if (!Rf_isLogical(_tidy) || Rf_xlength(_tidy) != 1)
             verror("\"tidy\" argument must be a logical value");
 
-        if ((!isReal(_threshold) && !isInteger(_threshold)) || xlength(_threshold) != 1)
+        if ((!Rf_isReal(_threshold) && !Rf_isInteger(_threshold)) || Rf_xlength(_threshold) != 1)
             verror("\"threshold\" argument must be a numeric value");
 
-        SEXP rdim = getAttrib(_x, R_DimSymbol);
+        SEXP rdim = Rf_getAttrib(_x, R_DimSymbol);
 
-        if (!isInteger(rdim) || xlength(rdim) != 2)
+        if (!Rf_isInteger(rdim) || Rf_xlength(rdim) != 2)
             verror("\"x\" argument must be a matrix of numeric values");
 
-        bool tidy = asLogical(_tidy);
-        double threshold = fabs(asReal(_threshold));
+        bool tidy = Rf_asLogical(_tidy);
+        double threshold = fabs(Rf_asReal(_threshold));
 
-        uint64_t num_points = nrows(_x);
-        uint64_t num_dims = ncols(_x);
+        uint64_t num_points = Rf_nrows(_x);
+        uint64_t num_dims = Rf_ncols(_x);
         int num_points32 = (int)num_points;
         int num_dims32 = (int)num_dims;
 
@@ -289,11 +292,11 @@ SEXP tgs_dist_blas(SEXP _x, SEXP _attrs, SEXP _tidy, SEXP _threshold, SEXP _rrow
             verror("%s", strerror(errno));
 
         for (uint64_t i = 0; i < num_vals; ++i) {
-            if ((isReal(_x) && !R_FINITE(REAL(_x)[i])) || (isInteger(_x) && INTEGER(_x)[i] == NA_INTEGER)) {
+            if ((Rf_isReal(_x) && !R_FINITE(REAL(_x)[i])) || (Rf_isInteger(_x) && INTEGER(_x)[i] == NA_INTEGER)) {
                 mem.m[i] = mem.mask[i] = 0.;
                 nan_in_vals = true;
             } else {
-                double val = isReal(_x) ? REAL(_x)[i] : INTEGER(_x)[i];
+                double val = Rf_isReal(_x) ? REAL(_x)[i] : INTEGER(_x)[i];
                 mem.m[i] = val;
                 mem.mask[i] = 1.;
             }
@@ -385,8 +388,8 @@ SEXP tgs_dist_blas(SEXP _x, SEXP _attrs, SEXP _tidy, SEXP _threshold, SEXP _rrow
 //rprotect(answer = RSaneAllocVector(REALSXP, num_points * num_points));
 //rprotect(rdims = RSaneAllocVector(INTSXP, 2));
 //INTEGER(rdims)[0] = INTEGER(rdims)[1] = num_points;
-//setAttrib(answer, R_DimSymbol, rdims);
-//memcpy(REAL(answer), mem.res, xlength(answer) * sizeof(REAL(answer)[0]));
+//Rf_setAttrib(answer, R_DimSymbol, rdims);
+//memcpy(REAL(answer), mem.res, Rf_xlength(answer) * sizeof(REAL(answer)[0]));
 //return answer;
 //}
 
@@ -417,7 +420,7 @@ SEXP tgs_dist_blas(SEXP _x, SEXP _attrs, SEXP _tidy, SEXP _threshold, SEXP _rrow
             rprotect(rrownames = RSaneAllocVector(INTSXP, answer_size));
 
             for (uint64_t i = 0; i < num_dims; i++)
-                SET_STRING_ELT(rcolnames, i, mkChar(COL_NAMES[i]));
+                SET_STRING_ELT(rcolnames, i, Rf_mkChar(COL_NAMES[i]));
 
             uint64_t idx1 = 0;
             uint64_t idx2 = 0;
@@ -437,19 +440,19 @@ SEXP tgs_dist_blas(SEXP _x, SEXP _attrs, SEXP _tidy, SEXP _threshold, SEXP _rrow
             }
 
             if (_rrownames != R_NilValue) {
-                setAttrib(rcol1, R_LevelsSymbol, _rrownames);
-                setAttrib(rcol1, R_ClassSymbol, mkString("factor"));
-                setAttrib(rcol2, R_LevelsSymbol, _rrownames);
-                setAttrib(rcol2, R_ClassSymbol, mkString("factor"));
+                Rf_setAttrib(rcol1, R_LevelsSymbol, _rrownames);
+                Rf_setAttrib(rcol1, R_ClassSymbol, Rf_mkString("factor"));
+                Rf_setAttrib(rcol2, R_LevelsSymbol, _rrownames);
+                Rf_setAttrib(rcol2, R_ClassSymbol, Rf_mkString("factor"));
             }
 
             SET_VECTOR_ELT(answer, ROW1, rcol1);
             SET_VECTOR_ELT(answer, ROW2, rcol2);
             SET_VECTOR_ELT(answer, DIST, rdist);
 
-            setAttrib(answer, R_NamesSymbol, rcolnames);
-            setAttrib(answer, R_ClassSymbol, mkString("data.frame"));
-            setAttrib(answer, R_RowNamesSymbol, rrownames);
+            Rf_setAttrib(answer, R_NamesSymbol, rcolnames);
+            Rf_setAttrib(answer, R_ClassSymbol, Rf_mkString("data.frame"));
+            Rf_setAttrib(answer, R_RowNamesSymbol, rrownames);
         } else {
             rprotect(answer = RSaneAllocVector(REALSXP, (uint64_t)num_points * (num_points - 1) / 2));
 
@@ -463,9 +466,9 @@ SEXP tgs_dist_blas(SEXP _x, SEXP _attrs, SEXP _tidy, SEXP _threshold, SEXP _rrow
                     d[idx1++] = mem.res[idx2++];
             }
 
-            SEXP names = getAttrib(_attrs, R_NamesSymbol);
+            SEXP names = Rf_getAttrib(_attrs, R_NamesSymbol);
             for (int i = 0; i < LENGTH(_attrs); i++)
-                setAttrib(answer, install(translateChar(STRING_ELT(names, i))), VECTOR_ELT(_attrs, i));
+                Rf_setAttrib(answer, Rf_install(Rf_translateChar(STRING_ELT(names, i))), VECTOR_ELT(_attrs, i));
         }
     } catch (TGLException &e) {
 		rerror("%s", e.msg());

@@ -6,6 +6,9 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
+#ifndef R_NO_REMAP
+#  define R_NO_REMAP
+#endif
 #include <R.h>
 #include <Rinternals.h>
 #include <R_ext/BLAS.h>
@@ -31,32 +34,32 @@ SEXP tgs_cor_knn(SEXP _x, SEXP _knn, SEXP _pairwise_complete_obs, SEXP _spearman
     try {
         TGStat tgstat(_envir);
 
-        if ((!isReal(_x) && !isInteger(_x)) || xlength(_x) < 1)
+        if ((!Rf_isReal(_x) && !Rf_isInteger(_x)) || Rf_xlength(_x) < 1)
             verror("\"x\" argument must be a matrix of numeric values");
 
-        if ((!isReal(_knn) && !isInteger(_knn)) || xlength(_knn) != 1 || asReal(_knn) < 1 || asReal(_knn) != (double)asInteger(_knn))
+        if ((!Rf_isReal(_knn) && !Rf_isInteger(_knn)) || Rf_xlength(_knn) != 1 || Rf_asReal(_knn) < 1 || Rf_asReal(_knn) != (double)Rf_asInteger(_knn))
             verror("\"knn\" argument must be a positive integer");
 
-        if (!isLogical(_pairwise_complete_obs) || xlength(_pairwise_complete_obs) != 1)
+        if (!Rf_isLogical(_pairwise_complete_obs) || Rf_xlength(_pairwise_complete_obs) != 1)
             verror("\"pairwise.complete.obs\" argument must be a logical value");
 
-        if (!isLogical(_spearman) || xlength(_spearman) != 1)
+        if (!Rf_isLogical(_spearman) || Rf_xlength(_spearman) != 1)
             verror("\"spearman\" argument must be a logical value");
 
-        if ((!isReal(_threshold) && !isInteger(_threshold)) || xlength(_threshold) != 1)
+        if ((!Rf_isReal(_threshold) && !Rf_isInteger(_threshold)) || Rf_xlength(_threshold) != 1)
             verror("\"threshold\" argument must be a numeric value");
 
-        SEXP rdim = getAttrib(_x, R_DimSymbol);
+        SEXP rdim = Rf_getAttrib(_x, R_DimSymbol);
 
-        if (!isInteger(rdim) || xlength(rdim) != 2)
+        if (!Rf_isInteger(rdim) || Rf_xlength(rdim) != 2)
             verror("\"x\" argument must be a matrix of numeric values");
 
-        bool pairwise_complete_obs = asLogical(_pairwise_complete_obs);
-        bool spearman = asLogical(_spearman);
-        double threshold = fabs(asReal(_threshold));
-        uint64_t num_rows = nrows(_x);
-        uint64_t num_cols = ncols(_x);
-        uint64_t knn = min((uint64_t)asInteger(_knn), num_cols - 1);
+        bool pairwise_complete_obs = Rf_asLogical(_pairwise_complete_obs);
+        bool spearman = Rf_asLogical(_spearman);
+        double threshold = fabs(Rf_asReal(_threshold));
+        uint64_t num_rows = Rf_nrows(_x);
+        uint64_t num_cols = Rf_ncols(_x);
+        uint64_t knn = min((uint64_t)Rf_asInteger(_knn), num_cols - 1);
 
         if (num_rows <= 1 || num_cols <= 1)
             verror("\"x\" argument must be a matrix of numeric values");
@@ -80,12 +83,12 @@ SEXP tgs_cor_knn(SEXP _x, SEXP _knn, SEXP _pairwise_complete_obs, SEXP _spearman
         vals.reserve(num_vals);
 
         for (uint64_t i = 0; i < num_vals; ++i) {
-            if ((isReal(_x) && !R_FINITE(REAL(_x)[i])) || (isInteger(_x) && INTEGER(_x)[i] == NA_INTEGER)) {
+            if ((Rf_isReal(_x) && !R_FINITE(REAL(_x)[i])) || (Rf_isInteger(_x) && INTEGER(_x)[i] == NA_INTEGER)) {
                 nan_in_col[i / num_rows] = true;
                 nan_in_vals = true;
                 vals.push_back(numeric_limits<double>::quiet_NaN());
             } else
-                vals.push_back(isReal(_x) ? REAL(_x)[i] : INTEGER(_x)[i]);
+                vals.push_back(Rf_isReal(_x) ? REAL(_x)[i] : INTEGER(_x)[i]);
         }
 
         // replace values with ranks if spearman=T
@@ -327,8 +330,8 @@ SEXP tgs_cor_knn(SEXP _x, SEXP _knn, SEXP _pairwise_complete_obs, SEXP _spearman
         rprotect(answer = RSaneAllocVector(VECSXP, NUM_COLS));
 
         SEXP rcol1, rcol2, rcor, rrank, rrownames, rcolnames;
-        SEXP rold_dimnames = getAttrib(_x, R_DimNamesSymbol);
-        SEXP rold_colnames = !isNull(rold_dimnames) && xlength(rold_dimnames) == 2 ? VECTOR_ELT(rold_dimnames, 1) : R_NilValue;
+        SEXP rold_dimnames = Rf_getAttrib(_x, R_DimNamesSymbol);
+        SEXP rold_colnames = !Rf_isNull(rold_dimnames) && Rf_xlength(rold_dimnames) == 2 ? VECTOR_ELT(rold_dimnames, 1) : R_NilValue;
 
         rprotect(rcol1 = RSaneAllocVector(INTSXP, answer_size));
         rprotect(rcol2 = RSaneAllocVector(INTSXP, answer_size));
@@ -338,7 +341,7 @@ SEXP tgs_cor_knn(SEXP _x, SEXP _knn, SEXP _pairwise_complete_obs, SEXP _spearman
         rprotect(rrownames = RSaneAllocVector(INTSXP, answer_size));
 
         for (int i = 0; i < NUM_COLS; i++)
-            SET_STRING_ELT(rcolnames, i, mkChar(COL_NAMES[i]));
+            SET_STRING_ELT(rcolnames, i, Rf_mkChar(COL_NAMES[i]));
 
         if (answer_size) {
             uint64_t row = 0;
@@ -362,10 +365,10 @@ SEXP tgs_cor_knn(SEXP _x, SEXP _knn, SEXP _pairwise_complete_obs, SEXP _spearman
         }
 
         if (rold_colnames != R_NilValue) {
-            setAttrib(rcol1, R_LevelsSymbol, rold_colnames);
-            setAttrib(rcol1, R_ClassSymbol, mkString("factor"));
-            setAttrib(rcol2, R_LevelsSymbol, rold_colnames);
-            setAttrib(rcol2, R_ClassSymbol, mkString("factor"));
+            Rf_setAttrib(rcol1, R_LevelsSymbol, rold_colnames);
+            Rf_setAttrib(rcol1, R_ClassSymbol, Rf_mkString("factor"));
+            Rf_setAttrib(rcol2, R_LevelsSymbol, rold_colnames);
+            Rf_setAttrib(rcol2, R_ClassSymbol, Rf_mkString("factor"));
         }
 
         SET_VECTOR_ELT(answer, COL1, rcol1);
@@ -373,9 +376,9 @@ SEXP tgs_cor_knn(SEXP _x, SEXP _knn, SEXP _pairwise_complete_obs, SEXP _spearman
         SET_VECTOR_ELT(answer, COR, rcor);
         SET_VECTOR_ELT(answer, RANK, rrank);
 
-        setAttrib(answer, R_NamesSymbol, rcolnames);
-        setAttrib(answer, R_ClassSymbol, mkString("data.frame"));
-        setAttrib(answer, R_RowNamesSymbol, rrownames);
+        Rf_setAttrib(answer, R_NamesSymbol, rcolnames);
+        Rf_setAttrib(answer, R_ClassSymbol, Rf_mkString("data.frame"));
+        Rf_setAttrib(answer, R_RowNamesSymbol, rrownames);
     } catch (TGLException &e) {
         if (!TGStat::is_kid() && res != (char *)MAP_FAILED) {
             munmap(res, res_sizeof);
@@ -402,42 +405,42 @@ SEXP tgs_cross_cor_knn(SEXP _x, SEXP _y, SEXP _knn, SEXP _pairwise_complete_obs,
     try {
         TGStat tgstat(_envir);
 
-        if ((!isReal(_x) && !isInteger(_x)) || xlength(_x) < 1)
+        if ((!Rf_isReal(_x) && !Rf_isInteger(_x)) || Rf_xlength(_x) < 1)
             verror("\"x\" argument must be a matrix of numeric values");
 
-        if ((!isReal(_y) && !isInteger(_y)) || xlength(_y) < 1)
+        if ((!Rf_isReal(_y) && !Rf_isInteger(_y)) || Rf_xlength(_y) < 1)
             verror("\"y\" argument must be a matrix of numeric values");
 
-        if ((!isReal(_knn) && !isInteger(_knn)) || xlength(_knn) != 1 || asReal(_knn) < 1 || asReal(_knn) != (double)asInteger(_knn))
+        if ((!Rf_isReal(_knn) && !Rf_isInteger(_knn)) || Rf_xlength(_knn) != 1 || Rf_asReal(_knn) < 1 || Rf_asReal(_knn) != (double)Rf_asInteger(_knn))
             verror("\"knn\" argument must be a positive integer");
 
-        if (!isLogical(_pairwise_complete_obs) || xlength(_pairwise_complete_obs) != 1)
+        if (!Rf_isLogical(_pairwise_complete_obs) || Rf_xlength(_pairwise_complete_obs) != 1)
             verror("\"pairwise.complete.obs\" argument must be a logical value");
 
-        if (!isLogical(_spearman) || xlength(_spearman) != 1)
+        if (!Rf_isLogical(_spearman) || Rf_xlength(_spearman) != 1)
             verror("\"spearman\" argument must be a logical value");
 
-        if ((!isReal(_threshold) && !isInteger(_threshold)) || xlength(_threshold) != 1)
+        if ((!Rf_isReal(_threshold) && !Rf_isInteger(_threshold)) || Rf_xlength(_threshold) != 1)
             verror("\"threshold\" argument must be a numeric value");
 
-        SEXP rdim1 = getAttrib(_x, R_DimSymbol);
-        SEXP rdim2 = getAttrib(_y, R_DimSymbol);
+        SEXP rdim1 = Rf_getAttrib(_x, R_DimSymbol);
+        SEXP rdim2 = Rf_getAttrib(_y, R_DimSymbol);
 
-        if (!isInteger(rdim1) || xlength(rdim1) != 2)
+        if (!Rf_isInteger(rdim1) || Rf_xlength(rdim1) != 2)
             verror("\"x\" argument must be a matrix of numeric values");
 
-        if (!isInteger(rdim2) || xlength(rdim2) != 2)
+        if (!Rf_isInteger(rdim2) || Rf_xlength(rdim2) != 2)
             verror("\"y\" argument must be a matrix of numeric values");
 
-        if (nrows(_x) != nrows(_y))
+        if (Rf_nrows(_x) != Rf_nrows(_y))
             verror("\"x\" and \"y\" matrices have different number of rows");
 
-        bool pairwise_complete_obs = asLogical(_pairwise_complete_obs);
-        bool spearman = asLogical(_spearman);
-        double threshold = fabs(asReal(_threshold));
-        uint64_t num_rows = nrows(_x);
-        uint64_t num_cols[2] = { (uint64_t)ncols(_x), (uint64_t)ncols(_y) };
-        uint64_t knn = min((uint64_t)asInteger(_knn), num_cols[1]);
+        bool pairwise_complete_obs = Rf_asLogical(_pairwise_complete_obs);
+        bool spearman = Rf_asLogical(_spearman);
+        double threshold = fabs(Rf_asReal(_threshold));
+        uint64_t num_rows = Rf_nrows(_x);
+        uint64_t num_cols[2] = { (uint64_t)Rf_ncols(_x), (uint64_t)Rf_ncols(_y) };
+        uint64_t knn = min((uint64_t)Rf_asInteger(_knn), num_cols[1]);
 
         if (num_rows <= 1 || num_cols[0] <= 1)
             verror("\"x\" argument must be a matrix of numeric values");
@@ -474,12 +477,12 @@ SEXP tgs_cross_cor_knn(SEXP _x, SEXP _y, SEXP _knn, SEXP _pairwise_complete_obs,
             SEXP x = k ? _y : _x;
 
             for (uint64_t i = 0; i < num_vals[k]; ++i) {
-                if ((isReal(x) && !R_FINITE(REAL(x)[i])) || (isInteger(x) && INTEGER(x)[i] == NA_INTEGER)) {
+                if ((Rf_isReal(x) && !R_FINITE(REAL(x)[i])) || (Rf_isInteger(x) && INTEGER(x)[i] == NA_INTEGER)) {
                     nan_in_col[k][i / num_rows] = true;
                     nan_in_vals = true;
                     vals[k].push_back(numeric_limits<double>::quiet_NaN());
                 } else
-                    vals[k].push_back(isReal(x) ? REAL(x)[i] : INTEGER(x)[i]);
+                    vals[k].push_back(Rf_isReal(x) ? REAL(x)[i] : INTEGER(x)[i]);
             }
         }
 
@@ -724,10 +727,10 @@ SEXP tgs_cross_cor_knn(SEXP _x, SEXP _y, SEXP _knn, SEXP _pairwise_complete_obs,
         rprotect(answer = RSaneAllocVector(VECSXP, NUM_COLS));
 
         SEXP rcol1, rcol2, rcor, rrank, rrownames, rcolnames;
-        SEXP rold_dimnames[2] = { getAttrib(_x, R_DimNamesSymbol), getAttrib(_y, R_DimNamesSymbol) };
+        SEXP rold_dimnames[2] = { Rf_getAttrib(_x, R_DimNamesSymbol), Rf_getAttrib(_y, R_DimNamesSymbol) };
         SEXP rold_colnames[2] = {
-            !isNull(rold_dimnames[0]) && xlength(rold_dimnames[0]) == 2 ? VECTOR_ELT(rold_dimnames[0], 1) : R_NilValue,
-            !isNull(rold_dimnames[1]) && xlength(rold_dimnames[1]) == 2 ? VECTOR_ELT(rold_dimnames[1], 1) : R_NilValue
+            !Rf_isNull(rold_dimnames[0]) && Rf_xlength(rold_dimnames[0]) == 2 ? VECTOR_ELT(rold_dimnames[0], 1) : R_NilValue,
+            !Rf_isNull(rold_dimnames[1]) && Rf_xlength(rold_dimnames[1]) == 2 ? VECTOR_ELT(rold_dimnames[1], 1) : R_NilValue
         };
 
         rprotect(rcol1 = RSaneAllocVector(INTSXP, answer_size));
@@ -738,7 +741,7 @@ SEXP tgs_cross_cor_knn(SEXP _x, SEXP _y, SEXP _knn, SEXP _pairwise_complete_obs,
         rprotect(rrownames = RSaneAllocVector(INTSXP, answer_size));
 
         for (int i = 0; i < NUM_COLS; i++)
-            SET_STRING_ELT(rcolnames, i, mkChar(COL_NAMES[i]));
+            SET_STRING_ELT(rcolnames, i, Rf_mkChar(COL_NAMES[i]));
 
         if (answer_size) {
             uint64_t row = 0;
@@ -762,12 +765,12 @@ SEXP tgs_cross_cor_knn(SEXP _x, SEXP _y, SEXP _knn, SEXP _pairwise_complete_obs,
         }
 
         if (rold_colnames[0] != R_NilValue) {
-            setAttrib(rcol1, R_LevelsSymbol, rold_colnames[0]);
-            setAttrib(rcol1, R_ClassSymbol, mkString("factor"));
+            Rf_setAttrib(rcol1, R_LevelsSymbol, rold_colnames[0]);
+            Rf_setAttrib(rcol1, R_ClassSymbol, Rf_mkString("factor"));
         }
         if (rold_colnames[1] != R_NilValue) {
-            setAttrib(rcol2, R_LevelsSymbol, rold_colnames[1]);
-            setAttrib(rcol2, R_ClassSymbol, mkString("factor"));
+            Rf_setAttrib(rcol2, R_LevelsSymbol, rold_colnames[1]);
+            Rf_setAttrib(rcol2, R_ClassSymbol, Rf_mkString("factor"));
         }
 
         SET_VECTOR_ELT(answer, COL1, rcol1);
@@ -775,9 +778,9 @@ SEXP tgs_cross_cor_knn(SEXP _x, SEXP _y, SEXP _knn, SEXP _pairwise_complete_obs,
         SET_VECTOR_ELT(answer, COR, rcor);
         SET_VECTOR_ELT(answer, RANK, rrank);
 
-        setAttrib(answer, R_NamesSymbol, rcolnames);
-        setAttrib(answer, R_ClassSymbol, mkString("data.frame"));
-        setAttrib(answer, R_RowNamesSymbol, rrownames);
+        Rf_setAttrib(answer, R_NamesSymbol, rcolnames);
+        Rf_setAttrib(answer, R_ClassSymbol, Rf_mkString("data.frame"));
+        Rf_setAttrib(answer, R_RowNamesSymbol, rrownames);
     } catch (TGLException &e) {
         if (!TGStat::is_kid() && res != (char *)MAP_FAILED) {
             munmap((char *)res, res_sizeof);  // needs to be char * for some versions of Solaris

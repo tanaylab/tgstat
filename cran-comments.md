@@ -4,8 +4,8 @@
 
 ## Changes
 
-* Fixed website URL in DESCRIPTION.
-* The need for the Unix OS stems from the package's implementation of a database that utilizes shared memory files, which involves numerous Unix-specific system calls. Furthermore, the package employs numerous parallel algorithms that depend on the Unix forking method. 
+* Fixed *noRemap* additional issue.
+* Removed non-API calls to R: `R_curErrorBuf`, `SET_TYPEOF` in the c++ code.
 
 
 

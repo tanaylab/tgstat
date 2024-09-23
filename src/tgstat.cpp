@@ -25,6 +25,9 @@
     #include <sys/proc_info.h>
 #endif
 
+#ifndef R_NO_REMAP
+#  define R_NO_REMAP
+#endif
 #include <R.h>
 #include <Rinternals.h>
 #include <Rinterface.h>
@@ -192,7 +195,7 @@ TGStat::~TGStat()
 	}
 
 	// deal with PROTECT / UNPROTECT
-	unprotect(s_protect_counter - m_old_protect_count);
+	runprotect(s_protect_counter - m_old_protect_count);
 	s_protect_counter = m_old_protect_count;
 
 	if (!s_ref_count)
@@ -306,13 +309,13 @@ pid_t TGStat::launch_process()
         sigaction(SIGALRM, &s_old_sigalrm_act, NULL);
 		sigaction(SIGCHLD, &s_old_sigchld_act, NULL);
 
-		SEXP r_multitasking_stdout = GetOption(install("tgs_multitasking_stdout"), R_NilValue);
+		SEXP r_multitasking_stdout = Rf_GetOption(Rf_install("tgs_multitasking_stdout"), R_NilValue);
         int devnull;
 
         if ((devnull = open("/dev/null", O_RDWR)) == -1)
             verror("Failed to open /dev/null");
 
-        if (!isLogical(r_multitasking_stdout) || !(int)LOGICAL(r_multitasking_stdout)[0])
+        if (!Rf_isLogical(r_multitasking_stdout) || !(int)LOGICAL(r_multitasking_stdout)[0])
             dup2(devnull, STDOUT_FILENO);
 
         dup2(devnull, STDIN_FILENO);
@@ -485,7 +488,7 @@ void TGStat::handle_error(const char *msg)
 		}
 		rexit();
 	} else {
-        errorcall(R_NilValue, "%s", msg);
+        Rf_errorcall(R_NilValue, "%s", msg);
     }
 }
 
@@ -521,16 +524,16 @@ void TGStat::load_options()
 {
 	SEXP rvar;
 
-    rvar = GetOption(install("tgs_debug"), R_NilValue);
-    if (isLogical(rvar))
+    rvar = Rf_GetOption(Rf_install("tgs_debug"), R_NilValue);
+    if (Rf_isLogical(rvar))
         m_debug = (int)LOGICAL(rvar)[0];
     else
         m_debug = false;
 
     int num_cores = max(1, (int)sysconf(_SC_NPROCESSORS_ONLN));
-    rvar = GetOption(install("tgs_max.processes"), R_NilValue);
-    if (xlength(rvar) && (isNumeric(rvar) || isInteger(rvar))) {
-        m_num_processes = asInteger(rvar);
+    rvar = Rf_GetOption(Rf_install("tgs_max.processes"), R_NilValue);
+    if (Rf_xlength(rvar) && (Rf_isNumeric(rvar) || Rf_isInteger(rvar))) {
+        m_num_processes = Rf_asInteger(rvar);
         m_num_processes = max(m_num_processes, 1);
         m_num_processes = min(m_num_processes, num_cores);
     } else
@@ -540,8 +543,8 @@ void TGStat::load_options()
 void TGStat::rnd_seed(uint64_t seed)
 {
     SEXP e;
-    SEXP sseed = install("set.seed");
-    PROTECT(e = lang2(sseed, ScalarInteger(seed)));
+    SEXP sseed = Rf_install("set.seed");
+    PROTECT(e = Rf_lang2(sseed, Rf_ScalarInteger(seed)));
     R_tryEval(e, m_env, NULL);
     UNPROTECT(1);
     GetRNGstate();
@@ -715,7 +718,7 @@ SEXP rprotect(SEXP &expr)
 void runprotect(unsigned count)
 {
 	if (TGStat::s_protect_counter < count)
-		errorcall(R_NilValue, "Number of calls to unprotect exceeds the number of calls to protect\n");
+		Rf_errorcall(R_NilValue, "Number of calls to unprotect exceeds the number of calls to protect\n");
 	UNPROTECT(count);
 	TGStat::s_protect_counter -= count;
 }
@@ -724,7 +727,7 @@ void runprotect(SEXP &expr)
 {
 	if (expr != R_NilValue) {
 		if (TGStat::s_protect_counter < 1)
-			errorcall(R_NilValue, "Number of calls to unprotect exceeds the number of calls to protect\n");
+			Rf_errorcall(R_NilValue, "Number of calls to unprotect exceeds the number of calls to protect\n");
 		UNPROTECT_PTR(expr);
 		expr = R_NilValue;
 		TGStat::s_protect_counter--;
@@ -747,9 +750,9 @@ void runprotect_all()
 const char *get_groot(SEXP envir)
 {
 	// no need to protect the returned value
-	SEXP groot = findVar(install("GROOT"), envir);
+	SEXP groot = Rf_findVar(Rf_install("GROOT"), envir);
 
-	if (!isString(groot))
+	if (!Rf_isString(groot))
 		verror("GROOT variable does not exist");
 
 	return CHAR(STRING_ELT(groot, 0));
@@ -758,9 +761,9 @@ const char *get_groot(SEXP envir)
 const char *get_glib_dir(SEXP envir)
 {
 	// no need to protect the returned value
-	SEXP glibdir = findVar(install(".GLIBDIR"), envir);
+	SEXP glibdir = Rf_findVar(Rf_install(".GLIBDIR"), envir);
 
-	if (!isString(glibdir))
+	if (!Rf_isString(glibdir))
 		verror(".GLIBDIR variable does not exist");
 
 	return CHAR(STRING_ELT(glibdir, 0));
@@ -785,7 +788,7 @@ SEXP run_in_R(const char *command, SEXP envir)
 	ParseStatus status;
 
 	rprotect(expr = RSaneAllocVector(STRSXP, 1));
-	SET_STRING_ELT(expr, 0, mkChar(command));
+	SET_STRING_ELT(expr, 0, Rf_mkChar(command));
 	rprotect(parsed_expr = R_ParseVector(expr, -1, &status, R_NilValue));
 	if (status != PARSE_OK)
 		verror("Failed to parse expression \"%s\"", command);
@@ -883,7 +886,7 @@ struct RSaneAllocVectorData {
 static void RSaneAllocVectorCallback(void *_data)
 {
 	RSaneAllocVectorData *data = (RSaneAllocVectorData *)_data;
-    data->retv = allocVector(data->type, data->len);
+    data->retv = Rf_allocVector(data->type, data->len);
 }
 
 SEXP RSaneAllocVector(SEXPTYPE type, R_xlen_t len)
@@ -900,12 +903,12 @@ SEXP RSaneAllocVector(SEXPTYPE type, R_xlen_t len)
 
 SEXP get_rvector_col(SEXP v, const char *colname, const char *varname, bool error_if_missing)
 {
-	SEXP colnames = getAttrib(v, R_NamesSymbol);
+	SEXP colnames = Rf_getAttrib(v, R_NamesSymbol);
 
-	if (!isVector(v) || (Rf_length(v) && (!isString(colnames) || Rf_length(colnames) != Rf_length(v))) || (!Rf_length(v) && !isNull(colnames)))
+	if (!Rf_isVector(v) || (Rf_length(v) && (!Rf_isString(colnames) || Rf_length(colnames) != Rf_length(v))) || (!Rf_length(v) && !Rf_isNull(colnames)))
 		verror("Invalid format of %s", varname);
 
-	int numcols = isNull(colnames) ? 0 : Rf_length(colnames);
+	int numcols = Rf_isNull(colnames) ? 0 : Rf_length(colnames);
 
 	for (int i = 0; i < numcols; i++) {
 		if (!strcmp(CHAR(STRING_ELT(colnames, i)), colname))

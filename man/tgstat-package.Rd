@@ -4,8 +4,10 @@
 \name{tgstat-package}
 \alias{tgstat-package}
 \alias{tgstat}
-\title{Tanay's group statistical utilities}
+\title{tgstat: Amos Tanay's Group High Performance Statistical Utilities}
 \description{
+A collection of high performance utilities to compute distance, correlation, auto correlation, clustering and other tasks. Contains graph clustering algorithm described in "MetaCell: analysis of single-cell RNA-seq data using K-nn graph partitions" (Yael Baran, Akhiad Bercovich, Arnau Sebe-Pedros, Yaniv Lubling, Amir Giladi, Elad Chomsky, Zohar Meir, Michael Hoichman, Aviezer Lifshitz & Amos Tanay, 2019 \doi{10.1186/s13059-019-1812-2}).
+
 'tgstat' package is intended to help users to efficiently analyze data in
 time-patient space.
 }
@@ -15,4 +17,21 @@ For a complete list of help resources, use \code{library(help = "tgstat")}.
 More information about the options can be found in 'User manual' of the
 package.
 }
-\keyword{package}
+\seealso{
+Useful links:
+\itemize{
+  \item \url{https://tanaylab.github.io/tgstat/}
+  \item Report bugs at \url{https://github.com/tanaylab/tgstat/issues}
+}
+
+}
+\author{
+\strong{Maintainer}: Aviezer Lifshitz \email{aviezer.lifshitz@weizmann.ac.il}
+
+Authors:
+\itemize{
+  \item Michael Hoichman \email{misha@hoichman.com}
+}
+
+}
+\keyword{internal}

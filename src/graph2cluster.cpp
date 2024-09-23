@@ -10,6 +10,9 @@
 #include "HashFunc.h"
 #include "RandomShuffle.h"
 
+#ifndef R_NO_REMAP
+#  define R_NO_REMAP
+#endif
 #include <R.h>
 #include <Rinternals.h>
 
@@ -479,40 +482,40 @@ SEXP tgs_graph2cluster(SEXP _graph, SEXP _min_cluster_size, SEXP _cooling, SEXP 
             enum { COL1, COL2, WEIGHT, NUM_COLS };
             const char *COL_NAMES[NUM_COLS] = { "col1", "col2", "weight" };
 
-            SEXP rnames = getAttrib(_graph, R_NamesSymbol);
+            SEXP rnames = Rf_getAttrib(_graph, R_NamesSymbol);
 
-            if (!isVector(_graph) || xlength(_graph) != NUM_COLS || xlength(rnames) != NUM_COLS ||
-                strcmp(CHAR(STRING_ELT(rnames, COL1)), COL_NAMES[COL1]) || (!isInteger(VECTOR_ELT(_graph, COL1)) && !isFactor(VECTOR_ELT(_graph, COL1))) ||
-                strcmp(CHAR(STRING_ELT(rnames, COL2)), COL_NAMES[COL2]) || (!isInteger(VECTOR_ELT(_graph, COL2)) && !isFactor(VECTOR_ELT(_graph, COL2))) ||
-                xlength(VECTOR_ELT(_graph, COL2)) != xlength(VECTOR_ELT(_graph, COL1)) ||
-                strcmp(CHAR(STRING_ELT(rnames, WEIGHT)), COL_NAMES[WEIGHT]) || !isReal(VECTOR_ELT(_graph, WEIGHT)) || xlength(VECTOR_ELT(_graph, WEIGHT)) != xlength(VECTOR_ELT(_graph, COL1)))
+            if (!Rf_isVector(_graph) || Rf_xlength(_graph) != NUM_COLS || Rf_xlength(rnames) != NUM_COLS ||
+                strcmp(CHAR(STRING_ELT(rnames, COL1)), COL_NAMES[COL1]) || (!Rf_isInteger(VECTOR_ELT(_graph, COL1)) && !Rf_isFactor(VECTOR_ELT(_graph, COL1))) ||
+                strcmp(CHAR(STRING_ELT(rnames, COL2)), COL_NAMES[COL2]) || (!Rf_isInteger(VECTOR_ELT(_graph, COL2)) && !Rf_isFactor(VECTOR_ELT(_graph, COL2))) ||
+                Rf_xlength(VECTOR_ELT(_graph, COL2)) != Rf_xlength(VECTOR_ELT(_graph, COL1)) ||
+                strcmp(CHAR(STRING_ELT(rnames, WEIGHT)), COL_NAMES[WEIGHT]) || !Rf_isReal(VECTOR_ELT(_graph, WEIGHT)) || Rf_xlength(VECTOR_ELT(_graph, WEIGHT)) != Rf_xlength(VECTOR_ELT(_graph, COL1)))
                 verror("\"graph\" argument must be in the format that is returned by tgs_cor_graph function");
 
             pcol1 = INTEGER(VECTOR_ELT(_graph, COL1));
             pcol2 = INTEGER(VECTOR_ELT(_graph, COL2));
             pweight = REAL(VECTOR_ELT(_graph, WEIGHT));
-            num_edges = xlength(VECTOR_ELT(_graph, COL1));
+            num_edges = Rf_xlength(VECTOR_ELT(_graph, COL1));
         }
 
-        SEXP rlevels1 = getAttrib(VECTOR_ELT(_graph, 0), R_LevelsSymbol);
-        SEXP rlevels2 = getAttrib(VECTOR_ELT(_graph, 1), R_LevelsSymbol);
+        SEXP rlevels1 = Rf_getAttrib(VECTOR_ELT(_graph, 0), R_LevelsSymbol);
+        SEXP rlevels2 = Rf_getAttrib(VECTOR_ELT(_graph, 1), R_LevelsSymbol);
 
         if ((rlevels1 != R_NilValue && rlevels2 == R_NilValue) || (rlevels1 == R_NilValue && rlevels2 != R_NilValue) ||
-            (rlevels1 != R_NilValue && rlevels2 != R_NilValue && xlength(rlevels1) != xlength(rlevels2)))
+            (rlevels1 != R_NilValue && rlevels2 != R_NilValue && Rf_xlength(rlevels1) != Rf_xlength(rlevels2)))
             verror("\"graph\" argument must be in the format that is returned by tgs_graph function");
 
-        if ((!isInteger(_min_cluster_size) && !isReal(_min_cluster_size)) || xlength(_min_cluster_size) != 1 || asInteger(_min_cluster_size) < 1)
+        if ((!Rf_isInteger(_min_cluster_size) && !Rf_isReal(_min_cluster_size)) || Rf_xlength(_min_cluster_size) != 1 || Rf_asInteger(_min_cluster_size) < 1)
             verror("\"min_cluster_size\" argument must be a positive integer");
 
-        if ((!isInteger(_cooling) && !isReal(_cooling)) || xlength(_cooling) != 1 || asReal(_cooling) < 1)
+        if ((!Rf_isInteger(_cooling) && !Rf_isReal(_cooling)) || Rf_xlength(_cooling) != 1 || Rf_asReal(_cooling) < 1)
             verror("\"cooling\" argument must be a number greater or equal than 1");
 
-        if ((!isInteger(_burn_in) && !isReal(_burn_in)) || xlength(_burn_in) != 1 || asInteger(_burn_in) < 0)
+        if ((!Rf_isInteger(_burn_in) && !Rf_isReal(_burn_in)) || Rf_xlength(_burn_in) != 1 || Rf_asInteger(_burn_in) < 0)
             verror("\"burn_in\" argument must be a positive integer");
 
-        unsigned min_cluster_size = asInteger(_min_cluster_size);
-        float cooling_rate = asReal(_cooling);
-        unsigned burn_in = asInteger(_burn_in);
+        unsigned min_cluster_size = Rf_asInteger(_min_cluster_size);
+        float cooling_rate = Rf_asReal(_cooling);
+        unsigned burn_in = Rf_asInteger(_burn_in);
 
         uint64_t num_nodes = 0;
         if (rlevels1 == R_NilValue) {
@@ -521,7 +524,7 @@ SEXP tgs_graph2cluster(SEXP _graph, SEXP _min_cluster_size, SEXP _cooling, SEXP 
                 num_nodes = max(num_nodes, (uint64_t)pcol2[i]);
             }
         } else
-            num_nodes = xlength(rlevels1);
+            num_nodes = Rf_xlength(rlevels1);
 
         vector<unsigned> node2cluster(num_nodes, -1);
 
@@ -541,7 +544,7 @@ SEXP tgs_graph2cluster(SEXP _graph, SEXP _min_cluster_size, SEXP _cooling, SEXP 
         rprotect(rrownames = RSaneAllocVector(INTSXP, num_nodes));
 
         for (int i = 0; i < NUM_COLS; i++)
-            SET_STRING_ELT(rcolnames, i, mkChar(COL_NAMES[i]));
+            SET_STRING_ELT(rcolnames, i, Rf_mkChar(COL_NAMES[i]));
 
         for (uint64_t i = 0; i < num_nodes; ++i) {
             INTEGER(rnode)[i] = i + 1;
@@ -550,16 +553,16 @@ SEXP tgs_graph2cluster(SEXP _graph, SEXP _min_cluster_size, SEXP _cooling, SEXP 
         }
 
         if (rlevels1 != R_NilValue) {
-            setAttrib(rnode, R_LevelsSymbol, rlevels1);
-            setAttrib(rnode, R_ClassSymbol, mkString("factor"));
+            Rf_setAttrib(rnode, R_LevelsSymbol, rlevels1);
+            Rf_setAttrib(rnode, R_ClassSymbol, Rf_mkString("factor"));
         }
 
         SET_VECTOR_ELT(ranswer, NODE, rnode);
         SET_VECTOR_ELT(ranswer, CLUSTER, rcluster);
 
-        setAttrib(ranswer, R_NamesSymbol, rcolnames);
-        setAttrib(ranswer, R_ClassSymbol, mkString("data.frame"));
-        setAttrib(ranswer, R_RowNamesSymbol, rrownames);
+        Rf_setAttrib(ranswer, R_NamesSymbol, rcolnames);
+        Rf_setAttrib(ranswer, R_ClassSymbol, Rf_mkString("data.frame"));
+        Rf_setAttrib(ranswer, R_RowNamesSymbol, rrownames);
 
         vdebug("Packing the return value - DONE\n");
 
@@ -591,52 +594,52 @@ SEXP tgs_graph2cluster_multi_hash(SEXP _graph, SEXP _knn, SEXP _min_cluster_size
             enum { COL1, COL2, WEIGHT, NUM_COLS };
             const char *COL_NAMES[NUM_COLS] = { "col1", "col2", "weight" };
 
-            SEXP rnames = getAttrib(_graph, R_NamesSymbol);
+            SEXP rnames = Rf_getAttrib(_graph, R_NamesSymbol);
 
-            if (!isVector(_graph) || xlength(_graph) != NUM_COLS || xlength(rnames) != NUM_COLS ||
-                strcmp(CHAR(STRING_ELT(rnames, COL1)), COL_NAMES[COL1]) || (!isInteger(VECTOR_ELT(_graph, COL1)) && !isFactor(VECTOR_ELT(_graph, COL1))) ||
-                strcmp(CHAR(STRING_ELT(rnames, COL2)), COL_NAMES[COL2]) || (!isInteger(VECTOR_ELT(_graph, COL2)) && !isFactor(VECTOR_ELT(_graph, COL2))) ||
-                xlength(VECTOR_ELT(_graph, COL2)) != xlength(VECTOR_ELT(_graph, COL1)) ||
-                strcmp(CHAR(STRING_ELT(rnames, WEIGHT)), COL_NAMES[WEIGHT]) || !isReal(VECTOR_ELT(_graph, WEIGHT)) || xlength(VECTOR_ELT(_graph, WEIGHT)) != xlength(VECTOR_ELT(_graph, COL1)))
+            if (!Rf_isVector(_graph) || Rf_xlength(_graph) != NUM_COLS || Rf_xlength(rnames) != NUM_COLS ||
+                strcmp(CHAR(STRING_ELT(rnames, COL1)), COL_NAMES[COL1]) || (!Rf_isInteger(VECTOR_ELT(_graph, COL1)) && !Rf_isFactor(VECTOR_ELT(_graph, COL1))) ||
+                strcmp(CHAR(STRING_ELT(rnames, COL2)), COL_NAMES[COL2]) || (!Rf_isInteger(VECTOR_ELT(_graph, COL2)) && !Rf_isFactor(VECTOR_ELT(_graph, COL2))) ||
+                Rf_xlength(VECTOR_ELT(_graph, COL2)) != Rf_xlength(VECTOR_ELT(_graph, COL1)) ||
+                strcmp(CHAR(STRING_ELT(rnames, WEIGHT)), COL_NAMES[WEIGHT]) || !Rf_isReal(VECTOR_ELT(_graph, WEIGHT)) || Rf_xlength(VECTOR_ELT(_graph, WEIGHT)) != Rf_xlength(VECTOR_ELT(_graph, COL1)))
                 verror("\"graph\" argument must be in the format that is returned by tgs_graph function");
 
             pcol1 = INTEGER(VECTOR_ELT(_graph, COL1));
             pcol2 = INTEGER(VECTOR_ELT(_graph, COL2));
             pweight = REAL(VECTOR_ELT(_graph, WEIGHT));
-            num_edges = xlength(VECTOR_ELT(_graph, COL1));
+            num_edges = Rf_xlength(VECTOR_ELT(_graph, COL1));
         }
 
-        SEXP rlevels1 = getAttrib(VECTOR_ELT(_graph, 0), R_LevelsSymbol);
-        SEXP rlevels2 = getAttrib(VECTOR_ELT(_graph, 1), R_LevelsSymbol);
+        SEXP rlevels1 = Rf_getAttrib(VECTOR_ELT(_graph, 0), R_LevelsSymbol);
+        SEXP rlevels2 = Rf_getAttrib(VECTOR_ELT(_graph, 1), R_LevelsSymbol);
 
         if ((rlevels1 != R_NilValue && rlevels2 == R_NilValue) || (rlevels1 == R_NilValue && rlevels2 != R_NilValue) ||
-            (rlevels1 != R_NilValue && rlevels2 != R_NilValue && xlength(rlevels1) != xlength(rlevels2)))
+            (rlevels1 != R_NilValue && rlevels2 != R_NilValue && Rf_xlength(rlevels1) != Rf_xlength(rlevels2)))
             verror("\"graph\" argument must be in the format that is returned by tgs_graph function");
 
-        if ((!isInteger(_min_cluster_size) && !isReal(_min_cluster_size)) || xlength(_min_cluster_size) != 1 || asInteger(_min_cluster_size) < 1)
+        if ((!Rf_isInteger(_min_cluster_size) && !Rf_isReal(_min_cluster_size)) || Rf_xlength(_min_cluster_size) != 1 || Rf_asInteger(_min_cluster_size) < 1)
             verror("\"min_cluster_size\" argument must be a positive integer");
 
-        if ((!isInteger(_cooling) && !isReal(_cooling)) || xlength(_cooling) != 1 || asReal(_cooling) < 1)
+        if ((!Rf_isInteger(_cooling) && !Rf_isReal(_cooling)) || Rf_xlength(_cooling) != 1 || Rf_asReal(_cooling) < 1)
             verror("\"cooling\" argument must be a number greater or equal than 1");
 
-        if ((!isInteger(_burn_in) && !isReal(_burn_in)) || xlength(_burn_in) != 1 || asInteger(_burn_in) < 0)
+        if ((!Rf_isInteger(_burn_in) && !Rf_isReal(_burn_in)) || Rf_xlength(_burn_in) != 1 || Rf_asInteger(_burn_in) < 0)
             verror("\"burn_in\" argument must be a positive integer");
 
-        if ((!isNull(_knn) && ((!isReal(_knn) && !isInteger(_knn)) || xlength(_knn) != 1)) || asInteger(_knn) < 1)
+        if ((!Rf_isNull(_knn) && ((!Rf_isReal(_knn) && !Rf_isInteger(_knn)) || Rf_xlength(_knn) != 1)) || Rf_asInteger(_knn) < 1)
             verror("\"knn\" argument must be a positive integer");
 
-        if ((!isInteger(_n_resamp) && !isReal(_n_resamp)) || xlength(_n_resamp) != 1 || asInteger(_n_resamp) < 1 || asInteger(_n_resamp) > 0xffff)
+        if ((!Rf_isInteger(_n_resamp) && !Rf_isReal(_n_resamp)) || Rf_xlength(_n_resamp) != 1 || Rf_asInteger(_n_resamp) < 1 || Rf_asInteger(_n_resamp) > 0xffff)
             verror("\"n_resamp\" argument must be a positive integer withn [1, %d] range", 0xffff);
 
-        if ((!isInteger(_p_resamp) && !isReal(_p_resamp)) || xlength(_p_resamp) != 1 || asReal(_p_resamp) > 1 || asReal(_p_resamp) <= 0)
+        if ((!Rf_isInteger(_p_resamp) && !Rf_isReal(_p_resamp)) || Rf_xlength(_p_resamp) != 1 || Rf_asReal(_p_resamp) > 1 || Rf_asReal(_p_resamp) <= 0)
             verror("\"p_resamp\" argument must be a number in (0,1] range");
 
-        unsigned min_cluster_size = asInteger(_min_cluster_size);
-        float cooling_rate = asReal(_cooling);
-        unsigned burn_in = asInteger(_burn_in);
-        unsigned knn = asInteger(_knn);
-        unsigned n_resamp = asInteger(_n_resamp);
-        double p_resamp = asReal(_p_resamp);
+        unsigned min_cluster_size = Rf_asInteger(_min_cluster_size);
+        float cooling_rate = Rf_asReal(_cooling);
+        unsigned burn_in = Rf_asInteger(_burn_in);
+        unsigned knn = Rf_asInteger(_knn);
+        unsigned n_resamp = Rf_asInteger(_n_resamp);
+        double p_resamp = Rf_asReal(_p_resamp);
         uint64_t num_nodes = 0;
 
         if (rlevels1 == R_NilValue) {
@@ -645,7 +648,7 @@ SEXP tgs_graph2cluster_multi_hash(SEXP _graph, SEXP _knn, SEXP _min_cluster_size
                 num_nodes = max(num_nodes, (uint64_t)pcol2[i]);
             }
         } else
-            num_nodes = xlength(rlevels1);
+            num_nodes = Rf_xlength(rlevels1);
 
         int max_num_kids = min((int)n_resamp, max(g_tgstat->num_processes() - 1, 1));
         unsigned num_kids_launched = 0;
@@ -796,7 +799,7 @@ SEXP tgs_graph2cluster_multi_hash(SEXP _graph, SEXP _knn, SEXP _min_cluster_size
         }
 
         for (int i = 0; i < NUM_COLS; i++)
-            SET_STRING_ELT(rcolnames, i, mkChar(COL_NAMES[i]));
+            SET_STRING_ELT(rcolnames, i, Rf_mkChar(COL_NAMES[i]));
 
         rprotect(rsamples = RSaneAllocVector(INTSXP, num_nodes));
 
@@ -804,25 +807,25 @@ SEXP tgs_graph2cluster_multi_hash(SEXP _graph, SEXP _knn, SEXP _min_cluster_size
             INTEGER(rsamples)[i] = node2sample_cnt[i];
 
         if (rlevels1 != R_NilValue) {
-            setAttrib(rnode1, R_LevelsSymbol, rlevels1);
-            setAttrib(rnode1, R_ClassSymbol, mkString("factor"));
-            setAttrib(rnode2, R_LevelsSymbol, rlevels1);
-            setAttrib(rnode2, R_ClassSymbol, mkString("factor"));
-            setAttrib(rsamples, R_NamesSymbol, rlevels1);
+            Rf_setAttrib(rnode1, R_LevelsSymbol, rlevels1);
+            Rf_setAttrib(rnode1, R_ClassSymbol, Rf_mkString("factor"));
+            Rf_setAttrib(rnode2, R_LevelsSymbol, rlevels1);
+            Rf_setAttrib(rnode2, R_ClassSymbol, Rf_mkString("factor"));
+            Rf_setAttrib(rsamples, R_NamesSymbol, rlevels1);
         }
 
         SET_VECTOR_ELT(rco_clust, NODE1, rnode1);
         SET_VECTOR_ELT(rco_clust, NODE2, rnode2);
         SET_VECTOR_ELT(rco_clust, CNT, rcount);
 
-        setAttrib(rco_clust, R_NamesSymbol, rcolnames);
-        setAttrib(rco_clust, R_ClassSymbol, mkString("data.frame"));
-        setAttrib(rco_clust, R_RowNamesSymbol, rrownames);
+        Rf_setAttrib(rco_clust, R_NamesSymbol, rcolnames);
+        Rf_setAttrib(rco_clust, R_ClassSymbol, Rf_mkString("data.frame"));
+        Rf_setAttrib(rco_clust, R_RowNamesSymbol, rrownames);
 
         rprotect(rnames = RSaneAllocVector(STRSXP, 2));
-        SET_STRING_ELT(rnames, 0, mkChar("co_cluster"));
-        SET_STRING_ELT(rnames, 1, mkChar("samples"));
-        setAttrib(answer, R_NamesSymbol, rnames);
+        SET_STRING_ELT(rnames, 0, Rf_mkChar("co_cluster"));
+        SET_STRING_ELT(rnames, 1, Rf_mkChar("samples"));
+        Rf_setAttrib(answer, R_NamesSymbol, rnames);
 
         SET_VECTOR_ELT(answer, 0, rco_clust);
         SET_VECTOR_ELT(answer, 1, rsamples);
@@ -861,52 +864,52 @@ SEXP tgs_graph2cluster_multi_full(SEXP _graph, SEXP _knn, SEXP _min_cluster_size
             enum { COL1, COL2, WEIGHT, NUM_COLS };
             const char *COL_NAMES[NUM_COLS] = { "col1", "col2", "weight" };
 
-            SEXP rnames = getAttrib(_graph, R_NamesSymbol);
+            SEXP rnames = Rf_getAttrib(_graph, R_NamesSymbol);
 
-            if (!isVector(_graph) || xlength(_graph) != NUM_COLS || xlength(rnames) != NUM_COLS ||
-                strcmp(CHAR(STRING_ELT(rnames, COL1)), COL_NAMES[COL1]) || (!isInteger(VECTOR_ELT(_graph, COL1)) && !isFactor(VECTOR_ELT(_graph, COL1))) ||
-                strcmp(CHAR(STRING_ELT(rnames, COL2)), COL_NAMES[COL2]) || (!isInteger(VECTOR_ELT(_graph, COL2)) && !isFactor(VECTOR_ELT(_graph, COL2))) ||
-                xlength(VECTOR_ELT(_graph, COL2)) != xlength(VECTOR_ELT(_graph, COL1)) ||
-                strcmp(CHAR(STRING_ELT(rnames, WEIGHT)), COL_NAMES[WEIGHT]) || !isReal(VECTOR_ELT(_graph, WEIGHT)) || xlength(VECTOR_ELT(_graph, WEIGHT)) != xlength(VECTOR_ELT(_graph, COL1)))
+            if (!Rf_isVector(_graph) || Rf_xlength(_graph) != NUM_COLS || Rf_xlength(rnames) != NUM_COLS ||
+                strcmp(CHAR(STRING_ELT(rnames, COL1)), COL_NAMES[COL1]) || (!Rf_isInteger(VECTOR_ELT(_graph, COL1)) && !Rf_isFactor(VECTOR_ELT(_graph, COL1))) ||
+                strcmp(CHAR(STRING_ELT(rnames, COL2)), COL_NAMES[COL2]) || (!Rf_isInteger(VECTOR_ELT(_graph, COL2)) && !Rf_isFactor(VECTOR_ELT(_graph, COL2))) ||
+                Rf_xlength(VECTOR_ELT(_graph, COL2)) != Rf_xlength(VECTOR_ELT(_graph, COL1)) ||
+                strcmp(CHAR(STRING_ELT(rnames, WEIGHT)), COL_NAMES[WEIGHT]) || !Rf_isReal(VECTOR_ELT(_graph, WEIGHT)) || Rf_xlength(VECTOR_ELT(_graph, WEIGHT)) != Rf_xlength(VECTOR_ELT(_graph, COL1)))
                 verror("\"graph\" argument must be in the format that is returned by tgs_cor_graph function");
 
             pcol1 = INTEGER(VECTOR_ELT(_graph, COL1));
             pcol2 = INTEGER(VECTOR_ELT(_graph, COL2));
             pweight = REAL(VECTOR_ELT(_graph, WEIGHT));
-            num_edges = xlength(VECTOR_ELT(_graph, COL1));
+            num_edges = Rf_xlength(VECTOR_ELT(_graph, COL1));
         }
 
-        SEXP rlevels1 = getAttrib(VECTOR_ELT(_graph, 0), R_LevelsSymbol);
-        SEXP rlevels2 = getAttrib(VECTOR_ELT(_graph, 1), R_LevelsSymbol);
+        SEXP rlevels1 = Rf_getAttrib(VECTOR_ELT(_graph, 0), R_LevelsSymbol);
+        SEXP rlevels2 = Rf_getAttrib(VECTOR_ELT(_graph, 1), R_LevelsSymbol);
 
         if ((rlevels1 != R_NilValue && rlevels2 == R_NilValue) || (rlevels1 == R_NilValue && rlevels2 != R_NilValue) ||
-            (rlevels1 != R_NilValue && rlevels2 != R_NilValue && xlength(rlevels1) != xlength(rlevels2)))
+            (rlevels1 != R_NilValue && rlevels2 != R_NilValue && Rf_xlength(rlevels1) != Rf_xlength(rlevels2)))
             verror("\"graph\" argument must be in the format that is returned by tgs_graph function");
 
-        if ((!isInteger(_min_cluster_size) && !isReal(_min_cluster_size)) || xlength(_min_cluster_size) != 1 || asInteger(_min_cluster_size) < 1)
+        if ((!Rf_isInteger(_min_cluster_size) && !Rf_isReal(_min_cluster_size)) || Rf_xlength(_min_cluster_size) != 1 || Rf_asInteger(_min_cluster_size) < 1)
             verror("\"min_cluster_size\" argument must be a positive integer");
 
-        if ((!isInteger(_cooling) && !isReal(_cooling)) || xlength(_cooling) != 1 || asReal(_cooling) < 1)
+        if ((!Rf_isInteger(_cooling) && !Rf_isReal(_cooling)) || Rf_xlength(_cooling) != 1 || Rf_asReal(_cooling) < 1)
             verror("\"cooling\" argument must be a number greater or equal than 1");
 
-        if ((!isInteger(_burn_in) && !isReal(_burn_in)) || xlength(_burn_in) != 1 || asInteger(_burn_in) < 0)
+        if ((!Rf_isInteger(_burn_in) && !Rf_isReal(_burn_in)) || Rf_xlength(_burn_in) != 1 || Rf_asInteger(_burn_in) < 0)
             verror("\"burn_in\" argument must be a positive integer");
 
-        if ((!isNull(_knn) && ((!isReal(_knn) && !isInteger(_knn)) || xlength(_knn) != 1)) || asInteger(_knn) < 1)
+        if ((!Rf_isNull(_knn) && ((!Rf_isReal(_knn) && !Rf_isInteger(_knn)) || Rf_xlength(_knn) != 1)) || Rf_asInteger(_knn) < 1)
             verror("\"knn\" argument must be a positive integer");
 
-        if ((!isInteger(_n_resamp) && !isReal(_n_resamp)) || xlength(_n_resamp) != 1 || asInteger(_n_resamp) < 1 || asInteger(_n_resamp) > 0xffff)
+        if ((!Rf_isInteger(_n_resamp) && !Rf_isReal(_n_resamp)) || Rf_xlength(_n_resamp) != 1 || Rf_asInteger(_n_resamp) < 1 || Rf_asInteger(_n_resamp) > 0xffff)
             verror("\"n_resamp\" argument must be a positive integer withn [1, %d] range", 0xffff);
 
-        if ((!isInteger(_p_resamp) && !isReal(_p_resamp)) || xlength(_p_resamp) != 1 || asReal(_p_resamp) > 1 || asReal(_p_resamp) <= 0)
+        if ((!Rf_isInteger(_p_resamp) && !Rf_isReal(_p_resamp)) || Rf_xlength(_p_resamp) != 1 || Rf_asReal(_p_resamp) > 1 || Rf_asReal(_p_resamp) <= 0)
             verror("\"p_resamp\" argument must be a number in (0,1] range");
 
-        unsigned min_cluster_size = asInteger(_min_cluster_size);
-        float cooling_rate = asReal(_cooling);
-        unsigned burn_in = asInteger(_burn_in);
-        unsigned knn = asInteger(_knn);
-        unsigned n_resamp = asInteger(_n_resamp);
-        double p_resamp = asReal(_p_resamp);
+        unsigned min_cluster_size = Rf_asInteger(_min_cluster_size);
+        float cooling_rate = Rf_asReal(_cooling);
+        unsigned burn_in = Rf_asInteger(_burn_in);
+        unsigned knn = Rf_asInteger(_knn);
+        unsigned n_resamp = Rf_asInteger(_n_resamp);
+        double p_resamp = Rf_asReal(_p_resamp);
 
         uint64_t num_nodes = 0;
         if (rlevels1 == R_NilValue) {
@@ -915,7 +918,7 @@ SEXP tgs_graph2cluster_multi_full(SEXP _graph, SEXP _knn, SEXP _min_cluster_size
                 num_nodes = max(num_nodes, (uint64_t)pcol2[i]);
             }
         } else
-            num_nodes = xlength(rlevels1);
+            num_nodes = Rf_xlength(rlevels1);
 
         int max_num_kids = min((int)n_resamp, max(g_tgstat->num_processes() - 1, 1));
         unsigned num_kids_launched = 0;
@@ -1024,15 +1027,15 @@ SEXP tgs_graph2cluster_multi_full(SEXP _graph, SEXP _knn, SEXP _min_cluster_size
         }
 
         for (int i = 0; i < NUM_COLS; i++)
-            SET_STRING_ELT(rcolnames, i, mkChar(COL_NAMES[i]));
+            SET_STRING_ELT(rcolnames, i, Rf_mkChar(COL_NAMES[i]));
 
         SET_VECTOR_ELT(rco_clust, NODE1, rnode1);
         SET_VECTOR_ELT(rco_clust, NODE2, rnode2);
         SET_VECTOR_ELT(rco_clust, CNT, rcount);
 
-        setAttrib(rco_clust, R_NamesSymbol, rcolnames);
-        setAttrib(rco_clust, R_ClassSymbol, mkString("data.frame"));
-        setAttrib(rco_clust, R_RowNamesSymbol, rrownames);
+        Rf_setAttrib(rco_clust, R_NamesSymbol, rcolnames);
+        Rf_setAttrib(rco_clust, R_ClassSymbol, Rf_mkString("data.frame"));
+        Rf_setAttrib(rco_clust, R_RowNamesSymbol, rrownames);
 
         rprotect(rsamples = RSaneAllocVector(INTSXP, num_nodes));
 
@@ -1040,17 +1043,17 @@ SEXP tgs_graph2cluster_multi_full(SEXP _graph, SEXP _knn, SEXP _min_cluster_size
             INTEGER(rsamples)[i] = psamples[i];
 
         if (rlevels1 != R_NilValue) {
-            setAttrib(rnode1, R_LevelsSymbol, rlevels1);
-            setAttrib(rnode1, R_ClassSymbol, mkString("factor"));
-            setAttrib(rnode2, R_LevelsSymbol, rlevels1);
-            setAttrib(rnode2, R_ClassSymbol, mkString("factor"));
-            setAttrib(rsamples, R_NamesSymbol, rlevels1);
+            Rf_setAttrib(rnode1, R_LevelsSymbol, rlevels1);
+            Rf_setAttrib(rnode1, R_ClassSymbol, Rf_mkString("factor"));
+            Rf_setAttrib(rnode2, R_LevelsSymbol, rlevels1);
+            Rf_setAttrib(rnode2, R_ClassSymbol, Rf_mkString("factor"));
+            Rf_setAttrib(rsamples, R_NamesSymbol, rlevels1);
         }
 
         rprotect(rnames = RSaneAllocVector(STRSXP, 2));
-        SET_STRING_ELT(rnames, 0, mkChar("co_cluster"));
-        SET_STRING_ELT(rnames, 1, mkChar("samples"));
-        setAttrib(answer, R_NamesSymbol, rnames);
+        SET_STRING_ELT(rnames, 0, Rf_mkChar("co_cluster"));
+        SET_STRING_ELT(rnames, 1, Rf_mkChar("samples"));
+        Rf_setAttrib(answer, R_NamesSymbol, rnames);
 
         SET_VECTOR_ELT(answer, 0, rco_clust);
         SET_VECTOR_ELT(answer, 1, rsamples);
@@ -1089,52 +1092,52 @@ SEXP tgs_graph2cluster_multi_edges(SEXP _graph, SEXP _knn, SEXP _min_cluster_siz
             enum { COL1, COL2, WEIGHT, NUM_COLS };
             const char *COL_NAMES[NUM_COLS] = { "col1", "col2", "weight" };
 
-            SEXP rnames = getAttrib(_graph, R_NamesSymbol);
+            SEXP rnames = Rf_getAttrib(_graph, R_NamesSymbol);
 
-            if (!isVector(_graph) || xlength(_graph) != NUM_COLS || xlength(rnames) != NUM_COLS ||
-                strcmp(CHAR(STRING_ELT(rnames, COL1)), COL_NAMES[COL1]) || (!isInteger(VECTOR_ELT(_graph, COL1)) && !isFactor(VECTOR_ELT(_graph, COL1))) ||
-                strcmp(CHAR(STRING_ELT(rnames, COL2)), COL_NAMES[COL2]) || (!isInteger(VECTOR_ELT(_graph, COL2)) && !isFactor(VECTOR_ELT(_graph, COL2))) ||
-                xlength(VECTOR_ELT(_graph, COL2)) != xlength(VECTOR_ELT(_graph, COL1)) ||
-                strcmp(CHAR(STRING_ELT(rnames, WEIGHT)), COL_NAMES[WEIGHT]) || !isReal(VECTOR_ELT(_graph, WEIGHT)) || xlength(VECTOR_ELT(_graph, WEIGHT)) != xlength(VECTOR_ELT(_graph, COL1)))
+            if (!Rf_isVector(_graph) || Rf_xlength(_graph) != NUM_COLS || Rf_xlength(rnames) != NUM_COLS ||
+                strcmp(CHAR(STRING_ELT(rnames, COL1)), COL_NAMES[COL1]) || (!Rf_isInteger(VECTOR_ELT(_graph, COL1)) && !Rf_isFactor(VECTOR_ELT(_graph, COL1))) ||
+                strcmp(CHAR(STRING_ELT(rnames, COL2)), COL_NAMES[COL2]) || (!Rf_isInteger(VECTOR_ELT(_graph, COL2)) && !Rf_isFactor(VECTOR_ELT(_graph, COL2))) ||
+                Rf_xlength(VECTOR_ELT(_graph, COL2)) != Rf_xlength(VECTOR_ELT(_graph, COL1)) ||
+                strcmp(CHAR(STRING_ELT(rnames, WEIGHT)), COL_NAMES[WEIGHT]) || !Rf_isReal(VECTOR_ELT(_graph, WEIGHT)) || Rf_xlength(VECTOR_ELT(_graph, WEIGHT)) != Rf_xlength(VECTOR_ELT(_graph, COL1)))
                 verror("\"graph\" argument must be in the format that is returned by tgs_cor_graph function");
 
             pcol1 = INTEGER(VECTOR_ELT(_graph, COL1));
             pcol2 = INTEGER(VECTOR_ELT(_graph, COL2));
             pweight = REAL(VECTOR_ELT(_graph, WEIGHT));
-            num_edges = xlength(VECTOR_ELT(_graph, COL1));
+            num_edges = Rf_xlength(VECTOR_ELT(_graph, COL1));
         }
 
-        SEXP rlevels1 = getAttrib(VECTOR_ELT(_graph, 0), R_LevelsSymbol);
-        SEXP rlevels2 = getAttrib(VECTOR_ELT(_graph, 1), R_LevelsSymbol);
+        SEXP rlevels1 = Rf_getAttrib(VECTOR_ELT(_graph, 0), R_LevelsSymbol);
+        SEXP rlevels2 = Rf_getAttrib(VECTOR_ELT(_graph, 1), R_LevelsSymbol);
 
         if ((rlevels1 != R_NilValue && rlevels2 == R_NilValue) || (rlevels1 == R_NilValue && rlevels2 != R_NilValue) ||
-            (rlevels1 != R_NilValue && rlevels2 != R_NilValue && xlength(rlevels1) != xlength(rlevels2)))
+            (rlevels1 != R_NilValue && rlevels2 != R_NilValue && Rf_xlength(rlevels1) != Rf_xlength(rlevels2)))
             verror("\"graph\" argument must be in the format that is returned by tgs_graph function");
 
-        if ((!isInteger(_min_cluster_size) && !isReal(_min_cluster_size)) || xlength(_min_cluster_size) != 1 || asInteger(_min_cluster_size) < 1)
+        if ((!Rf_isInteger(_min_cluster_size) && !Rf_isReal(_min_cluster_size)) || Rf_xlength(_min_cluster_size) != 1 || Rf_asInteger(_min_cluster_size) < 1)
             verror("\"min_cluster_size\" argument must be a positive integer");
 
-        if ((!isInteger(_cooling) && !isReal(_cooling)) || xlength(_cooling) != 1 || asReal(_cooling) < 1)
+        if ((!Rf_isInteger(_cooling) && !Rf_isReal(_cooling)) || Rf_xlength(_cooling) != 1 || Rf_asReal(_cooling) < 1)
             verror("\"cooling\" argument must be a number greater or equal than 1");
 
-        if ((!isInteger(_burn_in) && !isReal(_burn_in)) || xlength(_burn_in) != 1 || asInteger(_burn_in) < 0)
+        if ((!Rf_isInteger(_burn_in) && !Rf_isReal(_burn_in)) || Rf_xlength(_burn_in) != 1 || Rf_asInteger(_burn_in) < 0)
             verror("\"burn_in\" argument must be a positive integer");
 
-        if ((!isNull(_knn) && ((!isReal(_knn) && !isInteger(_knn)) || xlength(_knn) != 1)) || asInteger(_knn) < 1)
+        if ((!Rf_isNull(_knn) && ((!Rf_isReal(_knn) && !Rf_isInteger(_knn)) || Rf_xlength(_knn) != 1)) || Rf_asInteger(_knn) < 1)
             verror("\"knn\" argument must be a positive integer");
 
-        if ((!isInteger(_n_resamp) && !isReal(_n_resamp)) || xlength(_n_resamp) != 1 || asInteger(_n_resamp) < 1 || asInteger(_n_resamp) > 0xffff)
+        if ((!Rf_isInteger(_n_resamp) && !Rf_isReal(_n_resamp)) || Rf_xlength(_n_resamp) != 1 || Rf_asInteger(_n_resamp) < 1 || Rf_asInteger(_n_resamp) > 0xffff)
             verror("\"n_resamp\" argument must be a positive integer withn [1, %d] range", 0xffff);
 
-        if ((!isInteger(_p_resamp) && !isReal(_p_resamp)) || xlength(_p_resamp) != 1 || asReal(_p_resamp) > 1 || asReal(_p_resamp) <= 0)
+        if ((!Rf_isInteger(_p_resamp) && !Rf_isReal(_p_resamp)) || Rf_xlength(_p_resamp) != 1 || Rf_asReal(_p_resamp) > 1 || Rf_asReal(_p_resamp) <= 0)
             verror("\"p_resamp\" argument must be a number in (0,1] range");
 
-        unsigned min_cluster_size = asInteger(_min_cluster_size);
-        float cooling_rate = asReal(_cooling);
-        unsigned burn_in = asInteger(_burn_in);
-        unsigned knn = asInteger(_knn);
-        unsigned n_resamp = asInteger(_n_resamp);
-        double p_resamp = asReal(_p_resamp);
+        unsigned min_cluster_size = Rf_asInteger(_min_cluster_size);
+        float cooling_rate = Rf_asReal(_cooling);
+        unsigned burn_in = Rf_asInteger(_burn_in);
+        unsigned knn = Rf_asInteger(_knn);
+        unsigned n_resamp = Rf_asInteger(_n_resamp);
+        double p_resamp = Rf_asReal(_p_resamp);
 
         uint64_t num_nodes = 0;
         if (rlevels1 == R_NilValue) {
@@ -1143,7 +1146,7 @@ SEXP tgs_graph2cluster_multi_edges(SEXP _graph, SEXP _knn, SEXP _min_cluster_siz
                 num_nodes = max(num_nodes, (uint64_t)pcol2[i]);
             }
         } else
-            num_nodes = xlength(rlevels1);
+            num_nodes = Rf_xlength(rlevels1);
 
         int max_num_kids = min((int)n_resamp, max(g_tgstat->num_processes() - 1, 1));
         unsigned num_kids_launched = 0;
@@ -1251,15 +1254,15 @@ SEXP tgs_graph2cluster_multi_edges(SEXP _graph, SEXP _knn, SEXP _min_cluster_siz
         }
 
         for (int i = 0; i < NUM_COLS; i++)
-            SET_STRING_ELT(rcolnames, i, mkChar(COL_NAMES[i]));
+            SET_STRING_ELT(rcolnames, i, Rf_mkChar(COL_NAMES[i]));
 
         SET_VECTOR_ELT(rco_clust, NODE1, rnode1);
         SET_VECTOR_ELT(rco_clust, NODE2, rnode2);
         SET_VECTOR_ELT(rco_clust, CNT, rcount);
 
-        setAttrib(rco_clust, R_NamesSymbol, rcolnames);
-        setAttrib(rco_clust, R_ClassSymbol, mkString("data.frame"));
-        setAttrib(rco_clust, R_RowNamesSymbol, rrownames);
+        Rf_setAttrib(rco_clust, R_NamesSymbol, rcolnames);
+        Rf_setAttrib(rco_clust, R_ClassSymbol, Rf_mkString("data.frame"));
+        Rf_setAttrib(rco_clust, R_RowNamesSymbol, rrownames);
 
         rprotect(rsamples = RSaneAllocVector(INTSXP, num_nodes));
 
@@ -1267,17 +1270,17 @@ SEXP tgs_graph2cluster_multi_edges(SEXP _graph, SEXP _knn, SEXP _min_cluster_siz
             INTEGER(rsamples)[i] = psamples[i];
 
         if (rlevels1 != R_NilValue) {
-            setAttrib(rnode1, R_LevelsSymbol, rlevels1);
-            setAttrib(rnode1, R_ClassSymbol, mkString("factor"));
-            setAttrib(rnode2, R_LevelsSymbol, rlevels1);
-            setAttrib(rnode2, R_ClassSymbol, mkString("factor"));
-            setAttrib(rsamples, R_NamesSymbol, rlevels1);
+            Rf_setAttrib(rnode1, R_LevelsSymbol, rlevels1);
+            Rf_setAttrib(rnode1, R_ClassSymbol, Rf_mkString("factor"));
+            Rf_setAttrib(rnode2, R_LevelsSymbol, rlevels1);
+            Rf_setAttrib(rnode2, R_ClassSymbol, Rf_mkString("factor"));
+            Rf_setAttrib(rsamples, R_NamesSymbol, rlevels1);
         }
 
         rprotect(rnames = RSaneAllocVector(STRSXP, 2));
-        SET_STRING_ELT(rnames, 0, mkChar("co_cluster"));
-        SET_STRING_ELT(rnames, 1, mkChar("samples"));
-        setAttrib(answer, R_NamesSymbol, rnames);
+        SET_STRING_ELT(rnames, 0, Rf_mkChar("co_cluster"));
+        SET_STRING_ELT(rnames, 1, Rf_mkChar("samples"));
+        Rf_setAttrib(answer, R_NamesSymbol, rnames);
 
         SET_VECTOR_ELT(answer, 0, rco_clust);
         SET_VECTOR_ELT(answer, 1, rsamples);

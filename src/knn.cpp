@@ -3,6 +3,9 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
+#ifndef R_NO_REMAP
+#  define R_NO_REMAP
+#endif
 #include <R.h>
 #include <Rinternals.h>
 
@@ -27,18 +30,18 @@ SEXP tgs_knn(SEXP _x, SEXP _knn, SEXP _diag, SEXP _threshold, SEXP _envir)
 	try {
         TGStat tgstat(_envir);
 
-        if ((!isReal(_threshold) && !isInteger(_threshold)) || xlength(_threshold) != 1)
+        if ((!Rf_isReal(_threshold) && !Rf_isInteger(_threshold)) || Rf_xlength(_threshold) != 1)
             verror("\"threshold\" argument must be a numeric value");
 
-        if (!isLogical(_diag) || xlength(_diag) != 1)
+        if (!Rf_isLogical(_diag) || Rf_xlength(_diag) != 1)
             verror("\"diag\" argument must be a logical value");
 
-        if ((!isReal(_knn) && !isInteger(_knn)) || xlength(_knn) != 1 || asReal(_knn) < 1 || asReal(_knn) != (double)asInteger(_knn))
+        if ((!Rf_isReal(_knn) && !Rf_isInteger(_knn)) || Rf_xlength(_knn) != 1 || Rf_asReal(_knn) < 1 || Rf_asReal(_knn) != (double)Rf_asInteger(_knn))
             verror("\"knn\" argument must be a positive integer");
 
-        double threshold = asReal(_threshold);
-        uint64_t knn = asInteger(_knn);
-        bool diag = asLogical(_diag);
+        double threshold = Rf_asReal(_threshold);
+        uint64_t knn = Rf_asInteger(_knn);
+        bool diag = Rf_asLogical(_diag);
         bool tidy = false;
         uint64_t num_pairs = 0;
         vector<uint64_t> point2size;
@@ -52,14 +55,14 @@ SEXP tgs_knn(SEXP _x, SEXP _knn, SEXP _diag, SEXP _threshold, SEXP _envir)
         uint64_t num_cols = 0;
 
         vdebug("Preparing for multitasking...\n");
-        if (isReal(_x) && xlength(_x) >= 1) {    // x is a matrix
-            SEXP rdim = getAttrib(_x, R_DimSymbol);
+        if (Rf_isReal(_x) && Rf_xlength(_x) >= 1) {    // x is a matrix
+            SEXP rdim = Rf_getAttrib(_x, R_DimSymbol);
 
-            if (!isInteger(rdim) || xlength(rdim) != 2)
+            if (!Rf_isInteger(rdim) || Rf_xlength(rdim) != 2)
                 verror("Invalid format of \"x\" argument");
 
-            num_rows = nrows(_x);
-            num_cols = ncols(_x);
+            num_rows = Rf_nrows(_x);
+            num_cols = Rf_ncols(_x);
 
             tidy = false;
             data = REAL(_x);
@@ -100,17 +103,17 @@ SEXP tgs_knn(SEXP _x, SEXP _knn, SEXP _diag, SEXP _threshold, SEXP _envir)
 
                 }
             }
-        } else if (isVector(_x) && xlength(_x) >= 3) {
+        } else if (Rf_isVector(_x) && Rf_xlength(_x) >= 3) {
             tidy = true;
 
             SEXP rcol1 = VECTOR_ELT(_x, 0);
             SEXP rcol2 = VECTOR_ELT(_x, 1);
             SEXP rval = VECTOR_ELT(_x, 2);
 
-            num_rows = xlength(rcol1);
+            num_rows = Rf_xlength(rcol1);
 
-            if ((!isInteger(rcol1) && !isFactor(rcol1)) || (!isInteger(rcol2) && !isFactor(rcol1)) || (unsigned)xlength(rcol2) != num_rows ||
-                (!isInteger(rval) && !isReal(rval)) || (unsigned)xlength(rval) != num_rows)
+            if ((!Rf_isInteger(rcol1) && !Rf_isFactor(rcol1)) || (!Rf_isInteger(rcol2) && !Rf_isFactor(rcol1)) || (unsigned)Rf_xlength(rcol2) != num_rows ||
+                (!Rf_isInteger(rval) && !Rf_isReal(rval)) || (unsigned)Rf_xlength(rval) != num_rows)
                 verror("Invalid format of \"x\" argument");
 
             bool sort_needed = false;
@@ -214,10 +217,10 @@ SEXP tgs_knn(SEXP _x, SEXP _knn, SEXP _diag, SEXP _threshold, SEXP _envir)
             answer_size += min(knn, point_size);
 
         if (tidy)
-            rold_colnames = getAttrib(VECTOR_ELT(_x, 0), R_LevelsSymbol);
+            rold_colnames = Rf_getAttrib(VECTOR_ELT(_x, 0), R_LevelsSymbol);
         else {
-            SEXP rold_dimnames = getAttrib(_x, R_DimNamesSymbol);
-            rold_colnames = !isNull(rold_dimnames) && xlength(rold_dimnames) == 2 ? VECTOR_ELT(rold_dimnames, 1) : R_NilValue;
+            SEXP rold_dimnames = Rf_getAttrib(_x, R_DimNamesSymbol);
+            rold_colnames = !Rf_isNull(rold_dimnames) && Rf_xlength(rold_dimnames) == 2 ? VECTOR_ELT(rold_dimnames, 1) : R_NilValue;
         }
 
         rprotect(answer = RSaneAllocVector(VECSXP, NUM_COLS));
@@ -229,11 +232,11 @@ SEXP tgs_knn(SEXP _x, SEXP _knn, SEXP _diag, SEXP _threshold, SEXP _envir)
         rprotect(rrownames = RSaneAllocVector(INTSXP, answer_size));
 
         for (int i = 0; i < NUM_COLS; i++)
-            SET_STRING_ELT(rcolnames, i, mkChar(COL_NAMES[i]));
+            SET_STRING_ELT(rcolnames, i, Rf_mkChar(COL_NAMES[i]));
 
         if (tidy) {
-            rold_colnames = getAttrib(_x, R_NamesSymbol);
-            if (isString(rold_colnames) && xlength(rold_colnames) >= 2)
+            rold_colnames = Rf_getAttrib(_x, R_NamesSymbol);
+            if (Rf_isString(rold_colnames) && Rf_xlength(rold_colnames) >= 2)
                 SET_STRING_ELT(rcolnames, VAL, STRING_ELT(rold_colnames, 2));
         }
 
@@ -282,10 +285,10 @@ SEXP tgs_knn(SEXP _x, SEXP _knn, SEXP _diag, SEXP _threshold, SEXP _envir)
         }
 
         if (rold_colnames != R_NilValue) {
-            setAttrib(rcol1, R_LevelsSymbol, rold_colnames);
-            setAttrib(rcol1, R_ClassSymbol, mkString("factor"));
-            setAttrib(rcol2, R_LevelsSymbol, rold_colnames);
-            setAttrib(rcol2, R_ClassSymbol, mkString("factor"));
+            Rf_setAttrib(rcol1, R_LevelsSymbol, rold_colnames);
+            Rf_setAttrib(rcol1, R_ClassSymbol, Rf_mkString("factor"));
+            Rf_setAttrib(rcol2, R_LevelsSymbol, rold_colnames);
+            Rf_setAttrib(rcol2, R_ClassSymbol, Rf_mkString("factor"));
         }
 
         SET_VECTOR_ELT(answer, COL1, rcol1);
@@ -293,9 +296,9 @@ SEXP tgs_knn(SEXP _x, SEXP _knn, SEXP _diag, SEXP _threshold, SEXP _envir)
         SET_VECTOR_ELT(answer, VAL, rval);
         SET_VECTOR_ELT(answer, RANK, rrank);
 
-        setAttrib(answer, R_NamesSymbol, rcolnames);
-        setAttrib(answer, R_ClassSymbol, mkString("data.frame"));
-        setAttrib(answer, R_RowNamesSymbol, rrownames);
+        Rf_setAttrib(answer, R_NamesSymbol, rcolnames);
+        Rf_setAttrib(answer, R_ClassSymbol, Rf_mkString("data.frame"));
+        Rf_setAttrib(answer, R_RowNamesSymbol, rrownames);
 
         vdebug("END\n");
     } catch (TGLException &e) {

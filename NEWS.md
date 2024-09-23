@@ -1,3 +1,7 @@
+# tgstat 2.3.28 
+
+* Fixed *noRemap* additional issue by adding `Rf_` prefix in the c++ code.
+
 # tgstat 2.3.27
 
 * Fixed URL of the package in the DESCRIPTION file.

@@ -15,6 +15,9 @@
 #include <cstdint>
 #include <memory>
 
+#ifndef R_NO_REMAP
+#  define R_NO_REMAP
+#endif
 #include <R.h>
 #include <Rinternals.h>
 #include <Rinterface.h>
@@ -96,7 +99,7 @@ void RSaneSerialize(SEXP rexp, const char *fname);
 SEXP RSaneUnserialize(FILE *fp);
 SEXP RSaneUnserialize(const char *fname);
 
-// Same as above: replaces allocVector which can fail on memory allocation and then R makes a longmp, skipping all the destructors
+// Same as above: replaces Rf_allocVector which can fail on memory allocation and then R makes a longmp, skipping all the destructors
 SEXP RSaneAllocVector(SEXPTYPE type, R_xlen_t len);
 
 SEXP get_rvector_col(SEXP v, const char *colname, const char *varname, bool error_if_missing);

@@ -4,8 +4,7 @@
 
 ## Changes
 
-* Fixed *noRemap* additional issue.
-* Removed non-API calls to R: `R_curErrorBuf`, `SET_TYPEOF` in the c++ code.
+* Removed non-API calls to R: `Rf_GetOption`.
 
 
 

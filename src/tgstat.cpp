@@ -309,7 +309,7 @@ pid_t TGStat::launch_process()
         sigaction(SIGALRM, &s_old_sigalrm_act, NULL);
 		sigaction(SIGCHLD, &s_old_sigchld_act, NULL);
 
-		SEXP r_multitasking_stdout = Rf_GetOption(Rf_install("tgs_multitasking_stdout"), R_NilValue);
+		SEXP r_multitasking_stdout = Rf_GetOption1(Rf_install("tgs_multitasking_stdout"));
         int devnull;
 
         if ((devnull = open("/dev/null", O_RDWR)) == -1)
@@ -524,14 +524,14 @@ void TGStat::load_options()
 {
 	SEXP rvar;
 
-    rvar = Rf_GetOption(Rf_install("tgs_debug"), R_NilValue);
+    rvar = Rf_GetOption1(Rf_install("tgs_debug"));
     if (Rf_isLogical(rvar))
         m_debug = (int)LOGICAL(rvar)[0];
     else
         m_debug = false;
 
     int num_cores = max(1, (int)sysconf(_SC_NPROCESSORS_ONLN));
-    rvar = Rf_GetOption(Rf_install("tgs_max.processes"), R_NilValue);
+    rvar = Rf_GetOption1(Rf_install("tgs_max.processes"));
     if (Rf_xlength(rvar) && (Rf_isNumeric(rvar) || Rf_isInteger(rvar))) {
         m_num_processes = Rf_asInteger(rvar);
         m_num_processes = max(m_num_processes, 1);

@@ -1,3 +1,7 @@
+# tgstat 2.3.29
+
+* Removed non-API calls to R: `Rf_GetOption`.
+
 # tgstat 2.3.28 
 
 * Fixed *noRemap* additional issue by adding `Rf_` prefix in the c++ code.

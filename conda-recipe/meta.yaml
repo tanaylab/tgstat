@@ -1,0 +1,50 @@
+{% set name = "tgstat" %}
+{% set version = environ.get("PACKAGE_VERSION", "2.3.29") %}
+
+package:
+  name: r-{{ name|lower }}
+  version: {{ version }}
+
+source:
+  path: ..
+
+build:
+  number: 0
+  skip: true  # [win or osx]
+  rpaths:
+    - lib/R/lib/
+    - lib/
+
+requirements:
+  build:
+    - {{ compiler('cxx') }}
+    - {{ compiler('fortran') }}
+    - sysroot_linux-64 2.17  # [linux64]
+    - make
+  host:
+    - r-base {{ r_base }}.*
+    - libblas
+    - liblapack
+  run:
+    - r-base {{ r_base }}.*
+
+test:
+  commands:
+    - $R -e "library('tgstat')"
+
+about:
+  home: https://github.com/tanaylab/tgstat
+  license: GPL-2
+  license_family: GPL
+  summary: "Amos Tanay's Group High Performance Statistical Utilities"
+  description: |
+    A collection of high performance utilities to compute distance,
+    correlation, auto correlation, clustering and other tasks.
+    Contains graph clustering algorithm described in
+    "MetaCell: analysis of single-cell RNA-seq data using K-nn graph partitions".
+  dev_url: https://github.com/tanaylab/tgstat
+  doc_url: https://tanaylab.github.io/tgstat/
+
+extra:
+  recipe-maintainers:
+    - aviezerl

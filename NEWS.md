@@ -1,3 +1,9 @@
+# tgstat 2.3.30
+
+* FIFO temp directory is now configurable via `options(tgs_tmpdir = "/path")` or the `TMPDIR` environment variable, instead of being hardcoded to `/tmp`. Fixes permission errors on systems where `/tmp` is restricted (#17).
+* Added a child-process liveness check in `wait_for_kid()`/`wait_for_kids()` to prevent potential hangs when child processes terminate unexpectedly without being reaped (#18).
+* Added comprehensive tests for `tgs_cor_knn` and temp directory configuration.
+
 # tgstat 2.3.29
 
 * Removed non-API calls to R: `Rf_GetOption`.

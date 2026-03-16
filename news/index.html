@@ -17,7 +17,7 @@
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">tgstat</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">2.3.29</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">2.3.30</span>
       </span>
     </div>
 
@@ -63,6 +63,12 @@
       <small>Source: <a href="https://github.com/tanaylab/tgstat/blob/master/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="page-header" data-toc-text="2.3.30" id="tgstat-2330">tgstat 2.3.30<a class="anchor" aria-label="anchor" href="#tgstat-2330"></a></h2>
+<ul><li>FIFO temp directory is now configurable via <code>options(tgs_tmpdir = "/path")</code> or the <code>TMPDIR</code> environment variable, instead of being hardcoded to <code>/tmp</code>. Fixes permission errors on systems where <code>/tmp</code> is restricted (<a href="https://github.com/tanaylab/tgstat/issues/17" class="external-link">#17</a>).</li>
+<li>Added a child-process liveness check in <code>wait_for_kid()</code>/<code>wait_for_kids()</code> to prevent potential hangs when child processes terminate unexpectedly without being reaped (<a href="https://github.com/tanaylab/tgstat/issues/18" class="external-link">#18</a>).</li>
+<li>Added comprehensive tests for <code>tgs_cor_knn</code> and temp directory configuration.</li>
+</ul></div>
     <div class="section level2">
 <h2 class="page-header" data-toc-text="2.3.29" id="tgstat-2329">tgstat 2.3.29<small>2025-11-12</small><a class="anchor" aria-label="anchor" href="#tgstat-2329"></a></h2>
 <ul><li>Removed non-API calls to R: <code>Rf_GetOption</code>.</li>

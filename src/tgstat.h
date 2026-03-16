@@ -223,6 +223,7 @@ protected:
     static vector<pid_t>        s_running_pids;
     static Shm                 *s_shm;
     static int                  s_fifo_fd;
+    static string               s_tmpdir;
 
 	SEXP                        m_env;
 	mode_t                      m_old_umask;

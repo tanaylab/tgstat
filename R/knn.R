@@ -84,7 +84,6 @@ tgs_graph <- function(x, knn, k_expand, k_beta = 3) {
 }
 
 
-
 #' Clusters directed graph
 #'
 #' Clusters directed graph.
@@ -144,7 +143,6 @@ tgs_graph_cover <- function(graph, min_cluster_size, cooling = 1.05, burn_in = 1
 
     .Call("tgs_graph2cluster", graph, min_cluster_size, cooling, burn_in, new.env(parent = parent.frame()))
 }
-
 
 
 #' Clusters directed graph multiple times with randomized sample subset
@@ -225,7 +223,6 @@ tgs_graph_cover_resample <- function(graph, knn, min_cluster_size, cooling = 1.0
         stop("\"method\" argument must be equal to \"hash\", \"full\" or \"edges\"", call. = FALSE)
     }
 }
-
 
 
 #' Returns k highest values of each column

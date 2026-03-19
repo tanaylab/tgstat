@@ -811,7 +811,7 @@ void runprotect_all()
 const char *get_groot(SEXP envir)
 {
 	// no need to protect the returned value
-	SEXP groot = R_getVar(Rf_install("GROOT"), envir, TRUE);
+	SEXP groot = R_getVar(Rf_install("GROOT"), envir, (Rboolean)TRUE);
 
 	if (!Rf_isString(groot))
 		verror("GROOT variable does not exist");
@@ -822,7 +822,7 @@ const char *get_groot(SEXP envir)
 const char *get_glib_dir(SEXP envir)
 {
 	// no need to protect the returned value
-	SEXP glibdir = R_getVar(Rf_install(".GLIBDIR"), envir, TRUE);
+	SEXP glibdir = R_getVar(Rf_install(".GLIBDIR"), envir, (Rboolean)TRUE);
 
 	if (!Rf_isString(glibdir))
 		verror(".GLIBDIR variable does not exist");

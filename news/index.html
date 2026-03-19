@@ -17,7 +17,7 @@
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">tgstat</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">2.3.30</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">2.3.32</span>
       </span>
     </div>
 
@@ -63,6 +63,11 @@
       <small>Source: <a href="https://github.com/tanaylab/tgstat/blob/master/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="page-header" data-toc-text="2.3.32" id="tgstat-2332">tgstat 2.3.32<a class="anchor" aria-label="anchor" href="#tgstat-2332"></a></h2>
+<ul><li>Replaced non-API C entry point <code>Rf_findVar</code> with <code>R_getVar</code> for R 4.6.0 compatibility.</li>
+<li>Added <code>.claude</code> to <code>.Rbuildignore</code>.</li>
+</ul></div>
     <div class="section level2">
 <h2 class="page-header" data-toc-text="2.3.30" id="tgstat-2330">tgstat 2.3.30<a class="anchor" aria-label="anchor" href="#tgstat-2330"></a></h2>
 <ul><li>FIFO temp directory is now configurable via <code>options(tgs_tmpdir = "/path")</code> or the <code>TMPDIR</code> environment variable, instead of being hardcoded to <code>/tmp</code>. Fixes permission errors on systems where <code>/tmp</code> is restricted (<a href="https://github.com/tanaylab/tgstat/issues/17" class="external-link">#17</a>).</li>

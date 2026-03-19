@@ -4,9 +4,4 @@
 
 ## Changes
 
-* Removed non-API calls to R: `Rf_GetOption`.
-
-
-
-
-
+* Replaced non-API C entry point `Rf_findVar` with `R_getVar`.

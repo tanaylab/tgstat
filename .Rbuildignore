@@ -12,3 +12,4 @@
 ^\.vscode\.*
 ^\.github$
 ^conda-recipe$
+^\.claude$

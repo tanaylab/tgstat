@@ -5,3 +5,4 @@
 ## Changes
 
 * Replaced non-API C entry point `Rf_findVar` with `R_getVar`.
+* Added `.claude` to `.Rbuildignore`.

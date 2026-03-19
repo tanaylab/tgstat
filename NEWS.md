@@ -1,6 +1,7 @@
-# tgstat 2.3.31
+# tgstat 2.3.32
 
 * Replaced non-API C entry point `Rf_findVar` with `R_getVar` for R 4.6.0 compatibility.
+* Added `.claude` to `.Rbuildignore`.
 
 # tgstat 2.3.30
 

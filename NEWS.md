@@ -1,3 +1,8 @@
+# tgstat 2.3.32
+
+* Replaced non-API C entry point `Rf_findVar` with `R_getVar` for R 4.6.0 compatibility.
+* Added `.claude` to `.Rbuildignore`.
+
 # tgstat 2.3.30
 
 * FIFO temp directory is now configurable via `options(tgs_tmpdir = "/path")` or the `TMPDIR` environment variable, instead of being hardcoded to `/tmp`. Fixes permission errors on systems where `/tmp` is restricted (#17).

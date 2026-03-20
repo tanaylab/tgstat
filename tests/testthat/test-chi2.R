@@ -405,3 +405,15 @@ test_that("tgs_chi2 handles all-zero sparse matrix", {
     expect_true(all(res[, "pval"] == 1))
     expect_equal(rownames(res), paste0("gene", 1:5))
 })
+
+test_that("tgs_chi2 errors on negative counts in dense matrix", {
+    options(tgs_max.processes = 1)
+    x <- matrix(c(-1, 3, 2, 4), ncol = 2)
+    expect_error(tgs_chi2(x), "non-negative")
+})
+
+test_that("tgs_chi2 errors on negative counts in integer matrix", {
+    options(tgs_max.processes = 1)
+    x <- matrix(c(1L, -3L, 2L, 4L), ncol = 2)
+    expect_error(tgs_chi2(x), "non-negative")
+})

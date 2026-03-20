@@ -13,6 +13,7 @@
 /* .Call calls */
 
 extern "C" {
+extern SEXP tgs_chi2(SEXP, SEXP, SEXP);
 extern SEXP tgs_cor(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
 extern SEXP tgs_cor_blas(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
 extern SEXP tgs_cor_graph(SEXP, SEXP, SEXP, SEXP, SEXP);
@@ -33,6 +34,7 @@ extern SEXP tgs_matrix_tapply(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
 }
 
 static const R_CallMethodDef CallEntries[] = {
+    {"tgs_chi2",                      (DL_FUNC) &tgs_chi2,                      3},
     {"tgs_cor",                       (DL_FUNC) &tgs_cor,                       6},
     {"tgs_cor_blas",                  (DL_FUNC) &tgs_cor_blas,                  6},
     {"tgs_cor_graph",                 (DL_FUNC) &tgs_cor_graph,                 5},

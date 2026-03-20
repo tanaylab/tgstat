@@ -13,3 +13,4 @@
 ^\.github$
 ^conda-recipe$
 ^\.claude$
+^\.a5c$

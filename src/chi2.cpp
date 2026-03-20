@@ -78,6 +78,8 @@ SEXP tgs_chi2(SEXP _x, SEXP _yates, SEXP _envir)
                     double v1 = vals[num_rows + i];
                     if (std::isnan(v0) || std::isnan(v1))
                         continue;
+                    if (v0 < 0 || v1 < 0)
+                        verror("\"x\" must contain non-negative counts");
                     colSum0 += v0;
                     colSum1 += v1;
                 }
@@ -86,6 +88,8 @@ SEXP tgs_chi2(SEXP _x, SEXP _yates, SEXP _envir)
                 for (uint64_t i = 0; i < num_rows; ++i) {
                     if (vals[i] == NA_INTEGER || vals[num_rows + i] == NA_INTEGER)
                         continue;
+                    if (vals[i] < 0 || vals[num_rows + i] < 0)
+                        verror("\"x\" must contain non-negative counts");
                     colSum0 += vals[i];
                     colSum1 += vals[num_rows + i];
                 }
@@ -94,16 +98,26 @@ SEXP tgs_chi2(SEXP _x, SEXP _yates, SEXP _envir)
             int *xp = INTEGER(_xp);
             if (is_real) {
                 double *xx = REAL(_xx);
-                for (int j = xp[0]; j < xp[1]; ++j)
-                    if (!std::isnan(xx[j])) colSum0 += xx[j];
-                for (int j = xp[1]; j < xp[2]; ++j)
-                    if (!std::isnan(xx[j])) colSum1 += xx[j];
+                for (int j = xp[0]; j < xp[1]; ++j) {
+                    if (std::isnan(xx[j])) continue;
+                    if (xx[j] < 0) verror("\"x\" must contain non-negative counts");
+                    colSum0 += xx[j];
+                }
+                for (int j = xp[1]; j < xp[2]; ++j) {
+                    if (std::isnan(xx[j])) continue;
+                    if (xx[j] < 0) verror("\"x\" must contain non-negative counts");
+                    colSum1 += xx[j];
+                }
             } else {
                 int *xx = INTEGER(_xx);
-                for (int j = xp[0]; j < xp[1]; ++j)
+                for (int j = xp[0]; j < xp[1]; ++j) {
+                    if (xx[j] < 0) verror("\"x\" must contain non-negative counts");
                     colSum0 += xx[j];
-                for (int j = xp[1]; j < xp[2]; ++j)
+                }
+                for (int j = xp[1]; j < xp[2]; ++j) {
+                    if (xx[j] < 0) verror("\"x\" must contain non-negative counts");
                     colSum1 += xx[j];
+                }
             }
         }
 

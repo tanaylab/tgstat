@@ -31,7 +31,11 @@ SEXP tgs_chi2(SEXP _x, SEXP _yates, SEXP _envir)
         if (!Rf_isLogical(_yates) || Rf_xlength(_yates) != 1)
             verror("\"yates\" argument must be a logical value");
 
-        bool yates = Rf_asLogical(_yates);
+        int yates_val = Rf_asLogical(_yates);
+        if (yates_val == NA_LOGICAL)
+            verror("\"yates\" argument must not be NA");
+
+        bool yates = yates_val;
 
         SEXP _rdims = R_NilValue;
         SEXP _xclass = Rf_getAttrib(_x, R_ClassSymbol);
@@ -43,7 +47,7 @@ SEXP tgs_chi2(SEXP _x, SEXP _yates, SEXP _envir)
             ((Rf_isReal(_x) || Rf_isInteger(_x)) && (Rf_xlength(_x) < 1 || !Rf_isInteger(_rdims = Rf_getAttrib(_x, R_DimSymbol)) || Rf_xlength(_rdims) != 2)) ||
             (Rf_isObject(_x) && (!Rf_isString(_xclass) || Rf_xlength(_xclass) < 1 || strcmp(CHAR(STRING_ELT(_xclass, 0)), "dgCMatrix") ||
                               !Rf_isInteger(_rdims = Rf_getAttrib(_x, Rf_install("Dim"))) || Rf_xlength(_rdims) != 2 ||
-                              (!Rf_isInteger(_xx) && !Rf_isReal(_xx)) || Rf_xlength(_xx) < 1 ||
+                              (Rf_xlength(_xx) > 0 && !Rf_isInteger(_xx) && !Rf_isReal(_xx)) ||
                               !Rf_isInteger(_xi) || Rf_xlength(_xi) != Rf_xlength(_xx) ||
                               !Rf_isInteger(_xp) || Rf_xlength(_xp) != INTEGER(_rdims)[1] + 1)))
             verror("\"x\" argument must be a matrix of numeric values");
@@ -58,7 +62,7 @@ SEXP tgs_chi2(SEXP _x, SEXP _yates, SEXP _envir)
             verror("\"x\" argument must have at least 1 row");
 
         bool is_sparse = _xclass != R_NilValue;
-        bool is_real = is_sparse ? Rf_isReal(_xx) : Rf_isReal(_x);
+        bool is_real = is_sparse ? (Rf_xlength(_xx) > 0 ? Rf_isReal(_xx) : true) : Rf_isReal(_x);
 
         SEXP _xdimnames = is_sparse ? Rf_getAttrib(_x, Rf_install("Dimnames")) : Rf_getAttrib(_x, R_DimNamesSymbol);
 

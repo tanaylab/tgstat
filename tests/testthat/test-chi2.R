@@ -381,3 +381,27 @@ test_that("tgs_chi2 handles NA in second column", {
     expect_false(is.na(res[2, "chi2"]))
     expect_false(is.na(res[3, "chi2"]))
 })
+
+test_that("tgs_chi2 errors on yates = NA", {
+    options(tgs_max.processes = 1)
+    x <- matrix(c(10, 20, 30, 40), ncol = 2)
+    expect_error(tgs_chi2(x, yates = NA), "must not be NA")
+})
+
+test_that("tgs_chi2 handles all-zero sparse matrix", {
+    options(tgs_max.processes = 1)
+    # A dgCMatrix where every entry is 0 has an empty x slot
+    x <- matrix(0L, nrow = 5, ncol = 2)
+    rownames(x) <- paste0("gene", 1:5)
+    smat <- Matrix::Matrix(x, sparse = TRUE)
+    expect_equal(length(smat@x), 0L)  # confirm x slot is empty
+
+    res <- tgs_chi2(smat)
+    expect_equal(nrow(res), 5)
+    expect_equal(ncol(res), 2)
+    expect_equal(colnames(res), c("chi2", "pval"))
+    # All rows should have chi2=0, pval=1 (denom is 0)
+    expect_true(all(res[, "chi2"] == 0))
+    expect_true(all(res[, "pval"] == 1))
+    expect_equal(rownames(res), paste0("gene", 1:5))
+})

@@ -417,3 +417,31 @@ test_that("tgs_chi2 errors on negative counts in integer matrix", {
     x <- matrix(c(1L, -3L, 2L, 4L), ncol = 2)
     expect_error(tgs_chi2(x), "non-negative")
 })
+
+test_that("tgs_chi2 accepts integer matrix with class attribute (ALTREP-like)", {
+    options(tgs_max.processes = 1)
+    x <- matrix(c(10L, 20L, 30L, 40L), ncol = 2)
+    rownames(x) <- c("gene1", "gene2")
+    # Simulate ALTREP object: integer matrix with a class
+    x_altrep <- x
+    class(x_altrep) <- "SomeALTREP"
+    expect_true(is.object(x_altrep))
+    expect_true(is.integer(x_altrep))
+
+    res <- tgs_chi2(x_altrep)
+    expected <- tgs_chi2(x)
+    expect_equal(res, expected, tolerance = 1e-10)
+})
+
+test_that("tgs_chi2 accepts numeric matrix with class attribute (ALTREP-like)", {
+    options(tgs_max.processes = 1)
+    x <- matrix(c(10, 20, 30, 40), ncol = 2)
+    x_altrep <- x
+    class(x_altrep) <- "Float64ALTREP"
+    expect_true(is.object(x_altrep))
+    expect_true(is.numeric(x_altrep))
+
+    res <- tgs_chi2(x_altrep)
+    expected <- tgs_chi2(x)
+    expect_equal(res, expected, tolerance = 1e-10)
+})

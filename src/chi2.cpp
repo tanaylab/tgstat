@@ -39,18 +39,32 @@ SEXP tgs_chi2(SEXP _x, SEXP _yates, SEXP _envir)
 
         SEXP _rdims = R_NilValue;
         SEXP _xclass = Rf_getAttrib(_x, R_ClassSymbol);
-        SEXP _xx = Rf_getAttrib(_x, Rf_install("x"));   // non zero values of sparse matrix
-        SEXP _xi = Rf_getAttrib(_x, Rf_install("i"));   // row number within sparse matrix
-        SEXP _xp = Rf_getAttrib(_x, Rf_install("p"));   // index offset of the column within sparse matrix
+        SEXP _xx = R_NilValue;
+        SEXP _xi = R_NilValue;
+        SEXP _xp = R_NilValue;
 
-        if ((!Rf_isReal(_x) && !Rf_isInteger(_x) && !Rf_isObject(_x)) ||
-            ((Rf_isReal(_x) || Rf_isInteger(_x)) && (Rf_xlength(_x) < 1 || !Rf_isInteger(_rdims = Rf_getAttrib(_x, R_DimSymbol)) || Rf_xlength(_rdims) != 2)) ||
-            (Rf_isObject(_x) && (!Rf_isString(_xclass) || Rf_xlength(_xclass) < 1 || strcmp(CHAR(STRING_ELT(_xclass, 0)), "dgCMatrix") ||
-                              !Rf_isInteger(_rdims = Rf_getAttrib(_x, Rf_install("Dim"))) || Rf_xlength(_rdims) != 2 ||
-                              (Rf_xlength(_xx) > 0 && !Rf_isInteger(_xx) && !Rf_isReal(_xx)) ||
-                              !Rf_isInteger(_xi) || Rf_xlength(_xi) != Rf_xlength(_xx) ||
-                              !Rf_isInteger(_xp) || Rf_xlength(_xp) != INTEGER(_rdims)[1] + 1)))
-            verror("\"x\" argument must be a matrix of numeric values");
+        // Determine if input is a dgCMatrix (check class first, before numeric type)
+        bool is_sparse = false;
+        if (Rf_isObject(_x) && Rf_isString(_xclass) && Rf_xlength(_xclass) >= 1 &&
+            strcmp(CHAR(STRING_ELT(_xclass, 0)), "dgCMatrix") == 0)
+        {
+            is_sparse = true;
+            _xx = Rf_getAttrib(_x, Rf_install("x"));
+            _xi = Rf_getAttrib(_x, Rf_install("i"));
+            _xp = Rf_getAttrib(_x, Rf_install("p"));
+
+            if (!Rf_isInteger(_rdims = Rf_getAttrib(_x, Rf_install("Dim"))) || Rf_xlength(_rdims) != 2 ||
+                (Rf_xlength(_xx) > 0 && !Rf_isInteger(_xx) && !Rf_isReal(_xx)) ||
+                !Rf_isInteger(_xi) || Rf_xlength(_xi) != Rf_xlength(_xx) ||
+                !Rf_isInteger(_xp) || Rf_xlength(_xp) != INTEGER(_rdims)[1] + 1)
+                verror("\"x\" argument must be a valid dgCMatrix");
+        } else if (Rf_isReal(_x) || Rf_isInteger(_x)) {
+            // Dense matrix — works with plain vectors and ALTREP (e.g. jlview Int32)
+            if (Rf_xlength(_x) < 1 || !Rf_isInteger(_rdims = Rf_getAttrib(_x, R_DimSymbol)) || Rf_xlength(_rdims) != 2)
+                verror("\"x\" argument must be a matrix of numeric values");
+        } else {
+            verror("\"x\" argument must be a numeric matrix or dgCMatrix");
+        }
 
         uint64_t num_rows = INTEGER(_rdims)[0];
         uint64_t num_cols = INTEGER(_rdims)[1];
@@ -61,7 +75,6 @@ SEXP tgs_chi2(SEXP _x, SEXP _yates, SEXP _envir)
         if (num_rows < 1)
             verror("\"x\" argument must have at least 1 row");
 
-        bool is_sparse = _xclass != R_NilValue;
         bool is_real = is_sparse ? (Rf_xlength(_xx) > 0 ? Rf_isReal(_xx) : true) : Rf_isReal(_x);
 
         SEXP _xdimnames = is_sparse ? Rf_getAttrib(_x, Rf_install("Dimnames")) : Rf_getAttrib(_x, R_DimNamesSymbol);

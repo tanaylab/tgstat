@@ -17,7 +17,7 @@
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">tgstat</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">2.3.32</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">2.4.0</span>
       </span>
     </div>
 
@@ -64,7 +64,11 @@
     </div>
 
     <div class="section level2">
-<h2 class="page-header" data-toc-text="2.3.32" id="tgstat-2332">tgstat 2.3.32<a class="anchor" aria-label="anchor" href="#tgstat-2332"></a></h2>
+<h2 class="page-header" data-toc-text="2.4.0" id="tgstat-240">tgstat 2.4.0<a class="anchor" aria-label="anchor" href="#tgstat-240"></a></h2>
+<ul><li>Added <code><a href="../reference/tgs_chi2.html">tgs_chi2()</a></code>: vectorized chi-squared test for 2x2 contingency tables with optional Yates’ continuity correction. Supports both dense and sparse (dgCMatrix) matrix input. Useful for differential gene expression analysis. C++ backend with fork-based parallelization for large matrices and <code>erfc(sqrt(x/2))</code> optimization for p-value computation.</li>
+</ul></div>
+    <div class="section level2">
+<h2 class="page-header" data-toc-text="2.3.32" id="tgstat-2332">tgstat 2.3.32<small>2026-03-20</small><a class="anchor" aria-label="anchor" href="#tgstat-2332"></a></h2>
 <ul><li>Replaced non-API C entry point <code>Rf_findVar</code> with <code>R_getVar</code> for R 4.6.0 compatibility.</li>
 <li>Added <code>.claude</code> to <code>.Rbuildignore</code>.</li>
 </ul></div>

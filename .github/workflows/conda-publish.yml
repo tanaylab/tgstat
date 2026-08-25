@@ -12,16 +12,26 @@ on:
 
 jobs:
   build_conda:
-    name: conda (${{ matrix.os }})
+    name: conda (${{ matrix.os }}, R ${{ matrix.r_base }})
     runs-on: ${{ matrix.os }}
     if: ${{ github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v') }}
     defaults:
       run:
         shell: bash -el {0}
+    # One job per (os, R version) rather than one job looping conda-build's
+    # variants. conda-build crashed outright on iceqream's five-variant loop
+    # with "IndexError: list index out of range" in render.py - it skipped two
+    # variants silently and died on a third. Split into jobs, all five passed.
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-14]
+        include:
+          - {os: ubuntu-latest, r_base: "4.1"}
+          - {os: ubuntu-latest, r_base: "4.2"}
+          - {os: ubuntu-latest, r_base: "4.3"}
+          - {os: ubuntu-latest, r_base: "4.4"}
+          - {os: ubuntu-latest, r_base: "4.5"}
+          - {os: macos-14, r_base: "4.5"}
     steps:
       - uses: actions/checkout@v5
 
@@ -56,7 +66,7 @@ jobs:
           conda build conda-recipe/ \
             --no-anaconda-upload \
             --output-folder conda-output/ \
-            --keep-going \
+            --variants "{r_base: ['${{ matrix.r_base }}']}" \
             -c conda-forge
 
       - name: Upload to anaconda.org
@@ -85,7 +95,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: conda-pkg-${{ matrix.os }}
+          name: conda-pkg-${{ matrix.os }}-r${{ matrix.r_base }}
           path: |
             conda-output/**/*.tar.bz2
             conda-output/**/*.conda

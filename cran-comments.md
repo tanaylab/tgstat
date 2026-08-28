@@ -4,5 +4,9 @@
 
 ## Changes
 
-* Replaced non-API C entry point `Rf_findVar` with `R_getVar`.
-* Added `.claude` to `.Rbuildignore`.
+* Fixed the installation failure with clang 23 / libc++, which no longer
+  provides `<algorithm>` transitively. Missing standard headers were added
+  explicitly across the C++ sources.
+* Fixed the `PROTECT` issues reported by rchk in `tgs_knn()` and
+  `tgs_cor_graph()`.
+* Added `tgs_chi2()`.

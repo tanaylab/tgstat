@@ -2,6 +2,7 @@
 #define GRAPH2CLUSTER_H_INCLUDED
 
 #include <vector>
+#include <cstdint>
 
 // node1 / node2 - 1-based
 // node2cluster - if node is unassigned node2cluster[node] will be -1

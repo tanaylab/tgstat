@@ -56,7 +56,8 @@ SEXP tgs_knn(SEXP _x, SEXP _knn, SEXP _diag, SEXP _threshold, SEXP _envir)
 
         vdebug("Preparing for multitasking...\n");
         if (Rf_isReal(_x) && Rf_xlength(_x) >= 1) {    // x is a matrix
-            SEXP rdim = Rf_getAttrib(_x, R_DimSymbol);
+            SEXP rdim;
+            rprotect(rdim = Rf_getAttrib(_x, R_DimSymbol));
 
             if (!Rf_isInteger(rdim) || Rf_xlength(rdim) != 2)
                 verror("Invalid format of \"x\" argument");
@@ -217,10 +218,11 @@ SEXP tgs_knn(SEXP _x, SEXP _knn, SEXP _diag, SEXP _threshold, SEXP _envir)
             answer_size += min(knn, point_size);
 
         if (tidy)
-            rold_colnames = Rf_getAttrib(VECTOR_ELT(_x, 0), R_LevelsSymbol);
+            rprotect(rold_colnames = Rf_getAttrib(VECTOR_ELT(_x, 0), R_LevelsSymbol));
         else {
-            SEXP rold_dimnames = Rf_getAttrib(_x, R_DimNamesSymbol);
-            rold_colnames = !Rf_isNull(rold_dimnames) && Rf_xlength(rold_dimnames) == 2 ? VECTOR_ELT(rold_dimnames, 1) : R_NilValue;
+            SEXP rold_dimnames;
+            rprotect(rold_dimnames = Rf_getAttrib(_x, R_DimNamesSymbol));
+            rprotect(rold_colnames = !Rf_isNull(rold_dimnames) && Rf_xlength(rold_dimnames) == 2 ? VECTOR_ELT(rold_dimnames, 1) : R_NilValue);
         }
 
         rprotect(answer = RSaneAllocVector(VECSXP, NUM_COLS));

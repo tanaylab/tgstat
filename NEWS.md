@@ -1,6 +1,7 @@
 # tgstat 2.4.0
 
-* Added `tgs_chi2()`: vectorized chi-squared test for 2x2 contingency tables with optional Yates' continuity correction. Supports both dense and sparse (dgCMatrix) matrix input. Useful for differential gene expression analysis. C++ backend with fork-based parallelization for large matrices and `erfc(sqrt(x/2))` optimization for p-value computation.
+* Added `tgs_chi2()`: vectorized chi-squared test for 2x2 contingency tables, with optional Yates' correction and support for sparse (`dgCMatrix`) input.
+* Fixed compilation with clang 23 and the `PROTECT` issues reported by rchk.
 
 # tgstat 2.3.32
 

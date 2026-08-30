@@ -2,6 +2,7 @@
 #define TGSTAT_H_
 
 #include <errno.h>
+#include <cstring>
 #include <stdlib.h>
 #include <string>
 #include <set>

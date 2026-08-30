@@ -40,7 +40,8 @@ SEXP tgs_cor_graph(SEXP _ranks, SEXP _knn, SEXP _k_expand, SEXP _k_beta, SEXP _e
             enum { COL1, COL2, COR, RANK, NUM_COLS };
             const char *COL_NAMES[NUM_COLS] = { "col1", "col2", "cor", "rank" };
 
-            SEXP rnames = Rf_getAttrib(_ranks, R_NamesSymbol);
+            SEXP rnames;
+            rprotect(rnames = Rf_getAttrib(_ranks, R_NamesSymbol));
 
     		if (!Rf_isVector(_ranks) || Rf_xlength(_ranks) != NUM_COLS || Rf_xlength(rnames) != NUM_COLS ||
                 strcmp(CHAR(STRING_ELT(rnames, COL1)), COL_NAMES[COL1]) || (!Rf_isInteger(VECTOR_ELT(_ranks, COL1)) && !Rf_isFactor(VECTOR_ELT(_ranks, COL1))) ||

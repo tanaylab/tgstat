@@ -1,4 +1,5 @@
 #include <sys/time.h>
+#include <algorithm>
 
 #ifndef R_NO_REMAP
 #  define R_NO_REMAP

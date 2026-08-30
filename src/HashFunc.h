@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include <functional>
+#include <utility>
 
 #ifndef BSWAP_8
 #define	BSWAP_8(x)	((x) & 0xff)

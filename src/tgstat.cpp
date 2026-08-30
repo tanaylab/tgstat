@@ -1,4 +1,6 @@
 #include <climits>
+#include <algorithm>
+#include <utility>
 #include <ctype.h>
 #include <dirent.h>
 #include <errno.h>

@@ -4,3 +4,14 @@ r_base:
   - 4.3  # [linux]
   - 4.4  # [linux]
   - 4.5
+
+# Pin the compiler instead of taking whatever conda-forge ships newest. An
+# unpinned {{ compiler(...) }} on a current runner resolves to gcc 16, which
+# stamps `libgcc >=16` / `libstdcxx >=16` onto the package and makes it
+# uninstallable in any environment holding an older libgcc - which is most
+# established ones. 14 is the floor that still builds R 4.5, whose Makeconf
+# passes -std=gnu23 (gcc 13 rejects it); verified here against R 4.0 and R 4.5.
+c_compiler_version:
+  - 14  # [linux]
+cxx_compiler_version:
+  - 14  # [linux]

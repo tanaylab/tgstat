@@ -17,7 +17,7 @@
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">tgstat</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">2.4.0</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">2.5.0</span>
       </span>
     </div>
 
@@ -63,6 +63,15 @@
       <small>Source: <a href="https://github.com/tanaylab/tgstat/blob/master/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="page-header" data-toc-text="2.5.0" id="tgstat-250">tgstat 2.5.0<a class="anchor" aria-label="anchor" href="#tgstat-250"></a></h2>
+<ul><li>Added <code><a href="../reference/tgs_cor_dist.html">tgs_cor_dist()</a></code>: the same as <code>tgs_dist(tgs_cor(x))</code>, but much faster and with less memory when <code>x</code> has many more columns than rows.</li>
+<li>
+<code><a href="../reference/tgs_dist.html">tgs_dist()</a></code> uses about half the memory on large inputs.</li>
+<li>Debian/Ubuntu installations with OpenBLAS (e.g. the rocker images) now use the faster BLAS code by default.</li>
+<li>Fixed <code><a href="../reference/tgs_dist.html">tgs_dist()</a></code> and <code><a href="../reference/tgs_cor.html">tgs_cor()</a></code> without BLAS, and <code><a href="../reference/tgs_cor.html">tgs_cor_knn()</a></code>, skipping one row or column for some input sizes when the number of processes is not a power of 2.</li>
+<li>Fixed <code><a href="../reference/tgs_dist.html">tgs_dist()</a></code> with BLAS returning NaN for identical points when the data has missing values.</li>
+</ul></div>
     <div class="section level2">
 <h2 class="page-header" data-toc-text="2.4.0" id="tgstat-240">tgstat 2.4.0<small>2026-08-29</small><a class="anchor" aria-label="anchor" href="#tgstat-240"></a></h2>
 <ul><li>Added <code><a href="../reference/tgs_chi2.html">tgs_chi2()</a></code>: vectorized chi-squared test for 2x2 contingency tables, with optional Yates’ correction and support for sparse (<code>dgCMatrix</code>) input.</li>

@@ -1,10 +1,10 @@
 # tgstat 2.5.0
 
-* Added `tgs_cor_dist()`: euclidean distances between the correlation profiles of the columns of a matrix, the same as `tgs_dist(tgs_cor(x))` up to rounding, but computed without the full correlation matrix when the matrix has much fewer rows than columns (fewer than a third with BLAS, half without), which is much faster and uses less memory.
-* Fixed a row or column being left out when the work is split between processes: the split used floating-point bounds, which for some sizes and numbers of processes that are not powers of 2 (e.g. 30 points and 11 processes) missed one row. Its distances were 0 in `tgs_dist()` without BLAS, its correlations NA in `tgs_cor()` without BLAS (also with `y`), and its neighbors wrong in `tgs_cor_knn()`.
-* Fixed `tgs_dist()` with BLAS returning NaN for identical or nearly identical points when the data has missing values (it now clamps rounding errors at 0, as without missing values), and NaN instead of NA for points that share no non-missing dimension.
-* `tgs_dist()` writes the distances directly into its result instead of first filling an N x N matrix, which lowers its peak memory (for 15000 points in 300 dimensions: from 2.6 to 1.0 GB with BLAS, from 1.8 to 0.9 GB without). With BLAS the distances can differ from the previous version in the last digits.
-* Debian/Ubuntu users with OpenBLAS (e.g. the rocker images) now get the BLAS path by default: the `tgs_use.blas` default is guessed from the name of the BLAS library and of its directory, and OpenBLAS installed through the alternatives system is `.../openblas-pthread/libblas.so.3`.
+* Added `tgs_cor_dist()`: the same as `tgs_dist(tgs_cor(x))`, but much faster and with less memory when `x` has many more columns than rows.
+* `tgs_dist()` uses about half the memory on large inputs.
+* Debian/Ubuntu installations with OpenBLAS (e.g. the rocker images) now use the faster BLAS code by default.
+* Fixed `tgs_dist()` and `tgs_cor()` without BLAS, and `tgs_cor_knn()`, skipping one row or column for some input sizes when the number of processes is not a power of 2.
+* Fixed `tgs_dist()` with BLAS returning NaN for identical points when the data has missing values.
 
 # tgstat 2.4.0
 

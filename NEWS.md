@@ -1,5 +1,6 @@
 # tgstat 2.5.0
 
+* Added `tgs_cor_dist()`: euclidean distances between the correlation profiles of the columns of a matrix, equal to `tgs_dist(tgs_cor(x))` but computed without the full correlation matrix, which is much faster when the matrix has fewer rows than columns.
 * The `tgs_use.blas` default is now guessed from the full path of the BLAS library, so OpenBLAS installed through the Debian/Ubuntu alternatives system (`.../openblas-pthread/libblas.so.3`) is detected.
 
 # tgstat 2.4.0

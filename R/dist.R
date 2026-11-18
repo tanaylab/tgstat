@@ -68,3 +68,74 @@ tgs_dist <- function(x, diag = FALSE, upper = FALSE, tidy = FALSE, threshold = I
         .Call("tgs_dist", x, attrs, tidy, threshold, dimnames(x)[[1L]], new.env(parent = parent.frame()))
     }
 }
+
+#' Calculates distances between the correlation profiles of matrix columns
+#'
+#' Calculates the euclidean distances between the rows of the correlation
+#' matrix of the columns of 'x'.
+#'
+#' 'tgs_cor_dist(x, pairwise.complete.obs, spearman)' is equivalent to
+#' 'tgs_dist(tgs_cor(x, pairwise.complete.obs = pairwise.complete.obs,
+#' spearman = spearman))', but when 'x' has fewer rows than columns it does not
+#' compute the NxN correlation matrix (N being the number of columns of 'x').
+#' Instead it maps each column of 'x' to a point in nrow(x) dimensions, such that
+#' the euclidean distances between the points equal the distances between the
+#' rows of the correlation matrix, and passes these points to 'tgs_dist'. The
+#' run time is thus proportional to N^2 x nrow(x) instead of N^3.
+#'
+#' This is done when all the values of 'x' are finite and no column of 'x' is
+#' constant. Otherwise 'tgs_cor_dist' returns 'tgs_dist(tgs_cor(...))'.
+#'
+#' @param x numeric matrix
+#' @param pairwise.complete.obs see 'tgs_cor' documentation
+#' @param spearman if 'TRUE' Spearman correlation is computed, otherwise
+#' Pearson
+#' @return An object of class 'dist' with the distances between the columns of
+#' 'x', similar to the output of 'tgs_dist'.
+#' @seealso [tgs_cor()], [tgs_dist()]
+#' @keywords ~distance ~correlation
+#' @examples
+#' \donttest{
+#' # Note: all the available CPU cores might be used
+#'
+#' set.seed(seed = 0)
+#' m <- matrix(rnorm(100 * 2000), nrow = 100)
+#' d <- tgs_cor_dist(m)
+#' hc <- hclust(d)
+#' }
+#'
+#' \dontshow{
+#' options(tgs_use.blas = FALSE)
+#' options(tgs_max.processes = 1)
+#'
+#' set.seed(seed = 0)
+#' m <- matrix(rnorm(20 * 200), nrow = 20)
+#' d <- tgs_cor_dist(m)
+#' }
+#'
+#' @export tgs_cor_dist
+tgs_cor_dist <- function(x, pairwise.complete.obs = FALSE, spearman = FALSE) {
+    if (missing(x)) {
+        stop("Usage: tgs_cor_dist(x, pairwise.complete.obs = FALSE, spearman = FALSE)", call. = FALSE)
+    }
+
+    # z: the columns of x (or their ranks) centered and scaled to unit norm, so that the correlation
+    # matrix is crossprod(z). NULL if x has non-finite values or constant columns.
+    # With nrow(x) >= ncol(x) the correlation matrix is not larger than x: nothing to gain.
+    z <- NULL
+    if (is.matrix(x) && nrow(x) < ncol(x)) {
+        z <- .Call("tgs_standardize", x, spearman, new.env(parent = parent.frame()))
+    }
+
+    if (is.null(z)) {
+        d <- tgs_dist(tgs_cor(x, pairwise.complete.obs = pairwise.complete.obs, spearman = spearman))
+    } else {
+        # The squared distance between rows i and j of crossprod(z) is
+        # t(z[, i] - z[, j]) %*% tcrossprod(z) %*% (z[, i] - z[, j]). With tcrossprod(z) = V L t(V),
+        # this is the squared distance between rows i and j of crossprod(z, V L^(1/2)).
+        e <- eigen(tcrossprod(z), symmetric = TRUE)
+        d <- tgs_dist(crossprod(z, e$vectors * rep(sqrt(pmax(e$values, 0)), each = nrow(z))))
+    }
+    attr(d, "call") <- match.call()
+    d
+}

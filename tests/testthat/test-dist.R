@@ -79,3 +79,27 @@ test_that("tgs_dist without BLAS copies results larger than one 64 MB chunk", {
     on.exit(options(old))
     expect_equal(tgs_dist(x), dist(x), ignore_attr = TRUE)
 })
+
+test_that("tgs_dist with BLAS and NAs gives no NaN for identical points", {
+    old <- options(tgs_use.blas = TRUE)
+    on.exit(options(old))
+    for (seed in 1:20) {
+        set.seed(seed)
+        x <- matrix(runif(40 * 30) * 10, nrow = 40)
+        x[2, ] <- x[1, ]
+        x[4, ] <- x[3, ]
+        x[sample(length(x), 50)] <- NA
+        d <- tgs_dist(x)
+        expect_false(any(is.nan(d)))
+        expect_equal(d, dist(x), ignore_attr = TRUE)
+    }
+
+    # points that share no dimension: NA, as without BLAS
+    x <- rbind(c(1, NA), c(NA, 2), c(3, 4))
+    expected <- c(NA, 2 * sqrt(2), 2 * sqrt(2))
+    expect_equal(as.vector(tgs_dist(x)), expected)
+    expect_false(is.nan(tgs_dist(x)[1]))
+    options(tgs_use.blas = FALSE)
+    expect_equal(as.vector(tgs_dist(x)), expected)
+    expect_false(is.nan(tgs_dist(x)[1]))
+})

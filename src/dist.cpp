@@ -389,11 +389,13 @@ SEXP tgs_dist_blas(SEXP _x, SEXP _attrs, SEXP _tidy, SEXP _threshold, SEXP _rrow
                 beta = 0;
                 F77_NAME(dgemm)(&transa, &transb, &num_rows32, &num_cols32, &num_dims32, &alpha, mem.mask + col1, &num_points32, mem.mask + col1, &num_points32, &beta, mem.n, &num_rows32 FCONE FCONE);
 
-                // sqrt(res / n)
+                // sqrt(res / n), clamped at 0 against rounding errors; NA if the points share no dimension (as without BLAS)
                 for (uint64_t ipoint1 = col1; ipoint1 < col2; ++ipoint1) {
                     uint64_t offset = (ipoint1 - col1) * (num_points - col1) - col1;
-                    for (uint64_t ipoint2 = ipoint1 + 1; ipoint2 < num_points; ++ipoint2)
-                        d[idx++] = sqrt(mem.res[offset + ipoint2] / mem.n[offset + ipoint2]);
+                    for (uint64_t ipoint2 = ipoint1 + 1; ipoint2 < num_points; ++ipoint2) {
+                        double n = mem.n[offset + ipoint2];
+                        d[idx++] = n ? sqrt(max(mem.res[offset + ipoint2] / n, 0.)) : NA_REAL;
+                    }
                 }
             } else {
                 // sqrt(res + s_x^2 + s_y^2)

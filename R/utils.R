@@ -20,12 +20,10 @@
     return(opt)
 }
 
-.tgs_guess_use_blas <- function() {
-    blas <- basename(extSoftVersion()["BLAS"])
-    if (grepl("openblas", blas, ignore.case = TRUE) || grepl("mkl", blas, ignore.case = TRUE) || grepl("atlas", blas, ignore.case = TRUE) || grepl("gsl", blas, ignore.case = TRUE)) {
-        return(TRUE)
-    }
-    return(FALSE)
+.tgs_guess_use_blas <- function(blas = extSoftVersion()["BLAS"]) {
+    # the library name, or its directory name: Debian/Ubuntu install OpenBLAS as .../openblas-pthread/libblas.so.3
+    names <- c(basename(blas), basename(dirname(blas)))
+    any(grepl("openblas|mkl|atlas|gsl", names, ignore.case = TRUE))
 }
 
 #' Checks whether all the elements of the vector are finite

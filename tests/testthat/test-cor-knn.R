@@ -221,3 +221,18 @@ test_that("tgs_cor_knn with named columns preserves names", {
     expect_true(all(as.character(res$col1) %in% colnames(x)))
     expect_true(all(as.character(res$col2) %in% colnames(x)))
 })
+
+test_that("tgs_cor_knn does not depend on the number of processes", {
+    set.seed(60427)
+    x <- matrix(rnorm(10 * 120), nrow = 10)
+    y <- matrix(rnorm(10 * 120), nrow = 10)
+    old <- options(tgs_max.processes = 1)
+    on.exit(options(old))
+    expected <- tgs_cor_knn(x, NULL, 5)
+    expected_cross <- tgs_cor_knn(x, y, 5)
+    for (p in c(3, 7, 11, 13, 50)) {
+        options(tgs_max.processes = p)
+        expect_identical(tgs_cor_knn(x, NULL, 5), expected)
+        expect_identical(tgs_cor_knn(x, y, 5), expected_cross)
+    }
+})

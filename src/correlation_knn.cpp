@@ -167,7 +167,6 @@ SEXP tgs_cor_knn(SEXP _x, SEXP _knn, SEXP _pairwise_complete_obs, SEXP _spearman
             verror("Failed to allocate shared memory: %s", strerror(errno));
 
         int num_processes = (int)min(num_cols, (uint64_t)g_tgstat->num_processes());
-        double num_cols4process = num_cols / (double)num_processes;
 
         ProgressReporter progress;
         progress.init(num_cols * num_cols, 1);
@@ -177,8 +176,8 @@ SEXP tgs_cor_knn(SEXP _x, SEXP _knn, SEXP _pairwise_complete_obs, SEXP _spearman
 
         for (int iprocess = 0; iprocess < num_processes; ++iprocess) {
             if (!TGStat::launch_process()) {     // child process
-                uint64_t scol = iprocess * num_cols4process;
-                uint64_t ecol = (iprocess + 1) * num_cols4process;
+                uint64_t scol = iprocess * num_cols / num_processes;
+                uint64_t ecol = (iprocess + 1) * num_cols / num_processes;
                 uint64_t itr_idx = 0;
                 vector<double> cors(num_cols);
                 vector<double *> pcors(num_cols);
@@ -566,7 +565,6 @@ SEXP tgs_cross_cor_knn(SEXP _x, SEXP _y, SEXP _knn, SEXP _pairwise_complete_obs,
             verror("Failed to allocate shared memory: %s", strerror(errno));
 
         int num_processes = (int)min(max((uint64_t)1, num_cols[0] / 10), (uint64_t)g_tgstat->num_processes());
-        double num_cols4process = num_cols[0] / (double)num_processes;
 
         ProgressReporter progress;
         progress.init(num_cols[0] * num_cols[1], 1);
@@ -576,8 +574,8 @@ SEXP tgs_cross_cor_knn(SEXP _x, SEXP _y, SEXP _knn, SEXP _pairwise_complete_obs,
 
         for (int iprocess = 0; iprocess < num_processes; ++iprocess) {
             if (!TGStat::launch_process()) {     // child process
-                uint64_t scol = iprocess * num_cols4process;
-                uint64_t ecol = (iprocess + 1) * num_cols4process;
+                uint64_t scol = iprocess * num_cols[0] / num_processes;
+                uint64_t ecol = (iprocess + 1) * num_cols[0] / num_processes;
                 uint64_t itr_idx = 0;
                 vector<double> cors(num_cols[1]);
                 vector<double *> pcors(num_cols[1]);

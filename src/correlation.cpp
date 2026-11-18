@@ -165,7 +165,6 @@ SEXP tgs_cor(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _tidy, S
             res[i] = numeric_limits<double>::quiet_NaN();
 
         int num_processes = (int)min(max((uint64_t)1, num_cols / 10), (uint64_t)g_tgstat->num_processes());
-        double num_cols4process = num_cols / (double)num_processes;
 
         ProgressReporter progress;
         progress.init(num_cols * num_cols / 2 - num_cols, 1);
@@ -175,8 +174,11 @@ SEXP tgs_cor(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _tidy, S
 
         for (int iprocess = 0; iprocess < num_processes; ++iprocess) {
             if (!TGStat::launch_process()) {     // child process
-                uint64_t scol[2] = { (uint64_t)(iprocess * num_cols4process / 2.), (uint64_t)(num_cols - (iprocess + 1) * num_cols4process / 2.) };
-                uint64_t ecol[2] = { (uint64_t)((iprocess + 1) * num_cols4process / 2.), (uint64_t)(num_cols - iprocess * num_cols4process / 2.) };
+                // two parts per process, one from each end, to balance the triangle; integer bounds so that
+                // the parts cover all the columns: floor(i * N / (2P)) and N - ceil(i * N / (2P))
+                uint64_t num_parts = 2 * num_processes;
+                uint64_t scol[2] = { iprocess * num_cols / num_parts, num_cols - ((iprocess + 1) * num_cols + num_parts - 1) / num_parts };
+                uint64_t ecol[2] = { (iprocess + 1) * num_cols / num_parts, num_cols - (iprocess * num_cols + num_parts - 1) / num_parts };
                 uint64_t itr_idx = 0;
 
                 for (int ipart = 0; ipart < 2; ipart++) {
@@ -573,7 +575,6 @@ SEXP tgs_cross_cor(SEXP _x, SEXP _y, SEXP _pairwise_complete_obs, SEXP _spearman
         // child process writes its result to res, the location at res will be a contiguous
         // chunk of memory. (res is organized like that: x1y1, x2y1, ..., x1y2, x2y2, ...)
         int num_processes = (int)min(max((uint64_t)1, num_cols[1] / 10), (uint64_t)g_tgstat->num_processes());
-        double num_cols4process = num_cols[1] / (double)num_processes;
 
         ProgressReporter progress;
         progress.init(res_size, 1);
@@ -583,8 +584,8 @@ SEXP tgs_cross_cor(SEXP _x, SEXP _y, SEXP _pairwise_complete_obs, SEXP _spearman
 
         for (int iprocess = 0; iprocess < num_processes; ++iprocess) {
             if (!TGStat::launch_process()) {     // child process
-                uint64_t scol = (uint64_t)(iprocess * num_cols4process);
-                uint64_t ecol = (uint64_t)((iprocess + 1) * num_cols4process);
+                uint64_t scol = iprocess * num_cols[1] / num_processes;
+                uint64_t ecol = (iprocess + 1) * num_cols[1] / num_processes;
                 uint64_t idx = scol * num_cols[0];
                 uint64_t itr_idx = 0;
 

@@ -2,6 +2,7 @@
 
 export(tgs_chi2)
 export(tgs_cor)
+export(tgs_cor_dist)
 export(tgs_cor_knn)
 export(tgs_dist)
 export(tgs_finite)

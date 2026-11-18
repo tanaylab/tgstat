@@ -1,3 +1,11 @@
+# tgstat 2.5.0
+
+* Added `tgs_cor_dist()`: the same as `tgs_dist(tgs_cor(x))`, but much faster and with less memory when `x` has many more columns than rows.
+* `tgs_dist()` uses about half the memory on large inputs.
+* Debian/Ubuntu installations with OpenBLAS (e.g. the rocker images) now use the faster BLAS code by default.
+* Fixed `tgs_dist()` and `tgs_cor()` without BLAS, and `tgs_cor_knn()`, skipping one row or column for some input sizes when the number of processes is not a power of 2.
+* Fixed `tgs_dist()` with BLAS returning NaN for identical points when the data has missing values.
+
 # tgstat 2.4.0
 
 * Added `tgs_chi2()`: vectorized chi-squared test for 2x2 contingency tables, with optional Yates' correction and support for sparse (`dgCMatrix`) input.

@@ -21,7 +21,8 @@
 }
 
 .tgs_guess_use_blas <- function() {
-    blas <- basename(extSoftVersion()["BLAS"])
+    # match the full path: Debian/Ubuntu install OpenBLAS as .../openblas-pthread/libblas.so.3
+    blas <- extSoftVersion()["BLAS"]
     if (grepl("openblas", blas, ignore.case = TRUE) || grepl("mkl", blas, ignore.case = TRUE) || grepl("atlas", blas, ignore.case = TRUE) || grepl("gsl", blas, ignore.case = TRUE)) {
         return(TRUE)
     }

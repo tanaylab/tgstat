@@ -1,3 +1,7 @@
+# tgstat 2.5.0
+
+* The `tgs_use.blas` default is now guessed from the full path of the BLAS library, so OpenBLAS installed through the Debian/Ubuntu alternatives system (`.../openblas-pthread/libblas.so.3`) is detected.
+
 # tgstat 2.4.0
 
 * Added `tgs_chi2()`: vectorized chi-squared test for 2x2 contingency tables, with optional Yates' correction and support for sparse (`dgCMatrix`) input.

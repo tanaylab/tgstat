@@ -35,3 +35,25 @@ test_that("tgs_dist works correctly", {
     z <- matrix(letters[1:100], nrow = 10)
     expect_error(tgs_dist(z))
 })
+
+test_that("tgs_dist matches dist with and without BLAS on more points than one block", {
+    set.seed(60427)
+    x <- matrix(rnorm(3000 * 5), nrow = 3000, dimnames = list(paste0("p", 1:3000), NULL))
+    x_na <- x
+    x_na[sample(length(x), 100)] <- NA
+    old <- getOption("tgs_use.blas")
+    on.exit(options(tgs_use.blas = old))
+
+    for (use_blas in c(TRUE, FALSE)) {
+        options(tgs_use.blas = use_blas)
+        for (m in list(x, x_na)) {
+            d <- dist(m)
+            expect_equal(tgs_dist(m), d, ignore_attr = "call")
+            tidy <- tgs_dist(m, tidy = TRUE, threshold = 1)
+            expected <- which(as.vector(d) <= 1)
+            expect_equal(nrow(tidy), length(expected))
+            expect_equal(tidy$dist, as.vector(d)[expected])
+            expect_equal(levels(tidy$row1), rownames(x))
+        }
+    }
+})

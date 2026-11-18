@@ -32,12 +32,17 @@ test_that("tgs_cor_dist equals tgs_dist(tgs_cor())", {
     expect_cor_dist(xt)
     expect_cor_dist(xt, spearman = TRUE)
 
+    # rows between N / 3 and N / 2: tgs_dist(tgs_cor()) with BLAS, the fast path without
+    xm <- matrix(rnorm(40 * 100), nrow = 40)
+    expect_cor_dist(xm)
+    expect_cor_dist(xm, spearman = TRUE)
+
     expect_equal(attr(tgs_cor_dist(x), "call"), quote(tgs_cor_dist(x = x)))
 })
 
 test_that("tgs_cor_dist falls back to tgs_dist(tgs_cor()) on missing values and constant columns", {
     set.seed(60427)
-    x <- matrix(rnorm(20 * 50), nrow = 20)
+    x <- matrix(rnorm(20 * 100), nrow = 20) # few enough rows for the fast path with and without BLAS
 
     x_na <- x
     x_na[sample(length(x), 10)] <- NA
@@ -64,7 +69,7 @@ test_that("tgs_cor_dist handles few columns or rows", {
     expect_cor_dist(x[1:2, ])
     expect_cor_dist(x[1, , drop = FALSE])
 
-    y <- matrix(rnorm(2 * 6), nrow = 2)
+    y <- matrix(rnorm(2 * 8), nrow = 2)
     expect_cor_dist(y)
     expect_cor_dist(y, spearman = TRUE)
 })

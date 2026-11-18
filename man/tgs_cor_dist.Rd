@@ -30,15 +30,17 @@ well-conditioned data. (When the columns of 'x' have offsets that are large
 relative to their spread, 'tgs_cor' loses precision while 'tgs_cor_dist',
 which centers the columns first, does not, so the two differ.)
 
-When 'x' has fewer rows than columns, 'tgs_cor_dist' does not
-compute the NxN correlation matrix (N being the number of columns of 'x').
-Instead it maps each column of 'x' to a point in nrow(x) dimensions, such that
-the euclidean distances between the points equal the distances between the
-rows of the correlation matrix, and passes these points to 'tgs_dist'. The
-run time is thus proportional to N^2 x nrow(x) instead of N^3.
+When 'x' has much fewer rows (G) than columns (N), 'tgs_cor_dist' does not
+compute the NxN correlation matrix. Instead it maps each column of 'x' to a
+point in G dimensions, such that the euclidean distances between the points
+equal the distances between the rows of the correlation matrix, and passes
+these points to 'tgs_dist'. This takes time proportional to G^3 + N^2 x G
+(an eigendecomposition of a GxG matrix and the distances) instead of
+N^2 x G + N^3, and is used when G < N / 3 with BLAS ('tgs_use.blas') and
+G < N / 2 without, which is where it was measured to be faster.
 
-This is done when all the values of 'x' are finite and no column of 'x' is
-constant. Otherwise 'tgs_cor_dist' returns 'tgs_dist(tgs_cor(...))'.
+It is also used only when all the values of 'x' are finite and no column of
+'x' is constant. Otherwise 'tgs_cor_dist' returns 'tgs_dist(tgs_cor(...))'.
 }
 \examples{
 \donttest{

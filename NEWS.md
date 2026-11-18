@@ -4,7 +4,7 @@
 * Fixed a row or column being left out when the work is split between processes: the split used floating-point bounds, which for some sizes and numbers of processes that are not powers of 2 (e.g. 30 points and 11 processes) missed one row. Its distances were 0 in `tgs_dist()` without BLAS, its correlations NA in `tgs_cor()` without BLAS (also with `y`), and its neighbors wrong in `tgs_cor_knn()`.
 * Fixed `tgs_dist()` with BLAS returning NaN for identical or nearly identical points when the data has missing values (it now clamps rounding errors at 0, as without missing values), and NaN instead of NA for points that share no non-missing dimension.
 * `tgs_dist()` writes the distances directly into its result instead of first filling an N x N matrix, which lowers its peak memory (for 15000 points in 300 dimensions: from 2.6 to 1.0 GB with BLAS, from 1.8 to 0.9 GB without). With BLAS the distances can differ from the previous version in the last digits.
-* The `tgs_use.blas` default is now guessed from the full path of the BLAS library, so OpenBLAS installed through the Debian/Ubuntu alternatives system (`.../openblas-pthread/libblas.so.3`) is detected.
+* Debian/Ubuntu users with OpenBLAS (e.g. the rocker images) now get the BLAS path by default: the `tgs_use.blas` default is guessed from the name of the BLAS library and of its directory, and OpenBLAS installed through the alternatives system is `.../openblas-pthread/libblas.so.3`.
 
 # tgstat 2.4.0
 

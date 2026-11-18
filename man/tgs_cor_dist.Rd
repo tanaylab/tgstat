@@ -23,9 +23,14 @@ Calculates the euclidean distances between the rows of the correlation
 matrix of the columns of 'x'.
 }
 \details{
-'tgs_cor_dist(x, pairwise.complete.obs, spearman)' is equivalent to
-'tgs_dist(tgs_cor(x, pairwise.complete.obs = pairwise.complete.obs,
-spearman = spearman))', but when 'x' has fewer rows than columns it does not
+'tgs_cor_dist(x, pairwise.complete.obs, spearman)' returns the same
+distances as 'tgs_dist(tgs_cor(x, pairwise.complete.obs =
+pairwise.complete.obs, spearman = spearman))' up to rounding errors, for
+well-conditioned data. (When the columns of 'x' have offsets that are large
+relative to their spread, 'tgs_cor' loses precision while 'tgs_cor_dist',
+which centers the columns first, does not, so the two differ.)
+
+When 'x' has fewer rows than columns, 'tgs_cor_dist' does not
 compute the NxN correlation matrix (N being the number of columns of 'x').
 Instead it maps each column of 'x' to a point in nrow(x) dimensions, such that
 the euclidean distances between the points equal the distances between the

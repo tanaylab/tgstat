@@ -97,3 +97,10 @@ test_that("tgs_standardize returns columns whose crossprod is the correlation ma
     expect_identical(standardize(x, spearman = TRUE), z1)
     expect_equal(crossprod(z1[, 1:100]), cor(x[, 1:100], method = "spearman"))
 })
+
+test_that("tgs_cor_dist stays accurate for columns with large offsets", {
+    set.seed(60427)
+    x <- matrix(rnorm(20 * 300), nrow = 20) + 1e5
+    expect_equal(as.vector(tgs_cor_dist(x)), as.vector(dist(cor(x))), tolerance = 1e-12)
+    expect_equal(as.vector(tgs_cor_dist(x, spearman = TRUE)), as.vector(dist(cor(x, method = "spearman"))), tolerance = 1e-12)
+})

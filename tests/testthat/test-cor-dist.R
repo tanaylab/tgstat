@@ -84,4 +84,14 @@ test_that("tgs_standardize returns columns whose crossprod is the correlation ma
     expect_null(standardize(x_const))
     expect_null(standardize(x[1, , drop = FALSE]))
     expect_error(standardize(matrix(letters[1:20], nrow = 2)))
+
+    # the ranking of large matrices is split between processes
+    x <- matrix(sample(1:50, 100 * 20000, replace = TRUE), nrow = 100)
+    old <- getOption("tgs_max.processes")
+    on.exit(options(tgs_max.processes = old))
+    options(tgs_max.processes = 1)
+    z1 <- standardize(x, spearman = TRUE)
+    options(tgs_max.processes = 4)
+    expect_identical(standardize(x, spearman = TRUE), z1)
+    expect_equal(crossprod(z1[, 1:100]), cor(x[, 1:100], method = "spearman"))
 })

@@ -55,6 +55,13 @@ test_that("tgs_cor_dist falls back to tgs_dist(tgs_cor()) on missing values and 
     expect_cor_dist(x_const)
     expect_cor_dist(x_const, spearman = TRUE)
 
+    # constants whose computed mean is not exact
+    for (val in c(0.1, log2(1e-5))) {
+        x_const[, 3] <- val
+        expect_cor_dist(x_const)
+        expect_cor_dist(x_const, spearman = TRUE)
+    }
+
     expect_error(tgs_cor_dist(letters))
     expect_error(tgs_cor_dist(x, pairwise.complete.obs = "a"), "pairwise.complete.obs")
     expect_error(tgs_cor_dist(x, spearman = "a"), "spearman")
@@ -108,4 +115,10 @@ test_that("tgs_cor_dist stays accurate for columns with large offsets", {
     x <- matrix(rnorm(20 * 300), nrow = 20) + 1e5
     expect_equal(as.vector(tgs_cor_dist(x)), as.vector(dist(cor(x))), tolerance = 1e-12)
     expect_equal(as.vector(tgs_cor_dist(x, spearman = TRUE)), as.vector(dist(cor(x, method = "spearman"))), tolerance = 1e-12)
+})
+
+test_that("tgs_cor_dist works with more columns than one tgs_dist BLAS block", {
+    set.seed(60427)
+    x <- matrix(rnorm(20 * 3000), nrow = 20) # tgs_dist on 3000 points uses blocks of 2796 columns
+    expect_cor_dist(x)
 })

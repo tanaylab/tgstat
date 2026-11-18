@@ -149,7 +149,6 @@ SEXP tgs_dist(SEXP _x, SEXP _attrs, SEXP _tidy, SEXP _threshold, SEXP _rrownames
         double *res = (double *)shm;
 
         int num_processes = (int)min(num_points / 2, (uint64_t)g_tgstat->num_processes());
-        double num_row4process = num_points / (double)num_processes;
 
         ProgressReporter progress;
         progress.init(num_points * num_points / 2 - num_points, 1);
@@ -159,8 +158,11 @@ SEXP tgs_dist(SEXP _x, SEXP _attrs, SEXP _tidy, SEXP _threshold, SEXP _rrownames
 
         for (int iprocess = 0; iprocess < num_processes; ++iprocess) {
             if (!TGStat::launch_process()) {     // child process
-                uint64_t srow[2] = { (uint64_t)(iprocess * num_row4process / 2.), (uint64_t)(num_points - (iprocess + 1) * num_row4process / 2.) };
-                uint64_t erow[2] = { (uint64_t)((iprocess + 1) * num_row4process / 2.), (uint64_t)(num_points - iprocess * num_row4process / 2.) };
+                // two parts per process, one from each end, to balance the triangle; integer bounds so that
+                // the parts cover all the rows: floor(i * N / (2P)) and N - ceil(i * N / (2P))
+                uint64_t num_parts = 2 * num_processes;
+                uint64_t srow[2] = { iprocess * num_points / num_parts, num_points - ((iprocess + 1) * num_points + num_parts - 1) / num_parts };
+                uint64_t erow[2] = { (iprocess + 1) * num_points / num_parts, num_points - (iprocess * num_points + num_parts - 1) / num_parts };
                 uint64_t itr_idx = 0;
 
                 for (int ipart = 0; ipart < 2; ipart++) {

@@ -57,3 +57,16 @@ test_that("tgs_dist matches dist with and without BLAS on more points than one b
         }
     }
 })
+
+test_that("tgs_dist computes all the rows with process counts that are not powers of 2", {
+    set.seed(60427)
+    x <- matrix(rnorm(120 * 5), nrow = 120)
+    old <- options(tgs_use.blas = FALSE, tgs_max.processes = 1)
+    on.exit(options(old))
+    for (p in c(3, 7, 11, 13, 50)) {
+        options(tgs_max.processes = p)
+        for (n in c(30, 31, 120)) {
+            expect_equal(tgs_dist(x[1:n, ]), dist(x[1:n, ]), ignore_attr = TRUE)
+        }
+    }
+})

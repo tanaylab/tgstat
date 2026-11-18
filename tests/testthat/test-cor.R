@@ -32,3 +32,16 @@ test_that("tgs_cor works correctly", {
     y <- matrix(rnorm(50), nrow = 10)
     expect_equal(tgs_cor(x, y), cor(x, y), ignore_attr = TRUE)
 })
+
+test_that("tgs_cor computes all the columns with process counts that are not powers of 2", {
+    set.seed(60427)
+    x <- matrix(rnorm(10 * 120), nrow = 10)
+    y <- matrix(rnorm(10 * 50), nrow = 10)
+    old <- options(tgs_use.blas = FALSE, tgs_max.processes = 1)
+    on.exit(options(old))
+    for (p in c(3, 7, 11, 13, 50)) {
+        options(tgs_max.processes = p)
+        expect_equal(tgs_cor(x), cor(x))
+        expect_equal(tgs_cor(y, x), cor(y, x), ignore_attr = TRUE)
+    }
+})

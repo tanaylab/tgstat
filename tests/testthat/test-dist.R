@@ -70,3 +70,12 @@ test_that("tgs_dist computes all the rows with process counts that are not power
         }
     }
 })
+
+test_that("tgs_dist without BLAS copies results larger than one 64 MB chunk", {
+    set.seed(60427)
+    x <- matrix(rnorm(4200 * 3), nrow = 4200) # 4200 * 4199 / 2 distances > 2^23
+    x[sample(length(x), 50)] <- NA
+    old <- options(tgs_use.blas = FALSE)
+    on.exit(options(old))
+    expect_equal(tgs_dist(x), dist(x), ignore_attr = TRUE)
+})

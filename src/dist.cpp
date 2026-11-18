@@ -218,15 +218,16 @@ SEXP tgs_dist(SEXP _x, SEXP _attrs, SEXP _tidy, SEXP _threshold, SEXP _rrownames
         else {
             rprotect(answer = RSaneAllocVector(REALSXP, res_size));
 
-            // copy the distances in chunks and release each copied chunk of the shared memory,
-            // so that the distances are not held twice in memory
+            // copy the distances in chunks and free the pages of each copied chunk, so that the distances are not
+            // held twice in memory. (munmap of a part of a shared mapping would not free its pages.)
             const uint64_t chunk_size = ((uint64_t)64 << 20) / sizeof(double);
 
             for (uint64_t i = 0; i < res_size; i += chunk_size) {
                 uint64_t n = min(chunk_size, res_size - i);
                 memcpy(REAL(answer) + i, res + i, n * sizeof(double));
-                if (n == chunk_size)
-                    munmap((char *)(res + i), n * sizeof(double));
+#ifdef MADV_REMOVE
+                madvise((char *)(res + i), n * sizeof(double), MADV_REMOVE);
+#endif
             }
 
             set_attrs(answer, _attrs);

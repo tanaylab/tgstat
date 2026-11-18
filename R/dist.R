@@ -119,6 +119,10 @@ tgs_cor_dist <- function(x, pairwise.complete.obs = FALSE, spearman = FALSE) {
         stop("Usage: tgs_cor_dist(x, pairwise.complete.obs = FALSE, spearman = FALSE)", call. = FALSE)
     }
 
+    if (!is.logical(pairwise.complete.obs) || length(pairwise.complete.obs) != 1) {
+        stop("\"pairwise.complete.obs\" argument must be a logical value", call. = FALSE)
+    }
+
     # z: the columns of x (or their ranks) centered and scaled to unit norm, so that the correlation
     # matrix is crossprod(z). NULL if x has non-finite values or constant columns.
     # With nrow(x) >= ncol(x) the correlation matrix is not larger than x: nothing to gain.

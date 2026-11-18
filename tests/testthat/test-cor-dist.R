@@ -51,6 +51,8 @@ test_that("tgs_cor_dist falls back to tgs_dist(tgs_cor()) on missing values and 
     expect_cor_dist(x_const, spearman = TRUE)
 
     expect_error(tgs_cor_dist(letters))
+    expect_error(tgs_cor_dist(x, pairwise.complete.obs = "a"), "pairwise.complete.obs")
+    expect_error(tgs_cor_dist(x, spearman = "a"), "spearman")
 })
 
 test_that("tgs_cor_dist handles few columns or rows", {

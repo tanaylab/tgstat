@@ -239,6 +239,10 @@ SEXP tgs_dist(SEXP _x, SEXP _attrs, SEXP _tidy, SEXP _threshold, SEXP _rrownames
         }
 		rerror("%s", e.msg());
     } catch (const bad_alloc &e) {
+        if (!TGStat::is_kid() && shm != (double *)MAP_FAILED) {
+            munmap((char *)shm, shm_sizeof);     // needs to be char * for some versions of Solaris
+            shm = (double *)MAP_FAILED;
+        }
         rerror("Out of memory");
     }
 

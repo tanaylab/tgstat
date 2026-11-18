@@ -182,6 +182,10 @@ SEXP tgs_standardize(SEXP _x, SEXP _spearman, SEXP _envir)
         }
         rerror("%s", e.msg());
     } catch (const bad_alloc &e) {
+        if (!TGStat::is_kid() && shm != (double *)MAP_FAILED) {
+            munmap((char *)shm, shm_sizeof);
+            shm = (double *)MAP_FAILED;
+        }
         rerror("Out of memory");
     }
 

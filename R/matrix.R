@@ -74,5 +74,5 @@ tgs_matrix_tapply <- function(x, index, fun, ..., margin = 2) {
     args <- as.list(substitute(list(...)))[-1L]
     # the same as factor(index), but much faster for an integer index
     index <- as.factor(index)
-    .Call("tgs_matrix_tapply", x, index, fun, as.character(substitute(fun)), args, as.integer(margin), new.env(parent = parent.frame()))
+    .tgs_call("tgs_matrix_tapply", x, index, fun, as.character(substitute(fun)), args, as.integer(margin), new.env(parent = parent.frame()))
 }

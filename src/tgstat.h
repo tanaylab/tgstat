@@ -2,6 +2,7 @@
 #define TGSTAT_H_
 
 #include <errno.h>
+#include <cfloat>
 #include <cstring>
 #include <stdlib.h>
 #include <string>
@@ -63,6 +64,16 @@ void flag_constant_cols(const double *vals, uint64_t num_rows, uint64_t num_cols
 // Returns for each column of the numeric matrix x whether its values that are not missing are all equal (or it has
 // none). With pairwise.complete.obs such a column is constant in every pair, and has no correlations.
 vector<bool> constant_cols(SEXP x);
+
+// Returns true if both columns have values in at least one common row, and over these rows column xcol of the numeric
+// matrix x or column ycol of the numeric matrix y is constant. With pairwise.complete.obs the two columns then have no
+// correlation.
+bool constant_in_pair(SEXP x, uint64_t xcol, SEXP y, uint64_t ycol);
+
+// Returns true if var, a variance of n values that was computed as mean_square - mean^2, is within the rounding error
+// of zero, i.e. the values might be constant (constant values always pass). var and mean_square may be scaled by the
+// same factor.
+inline bool var_near_zero(double var, double mean_square, uint64_t n) { return !(var > 8 * n * DBL_EPSILON * mean_square); }
 
 // Replaces the n values of v by their ranks (if spearman is true), then centers them and scales them to unit norm.
 // Returns false if the values are constant (or their sum of squares overflows).

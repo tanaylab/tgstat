@@ -1,13 +1,12 @@
+# Calls a C function of the package. The child processes that the function launches end inside it. If an R error
+# makes a child process return to R, the child reports the error to the parent process and ends here: otherwise it
+# would go on running the code of the caller as a second R process.
 .tgs_call <- function(...) {
-    tryCatch(
-        {
-            res <- .Call(...)
-        },
-        interrupt = function(interrupt) {
-            stop("Command interrupted!", call. = FALSE)
-        }
-    )
-    return(res)
+    pid <- Sys.getpid()
+    on.exit(if (Sys.getpid() != pid) .Call("tgs_child_exit", "Child process returned to R"))
+    withCallingHandlers(.Call(...), error = function(e) {
+        if (Sys.getpid() != pid) .Call("tgs_child_exit", conditionMessage(e))
+    })
 }
 
 .tgs_use_blas <- function() {
@@ -48,7 +47,7 @@ tgs_finite <- function(x) {
         stop("Usage: tgs_finite(x)", call. = FALSE)
     }
 
-    .Call("tgs_finite", x, new.env(parent = parent.frame()))
+    .tgs_call("tgs_finite", x, new.env(parent = parent.frame()))
 }
 
 # Converts a data frame to a matrix, and (if vector_ok) a vector to a matrix of one column.

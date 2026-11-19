@@ -57,7 +57,7 @@ tgs_ks <- function(x, labels, alternative = c("two.sided", "less", "greater")) {
     alternative <- match.arg(alternative)
     x <- .tgs_as_matrix(x)
 
-    .Call("tgs_ks", x, labels, alternative, new.env(parent = parent.frame()))
+    .tgs_call("tgs_ks", x, labels, alternative, new.env(parent = parent.frame()))
 }
 
 #' Vectorized Wilcoxon rank sum test
@@ -121,5 +121,5 @@ tgs_wilcox <- function(x, labels, alternative = c("two.sided", "less", "greater"
     alternative <- match.arg(alternative)
     x <- .tgs_as_matrix(x)
 
-    .Call("tgs_wilcox", x, labels, alternative, new.env(parent = parent.frame()))
+    .tgs_call("tgs_wilcox", x, labels, alternative, new.env(parent = parent.frame()))
 }

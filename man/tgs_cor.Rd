@@ -94,10 +94,10 @@ reduce that to max((NCX+NCY)xNR,NCXxKNN).
 A constant column, and without 'pairwise.complete.obs' a column with missing
 values, has no correlations: 'tgs_cor' returns 'NA' for it, and in
 'tgs_cor_knn' it has no neighbours and is not a neighbour of other columns.
-With 'pairwise.complete.obs' and missing values a column is treated as
-constant if all its values that are not missing are equal. A column that is
-constant only over the rows it shares with another column is not detected,
-and its correlation with that column is not reliable.
+With 'pairwise.complete.obs' and missing values a column is constant if all
+its values that are not missing are equal. Two columns also have no
+correlation ('NA' in 'tgs_cor', not neighbours in 'tgs_cor_knn') if one of
+them is constant over the rows in which both have values.
 }
 \examples{
 \donttest{

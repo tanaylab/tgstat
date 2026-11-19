@@ -42,10 +42,10 @@
 #' A constant column, and without 'pairwise.complete.obs' a column with missing
 #' values, has no correlations: 'tgs_cor' returns 'NA' for it, and in
 #' 'tgs_cor_knn' it has no neighbours and is not a neighbour of other columns.
-#' With 'pairwise.complete.obs' and missing values a column is treated as
-#' constant if all its values that are not missing are equal. A column that is
-#' constant only over the rows it shares with another column is not detected,
-#' and its correlation with that column is not reliable.
+#' With 'pairwise.complete.obs' and missing values a column is constant if all
+#' its values that are not missing are equal. Two columns also have no
+#' correlation ('NA' in 'tgs_cor', not neighbours in 'tgs_cor_knn') if one of
+#' them is constant over the rows in which both have values.
 #'
 #' @aliases tgs_cor tgs_cor_knn
 #' @param x numeric matrix or data frame
@@ -109,15 +109,15 @@ tgs_cor <- function(x, y = NULL, pairwise.complete.obs = FALSE, spearman = FALSE
 
     if (is.null(y)) {
         if (!.tgs_use_blas() || pairwise.complete.obs && spearman && !tgs_finite(x)) {
-            .Call("tgs_cor", x, pairwise.complete.obs, spearman, tidy, threshold, new.env(parent = parent.frame()))
+            .tgs_call("tgs_cor", x, pairwise.complete.obs, spearman, tidy, threshold, new.env(parent = parent.frame()))
         } else {
-            .Call("tgs_cor_blas", x, pairwise.complete.obs, spearman, tidy, threshold, new.env(parent = parent.frame()))
+            .tgs_call("tgs_cor_blas", x, pairwise.complete.obs, spearman, tidy, threshold, new.env(parent = parent.frame()))
         }
     } else {
         if (!.tgs_use_blas() || pairwise.complete.obs && spearman && (!tgs_finite(x) || !tgs_finite(y))) {
-            .Call("tgs_cross_cor", x, y, pairwise.complete.obs, spearman, tidy, threshold, new.env(parent = parent.frame()))
+            .tgs_call("tgs_cross_cor", x, y, pairwise.complete.obs, spearman, tidy, threshold, new.env(parent = parent.frame()))
         } else {
-            .Call("tgs_cross_cor_blas", x, y, pairwise.complete.obs, spearman, tidy, threshold, new.env(parent = parent.frame()))
+            .tgs_call("tgs_cross_cor_blas", x, y, pairwise.complete.obs, spearman, tidy, threshold, new.env(parent = parent.frame()))
         }
     }
 }
@@ -134,10 +134,10 @@ tgs_cor_knn <- function(x, y = NULL, knn, pairwise.complete.obs = FALSE, spearma
 
     # the BLAS implementation does not support pairwise.complete.obs with missing values
     if (.tgs_use_blas() && !(isTRUE(pairwise.complete.obs) && (!tgs_finite(x) || !is.null(y) && !tgs_finite(y)))) {
-        .Call("tgs_cor_knn_blas", x, y, knn, pairwise.complete.obs, spearman, threshold, new.env(parent = parent.frame()))
+        .tgs_call("tgs_cor_knn_blas", x, y, knn, pairwise.complete.obs, spearman, threshold, new.env(parent = parent.frame()))
     } else if (is.null(y)) {
-        .Call("tgs_cor_knn", x, knn, pairwise.complete.obs, spearman, threshold, new.env(parent = parent.frame()))
+        .tgs_call("tgs_cor_knn", x, knn, pairwise.complete.obs, spearman, threshold, new.env(parent = parent.frame()))
     } else {
-        .Call("tgs_cross_cor_knn", x, y, knn, pairwise.complete.obs, spearman, threshold, new.env(parent = parent.frame()))
+        .tgs_call("tgs_cross_cor_knn", x, y, knn, pairwise.complete.obs, spearman, threshold, new.env(parent = parent.frame()))
     }
 }

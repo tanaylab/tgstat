@@ -86,9 +86,9 @@ tgs_dist <- function(x, y = NULL, diag = FALSE, upper = FALSE, tidy = FALSE, thr
         y <- .tgs_as_matrix(y)
 
         if (.tgs_use_blas()) {
-            return(.Call("tgs_cross_dist_blas", x, y, tidy, threshold, new.env(parent = parent.frame())))
+            return(.tgs_call("tgs_cross_dist_blas", x, y, tidy, threshold, new.env(parent = parent.frame())))
         } else {
-            return(.Call("tgs_cross_dist", x, y, tidy, threshold, new.env(parent = parent.frame())))
+            return(.tgs_call("tgs_cross_dist", x, y, tidy, threshold, new.env(parent = parent.frame())))
         }
     }
 
@@ -98,9 +98,9 @@ tgs_dist <- function(x, y = NULL, diag = FALSE, upper = FALSE, tidy = FALSE, thr
     )
 
     if (.tgs_use_blas()) {
-        .Call("tgs_dist_blas", x, attrs, tidy, threshold, dimnames(x)[[1L]], new.env(parent = parent.frame()))
+        .tgs_call("tgs_dist_blas", x, attrs, tidy, threshold, dimnames(x)[[1L]], new.env(parent = parent.frame()))
     } else {
-        .Call("tgs_dist", x, attrs, tidy, threshold, dimnames(x)[[1L]], new.env(parent = parent.frame()))
+        .tgs_call("tgs_dist", x, attrs, tidy, threshold, dimnames(x)[[1L]], new.env(parent = parent.frame()))
     }
 }
 
@@ -168,9 +168,9 @@ tgs_dist_knn <- function(x, y = NULL, knn, threshold = Inf) {
 
     # the BLAS implementation does not support missing values
     if (.tgs_use_blas() && is.numeric(x) && tgs_finite(x) && (is.null(y) || is.numeric(y) && tgs_finite(y))) {
-        .Call("tgs_dist_knn_blas", x, y, knn, threshold, new.env(parent = parent.frame()))
+        .tgs_call("tgs_dist_knn_blas", x, y, knn, threshold, new.env(parent = parent.frame()))
     } else {
-        .Call("tgs_dist_knn", x, y, knn, threshold, new.env(parent = parent.frame()))
+        .tgs_call("tgs_dist_knn", x, y, knn, threshold, new.env(parent = parent.frame()))
     }
 }
 
@@ -243,7 +243,7 @@ tgs_cor_dist <- function(x, pairwise.complete.obs = FALSE, spearman = FALSE) {
     # N = 2000 to 8000, z is faster for G below about N / 3 with BLAS and 0.6 N without.
     z <- NULL
     if (is.matrix(x) && nrow(x) < ncol(x) / (if (.tgs_use_blas()) 3 else 2)) {
-        z <- .Call("tgs_standardize", x, spearman, new.env(parent = parent.frame()))
+        z <- .tgs_call("tgs_standardize", x, spearman, new.env(parent = parent.frame()))
     }
 
     if (is.null(z)) {

@@ -9,6 +9,11 @@
 * `tgs_cor()` and `tgs_cor_knn()` accept data frames. `tgs_cor()` accepts a vector as `y` (and then also as `x`), for the correlations of one vector with all the columns of a matrix. `y` of `tgs_cor_knn()` defaults to `NULL`.
 * `tgs_cor_knn()` uses BLAS when `tgs_use.blas` is on, which makes it several times faster.
 * `tgs_knn()` on a matrix is much faster and no longer needs memory for an index of the whole matrix.
+* `tgs_matrix_tapply()` computes `max()`, `min()` and `median()` in C++, like `sum()` and `mean()`, which makes them much faster.
+* Added a `margin` argument to `tgs_matrix_tapply()`: `margin = 1` groups the rows of the matrix instead of the columns, without transposing it (for `sum`, the same as `rowsum()`).
+* `tgs_matrix_tapply()` with `sum()` or `mean()` on a sparse matrix takes time proportional to the number of non-zero values instead of the size of the matrix.
+* Fixed `tgs_matrix_tapply()` returning only `NA` when arguments are passed to `fun` through `...` (including `mean()` with `trim`), and -2147483648 instead of `NA` when `fun` returns an integer `NA`.
+* Fixed `tgs_matrix_tapply()` with `sum()` or `mean()` on an integer matrix with `NA`, which counted `NA` as -2147483648.
 * Fixed `tgs_cor()` returning `-Inf` or arbitrary small values instead of `NA` for constant columns.
 * Fixed `tgs_cor_knn()` dropping valid neighbours when the data has a constant column.
 

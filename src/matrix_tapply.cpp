@@ -331,7 +331,9 @@ SEXP tgs_matrix_tapply(SEXP _x, SEXP _index, SEXP _fn, SEXP _fn_name, SEXP _args
         }
 
         vdebug("Preparing for multitasking...\n");
-        int num_processes = (int)min(num_items / 10, (uint64_t)(g_tgstat->num_processes() / 2));
+        // at least 10 rows per process, or with margin 1 (where a column can be long) 500K values per process
+        uint64_t max_processes = by_rows ? min(num_items, num_rows * num_cols / 500000) : num_items / 10;
+        int num_processes = (int)min(max_processes, (uint64_t)(g_tgstat->num_processes() / 2));
 
         // sum, mean, max and min are simple functions with complexity O(N). The overhead of extreme parallelization might obliterate the gain.
         if (fn == SUM || fn == MEAN || fn == MAX || fn == MIN)

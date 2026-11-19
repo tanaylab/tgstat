@@ -881,8 +881,17 @@ SEXP tgs_cor_blas(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _ti
         if (spearman && pairwise_complete_obs && nan_in_vals)
             verror("BLAS implementation of tgs_cor does not support spearman with pairwise.complete.obs when x contains NA / NaN / Inf");
 
-        if (posix_memalign((void **)&mem.res, 64, sizeof(double) * res_size))
-            verror("%s", strerror(errno));
+        // the correlations are computed directly in the answer, unless it is tidy
+        double *res;
+
+        if (tidy) {
+            if (posix_memalign((void **)&mem.res, 64, sizeof(double) * res_size))
+                verror("%s", strerror(errno));
+            res = mem.res;
+        } else {
+            rprotect(answer = RSaneAllocVector(REALSXP, res_size));
+            res = REAL(answer);
+        }
 
         // replace values with ranks if spearman=T
         if (spearman) {
@@ -1017,7 +1026,7 @@ SEXP tgs_cor_blas(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _ti
             for (uint64_t ipoint1 = 0, idx1 = 0; ipoint1 < num_points; ++ipoint1) {
                 idx1 += ipoint1 + 1;
                 for (uint64_t ipoint2 = ipoint1 + 1, idx2 = ipoint2 * num_points + ipoint1; ipoint2 < num_points; ++ipoint2) {
-                    mem.res[idx1] = mem.res[idx2] = mem.cov_n[idx1] / sqrt(mem.var_n[idx1] * mem.var_n[idx2]);
+                    res[idx1] = res[idx2] = mem.cov_n[idx1] / sqrt(mem.var_n[idx1] * mem.var_n[idx2]);
                     ++idx1;
                     idx2 += num_points;
                 }
@@ -1025,7 +1034,7 @@ SEXP tgs_cor_blas(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _ti
             check_interrupt();
 
             for (uint64_t idx = 0; idx < res_size; idx += num_points + 1)
-                mem.res[idx] = 1.;
+                res[idx] = 1.;
             check_interrupt();
 
             progress.report_last();
@@ -1073,7 +1082,7 @@ SEXP tgs_cor_blas(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _ti
                 char trans = 'T';
                 double alpha = 1;
                 double beta = 0;
-                F77_NAME(dsyrk)(&uplo, &trans, &num_points32, &num_dims32, &alpha, mem.m, &num_dims32, &beta, mem.res, &num_points32 FCONE FCONE);
+                F77_NAME(dsyrk)(&uplo, &trans, &num_points32, &num_dims32, &alpha, mem.m, &num_dims32, &beta, res, &num_points32 FCONE FCONE);
                 check_interrupt();
                 progress.report(1);
             }
@@ -1082,9 +1091,9 @@ SEXP tgs_cor_blas(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _ti
                 idx1 += ipoint1 + 1;
                 for (uint64_t ipoint2 = ipoint1 + 1, idx2 = ipoint2 * num_points + ipoint1; ipoint2 < num_points; ++ipoint2) {
                     if (nan_in_point[ipoint1] || nan_in_point[ipoint2])
-                        mem.res[idx1] = mem.res[idx2] = NA_REAL;
+                        res[idx1] = res[idx2] = NA_REAL;
                     else
-                        mem.res[idx1] = mem.res[idx2] = (mem.res[idx1] / num_dims - means[ipoint1] * means[ipoint2]) / (stddevs[ipoint1] * stddevs[ipoint2]);
+                        res[idx1] = res[idx2] = (res[idx1] / num_dims - means[ipoint1] * means[ipoint2]) / (stddevs[ipoint1] * stddevs[ipoint2]);
                     ++idx1;
                     idx2 += num_points;
                 }
@@ -1093,10 +1102,10 @@ SEXP tgs_cor_blas(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _ti
 
             if (num_dims > 1) {
                 for (uint64_t idx = 0; idx < res_size; idx += num_points + 1)
-                    mem.res[idx] = 1.;
+                    res[idx] = 1.;
             } else {
                 for (uint64_t idx = 0; idx < res_size; idx += num_points + 1)
-                    mem.res[idx] = NA_REAL;
+                    res[idx] = NA_REAL;
             }
 
             check_interrupt();
@@ -1105,14 +1114,14 @@ SEXP tgs_cor_blas(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _ti
         }
         vdebug("END BLAS COR\n");
 
-//memcpy(mem.res, mem.var_n, sizeof(double) * res_size);
+//memcpy(res, mem.var_n, sizeof(double) * res_size);
 //{
 //SEXP rdims;
 //rprotect(answer = RSaneAllocVector(REALSXP, (uint64_t)num_points * num_points));
 //rprotect(rdims = RSaneAllocVector(INTSXP, 2));
 //INTEGER(rdims)[0] = INTEGER(rdims)[1] = num_points;
 //Rf_setAttrib(answer, R_DimSymbol, rdims);
-//memcpy(REAL(answer), mem.res, Rf_length(answer) * sizeof(REAL(answer)[0]));
+//memcpy(REAL(answer), res, Rf_length(answer) * sizeof(REAL(answer)[0]));
 //return answer;
 //}
 
@@ -1132,7 +1141,7 @@ SEXP tgs_cor_blas(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _ti
             for (uint64_t icol1 = 0; icol1 < num_points; ++icol1) {
                 uint64_t idx = icol1;
                 for (uint64_t icol2 = 0; icol2 < icol1; ++icol2) {
-                    if (!std::isnan(mem.res[idx]) && fabs(mem.res[idx]) >= threshold)
+                    if (!std::isnan(res[idx]) && fabs(res[idx]) >= threshold)
                         ++answer_size;
                     idx += num_points;
                 }
@@ -1154,10 +1163,10 @@ SEXP tgs_cor_blas(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _ti
                 for (uint64_t icol1 = 0; icol1 < num_points; ++icol1) {
                     for (uint64_t icol2 = icol1 + 1; icol2 < num_points; ++icol2) {
                         uint64_t idx = (uint64_t)icol1 * num_points + icol2;
-                        if (!std::isnan(mem.res[idx]) && fabs(mem.res[idx]) >= threshold) {
+                        if (!std::isnan(res[idx]) && fabs(res[idx]) >= threshold) {
                             INTEGER(rcol1)[i] = icol1 + 1;
                             INTEGER(rcol2)[i] = icol2 + 1;
-                            REAL(rcor)[i] = mem.res[idx];
+                            REAL(rcor)[i] = res[idx];
                             INTEGER(rrownames)[i] = i + 1;
                             ++i;
                         }
@@ -1183,12 +1192,9 @@ SEXP tgs_cor_blas(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _ti
             SEXP dim;
 
             for (uint64_t i = 0; i < res_size; ++i) {
-                if (std::isnan(mem.res[i]))
-                    mem.res[i] = NA_REAL;
+                if (std::isnan(res[i]))
+                    res[i] = NA_REAL;
             }
-
-            rprotect(answer = RSaneAllocVector(REALSXP, res_size));
-            memcpy(REAL(answer), mem.res, res_size * sizeof(double));
 
             rprotect(dim = RSaneAllocVector(INTSXP, 2));
             INTEGER(dim)[0] = num_points;
@@ -1325,8 +1331,17 @@ SEXP tgs_cross_cor_blas(SEXP _x, SEXP _y, SEXP _pairwise_complete_obs, SEXP _spe
         if (spearman && pairwise_complete_obs && nan_in_vals)
             verror("BLAS implementation of tgs_cor does not support spearman with pairwise.complete.obs when x or y contain NA / NaN / Inf");
 
-        if (posix_memalign((void **)&mem.res, 64, sizeof(double) * res_size))
-            verror("%s", strerror(errno));
+        // the correlations are computed directly in the answer, unless it is tidy
+        double *res;
+
+        if (tidy) {
+            if (posix_memalign((void **)&mem.res, 64, sizeof(double) * res_size))
+                verror("%s", strerror(errno));
+            res = mem.res;
+        } else {
+            rprotect(answer = RSaneAllocVector(REALSXP, res_size));
+            res = REAL(answer);
+        }
 
         // replace values with ranks if spearman=T
         if (spearman) {
@@ -1479,7 +1494,7 @@ SEXP tgs_cross_cor_blas(SEXP _x, SEXP _y, SEXP _pairwise_complete_obs, SEXP _spe
 
             //     res <- cov_n / sqrt(varx_n * vary_n)
             for (uint64_t i = 0; i < res_size; ++i)
-                mem.res[i] = mem.cov_n[i] / sqrt(mem.varx_n[i] * mem.vary_n[i]);
+                res[i] = mem.cov_n[i] / sqrt(mem.varx_n[i] * mem.vary_n[i]);
             check_interrupt();
             progress.report_last();
         } else {
@@ -1534,7 +1549,7 @@ SEXP tgs_cross_cor_blas(SEXP _x, SEXP _y, SEXP _pairwise_complete_obs, SEXP _spe
                 double alpha = 1;
                 double beta = 0;
                 F77_NAME(dgemm)
-                (&transa, &transb, &num_points32[0], &num_points32[1], &num_dims32, &alpha, mem.m[0], &num_dims32, mem.m[1], &num_dims32, &beta, mem.res, &num_points32[0] FCONE FCONE);
+                (&transa, &transb, &num_points32[0], &num_points32[1], &num_dims32, &alpha, mem.m[0], &num_dims32, mem.m[1], &num_dims32, &beta, res, &num_points32[0] FCONE FCONE);
                 check_interrupt();
                 progress.report(1);
             }
@@ -1542,9 +1557,9 @@ SEXP tgs_cross_cor_blas(SEXP _x, SEXP _y, SEXP _pairwise_complete_obs, SEXP _spe
             for (uint64_t ipoint2 = 0, idx = 0; ipoint2 < num_points[1]; ++ipoint2) {
                 for (uint64_t ipoint1 = 0; ipoint1 < num_points[0]; ++ipoint1) {
                     if (nan_in_point[0][ipoint1] || nan_in_point[1][ipoint2])
-                        mem.res[idx] = NA_REAL;
+                        res[idx] = NA_REAL;
                     else
-                        mem.res[idx] = (mem.res[idx] / num_dims - means[0][ipoint1] * means[1][ipoint2]) / (stddevs[0][ipoint1] * stddevs[1][ipoint2]);
+                        res[idx] = (res[idx] / num_dims - means[0][ipoint1] * means[1][ipoint2]) / (stddevs[0][ipoint1] * stddevs[1][ipoint2]);
                     ++idx;
                 }
             }
@@ -1569,7 +1584,7 @@ SEXP tgs_cross_cor_blas(SEXP _x, SEXP _y, SEXP _pairwise_complete_obs, SEXP _spe
             uint64_t answer_size = 0;
 
             for (uint64_t i = 0; i < res_size; ++i) {
-                if (!std::isnan(mem.res[i]) && fabs(mem.res[i]) >= threshold)
+                if (!std::isnan(res[i]) && fabs(res[i]) >= threshold)
                     ++answer_size;
             }
 
@@ -1589,10 +1604,10 @@ SEXP tgs_cross_cor_blas(SEXP _x, SEXP _y, SEXP _pairwise_complete_obs, SEXP _spe
                 for (uint64_t icol1 = 0; icol1 < num_points[0]; ++icol1) {
                     uint64_t idx_m = icol1;
                     for (uint64_t icol2 = 0; icol2 < num_points[1]; ++icol2) {
-                        if (!std::isnan(mem.res[idx_m]) && fabs(mem.res[idx_m]) >= threshold) {
+                        if (!std::isnan(res[idx_m]) && fabs(res[idx_m]) >= threshold) {
                             INTEGER(rcol1)[idx_answer] = icol1 + 1;
                             INTEGER(rcol2)[idx_answer] = icol2 + 1;
-                            REAL(rcor)[idx_answer] = mem.res[idx_m];
+                            REAL(rcor)[idx_answer] = res[idx_m];
                             INTEGER(rrownames)[idx_answer] = idx_answer + 1;
                             ++idx_answer;
                         }
@@ -1622,12 +1637,9 @@ SEXP tgs_cross_cor_blas(SEXP _x, SEXP _y, SEXP _pairwise_complete_obs, SEXP _spe
             SEXP dimnames;
 
             for (uint64_t i = 0; i < res_size; ++i) {
-                if (std::isnan(mem.res[i]))
-                    mem.res[i] = NA_REAL;
+                if (std::isnan(res[i]))
+                    res[i] = NA_REAL;
             }
-
-            rprotect(answer = RSaneAllocVector(REALSXP, res_size));
-            memcpy(REAL(answer), mem.res, res_size * sizeof(double));
 
             rprotect(dim = RSaneAllocVector(INTSXP, 2));
             INTEGER(dim)[0] = num_points[0];

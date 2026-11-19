@@ -145,3 +145,23 @@ test_that("tgs_cor with BLAS does not depend on the number of processes", {
     expect_equal(ref_s[1:50, 1:50], suppressWarnings(stats::cor(xs[, 1:50], method = "spearman")), ignore_attr = TRUE)
     expect_true(all(is.na(ref_s[17, -17])) && all(is.na(ref_s[100, -100])))
 })
+
+test_that("tgs_cor accepts data frames and vectors", {
+    set.seed(60427)
+    m <- matrix(rnorm(40 * 6), 40, 6, dimnames = list(NULL, letters[1:6]))
+    v <- rnorm(40)
+    df <- as.data.frame(m)
+    old <- options(tgs_use.blas = TRUE)
+    on.exit(options(old))
+
+    for (use_blas in c(TRUE, FALSE)) {
+        options(tgs_use.blas = use_blas)
+        expect_identical(tgs_cor(df), tgs_cor(m))
+        expect_identical(tgs_cor(df, df[, 1:3]), tgs_cor(m, m[, 1:3]))
+        expect_equal(tgs_cor(m, v)[, 1], stats::cor(m, v)[, 1])
+        expect_equal(tgs_cor(v, m)[1, ], stats::cor(v, m)[1, ])
+        expect_equal(tgs_cor(v, m[, 2], spearman = TRUE)[1, 1], stats::cor(v, m[, 2], method = "spearman"))
+        expect_equal(dim(tgs_cor(df, v)), c(6L, 1L))
+        expect_error(tgs_cor(v))
+    }
+})

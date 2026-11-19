@@ -371,3 +371,15 @@ test_that("tgs_cor_knn with BLAS ranks in several processes", {
     expect_cor_knn_equal(with_blas(TRUE, tgs_cor_knn(x, NULL, 3, spearman = TRUE)), cor_knn_ref(x, NULL, 3, spearman = TRUE), ties = TRUE)
     expect_cor_knn_equal(with_blas(TRUE, tgs_cor_knn(x, x[, 1:100], 3, spearman = TRUE)), cor_knn_ref(x, x[, 1:100], 3, spearman = TRUE), ties = TRUE)
 })
+
+test_that("tgs_cor_knn accepts data frames and y is optional", {
+    set.seed(60427)
+    m <- matrix(rnorm(40 * 8), 40, 8, dimnames = list(NULL, letters[1:8]))
+    df <- as.data.frame(m)
+    for (use_blas in c(TRUE, FALSE)) {
+        ref <- with_blas(use_blas, tgs_cor_knn(m, NULL, 3))
+        expect_identical(with_blas(use_blas, tgs_cor_knn(m, knn = 3)), ref)
+        expect_identical(with_blas(use_blas, tgs_cor_knn(df, knn = 3)), ref)
+        expect_identical(with_blas(use_blas, tgs_cor_knn(df, df[, 1:4], 2)), with_blas(use_blas, tgs_cor_knn(m, m[, 1:4], 2)))
+    }
+})

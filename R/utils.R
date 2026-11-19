@@ -50,3 +50,11 @@ tgs_finite <- function(x) {
 
     .Call("tgs_finite", x, new.env(parent = parent.frame()))
 }
+
+# Converts a data frame to a matrix, and (if vector_ok) a vector to a matrix of one column.
+.tgs_as_matrix <- function(x, vector_ok = FALSE) {
+    if (is.data.frame(x) || (vector_ok && is.atomic(x) && is.null(dim(x)))) {
+        x <- as.matrix(x)
+    }
+    x
+}

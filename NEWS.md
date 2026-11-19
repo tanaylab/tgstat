@@ -5,7 +5,8 @@
 * Debian/Ubuntu installations with OpenBLAS (e.g. the rocker images) now use the faster BLAS code by default.
 * Fixed `tgs_dist()` and `tgs_cor()` without BLAS, and `tgs_cor_knn()`, skipping one row or column for some input sizes when the number of processes is not a power of 2.
 * Fixed `tgs_dist()` with BLAS returning NaN for identical points when the data has missing values.
-* `tgs_cor()` with BLAS no longer holds the correlation matrix twice in memory.
+* `tgs_cor()` with BLAS ranks and standardizes the columns in parallel and no longer holds the correlation matrix twice in memory: Spearman correlations are about 3 times faster and Pearson correlations up to 2 times.
+* `tgs_cor()` and `tgs_cor_knn()` accept data frames. `tgs_cor()` accepts a vector as `y` (and then also as `x`), for the correlations of one vector with all the columns of a matrix. `y` of `tgs_cor_knn()` defaults to `NULL`.
 * `tgs_cor_knn()` uses BLAS when `tgs_use.blas` is on, which makes it several times faster.
 * `tgs_knn()` on a matrix is much faster and no longer needs memory for an index of the whole matrix.
 * Fixed `tgs_cor()` returning `-Inf` or arbitrary small values instead of `NA` for constant columns.

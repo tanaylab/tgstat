@@ -95,6 +95,9 @@ SEXP tgs_cor(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _tidy, S
                 vals.push_back(Rf_isReal(_x) ? REAL(_x)[i] : INTEGER(_x)[i]);
         }
 
+        // the correlations of a constant column are NA, like those of a column with missing values
+        flag_constant_cols(&vals.front(), num_rows, num_cols, nan_in_col);
+
         // replace values with ranks if spearman=T
         if (spearman) {
             pvals.reserve(num_vals);
@@ -496,6 +499,9 @@ SEXP tgs_cross_cor(SEXP _x, SEXP _y, SEXP _pairwise_complete_obs, SEXP _spearman
                 } else
                     vals[k].push_back(Rf_isReal(x) ? REAL(x)[i] : INTEGER(x)[i]);
             }
+
+            // the correlations of a constant column are NA, like those of a column with missing values
+            flag_constant_cols(&vals[k].front(), num_rows, num_cols[k], nan_in_col[k]);
         }
 
         // replace values with ranks if spearman=T
@@ -868,6 +874,9 @@ SEXP tgs_cor_blas(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _ti
                 mem.mask[i] = 1.;
             }
         }
+
+        // the correlations of a constant column are NA, like those of a column with missing values
+        flag_constant_cols(mem.m, num_dims, num_points, nan_in_point);
 
         if (spearman && pairwise_complete_obs && nan_in_vals)
             verror("BLAS implementation of tgs_cor does not support spearman with pairwise.complete.obs when x contains NA / NaN / Inf");
@@ -1308,6 +1317,9 @@ SEXP tgs_cross_cor_blas(SEXP _x, SEXP _y, SEXP _pairwise_complete_obs, SEXP _spe
                     mem.mask[k][i] = 1.;
                 }
             }
+
+            // the correlations of a constant column are NA, like those of a column with missing values
+            flag_constant_cols(mem.m[k], num_dims, num_points[k], nan_in_point[k]);
         }
 
         if (spearman && pairwise_complete_obs && nan_in_vals)

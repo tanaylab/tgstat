@@ -20,34 +20,24 @@
 
 #include "tgstat.h"
 
-extern "C" {
-
-SEXP tgs_finite(SEXP _x, SEXP _envir)
+void flag_constant_cols(const double *vals, uint64_t num_rows, uint64_t num_cols, vector<bool> &flags)
 {
-	try {
-        TGStat tgstat(_envir);
-        uint64_t len = Rf_xlength(_x);
+    for (uint64_t icol = 0; icol < num_cols; ++icol) {
+        const double *col = vals + icol * num_rows;
 
-        if (!Rf_isReal(_x) && !Rf_isInteger(_x))
-            verror("\"x\" argument must be numeric or integer");
-
-        for (uint64_t i = 0; i < len; ++i) {
-            if ((Rf_isReal(_x) && !R_FINITE(REAL(_x)[i])) || (Rf_isInteger(_x) && INTEGER(_x)[i] == NA_INTEGER))
-                rreturn(Rf_ScalarLogical(false));
-        }
-    } catch (TGLException &e) {
-        rerror("%s", e.msg());
-    } catch (const bad_alloc &e) {
-        rerror("Out of memory");
+        if (!flags[icol] && all_of(col, col + num_rows, [col](double val) { return val == col[0]; }))
+            flags[icol] = true;
     }
-
-    rreturn(Rf_ScalarLogical(true));
 }
 
 // Replaces the n values of v by their ranks (if spearman is true), then centers them and scales them to unit norm.
 // Returns false if the values are constant (or their sum of squares overflows).
-static bool standardize(double *v, uint64_t n, bool spearman, vector<pair<double, uint64_t>> &sorted)
+bool standardize(double *v, uint64_t n, bool spearman, vector<pair<double, uint64_t>> &sorted)
 {
+    // constant values are checked first: after centering they are not exactly zero if their mean is rounded
+    if (all_of(v, v + n, [v](double val) { return val == v[0]; }))
+        return false;
+
     if (spearman) {
         // average ranks for ties, as in tgs_cor
         sorted.resize(n);
@@ -81,6 +71,30 @@ static bool standardize(double *v, uint64_t n, bool spearman, vector<pair<double
     for (uint64_t i = 0; i < n; ++i)
         v[i] *= scale;
     return true;
+}
+
+extern "C" {
+
+SEXP tgs_finite(SEXP _x, SEXP _envir)
+{
+	try {
+        TGStat tgstat(_envir);
+        uint64_t len = Rf_xlength(_x);
+
+        if (!Rf_isReal(_x) && !Rf_isInteger(_x))
+            verror("\"x\" argument must be numeric or integer");
+
+        for (uint64_t i = 0; i < len; ++i) {
+            if ((Rf_isReal(_x) && !R_FINITE(REAL(_x)[i])) || (Rf_isInteger(_x) && INTEGER(_x)[i] == NA_INTEGER))
+                rreturn(Rf_ScalarLogical(false));
+        }
+    } catch (TGLException &e) {
+        rerror("%s", e.msg());
+    } catch (const bad_alloc &e) {
+        rerror("Out of memory");
+    }
+
+    rreturn(Rf_ScalarLogical(true));
 }
 
 // Replaces the values of each column of x by their ranks (if spearman is true), then centers each column and

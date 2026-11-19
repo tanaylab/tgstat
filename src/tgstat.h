@@ -45,6 +45,15 @@ using namespace std;
 // should be used instead of R_CheckUserInterrupt. Throws exception if the command is interrupted.
 void check_interrupt();
 
+// Sets flags[icol] to true for the constant columns of vals (num_rows x num_cols) that are not flagged yet.
+// The correlation with a constant column is not defined. It must not be left to the computation: the variance
+// of a constant column, computed as mean(x^2) - mean(x)^2, is not always exactly zero.
+void flag_constant_cols(const double *vals, uint64_t num_rows, uint64_t num_cols, vector<bool> &flags);
+
+// Replaces the n values of v by their ranks (if spearman is true), then centers them and scales them to unit norm.
+// Returns false if the values are constant (or their sum of squares overflows).
+bool standardize(double *v, uint64_t n, bool spearman, vector<pair<double, uint64_t>> &sorted);
+
 // adds timeout to the time that is already in req
 void set_abs_timeout(int64_t delay_msec, struct timespec &req);
 

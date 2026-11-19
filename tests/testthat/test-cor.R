@@ -45,3 +45,30 @@ test_that("tgs_cor computes all the columns with process counts that are not pow
         expect_equal(tgs_cor(y, x), cor(y, x), ignore_attr = TRUE)
     }
 })
+
+test_that("tgs_cor returns NA for constant columns", {
+    set.seed(60427)
+    x <- matrix(rnorm(30 * 5), 30, 5)
+    y <- matrix(rnorm(30 * 4), 30, 4)
+    old <- options(tgs_use.blas = FALSE)
+    on.exit(options(old))
+
+    # the variance of these constants, computed as mean(x^2) - mean(x)^2, is not exactly zero
+    for (const in c(3, 0.1, 1 / 3, 1e6 + 0.1, 0)) {
+        x[, 2] <- const
+        y[, 3] <- const
+        ref <- suppressWarnings(stats::cor(x))
+        diag(ref) <- 1
+        cross_ref <- suppressWarnings(stats::cor(x, y))
+        for (use_blas in c(TRUE, FALSE)) {
+            options(tgs_use.blas = use_blas)
+            for (pairwise in c(TRUE, FALSE)) {
+                expect_equal(tgs_cor(x, pairwise.complete.obs = pairwise), ref)
+                expect_equal(tgs_cor(x, y, pairwise.complete.obs = pairwise), cross_ref, ignore_attr = TRUE)
+            }
+            expect_true(all(is.na(tgs_cor(x, spearman = TRUE)[2, -2])))
+            expect_true(all(is.na(tgs_cor(x, y, spearman = TRUE)[2, ])))
+            expect_true(all(is.na(tgs_cor(x, y, spearman = TRUE)[, 3])))
+        }
+    }
+})

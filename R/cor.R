@@ -39,6 +39,10 @@
 #' consume memory as a factor of NCXxNCY, wherever 'tgs_cor_knn(x,y,knn)' would
 #' reduce that to max((NCX+NCY)xNR,NCXxKNN).
 #'
+#' A constant column, and without 'pairwise.complete.obs' a column with missing
+#' values, has no correlations: 'tgs_cor' returns 'NA' for it, and in
+#' 'tgs_cor_knn' it has no neighbours and is not a neighbour of other columns.
+#'
 #' @aliases tgs_cor tgs_cor_knn
 #' @param x numeric matrix
 #' @param y numeric matrix

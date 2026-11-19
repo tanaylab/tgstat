@@ -5,6 +5,10 @@
 * Debian/Ubuntu installations with OpenBLAS (e.g. the rocker images) now use the faster BLAS code by default.
 * Fixed `tgs_dist()` and `tgs_cor()` without BLAS, and `tgs_cor_knn()`, skipping one row or column for some input sizes when the number of processes is not a power of 2.
 * Fixed `tgs_dist()` with BLAS returning NaN for identical points when the data has missing values.
+* `tgs_cor_knn()` uses BLAS when `tgs_use.blas` is on, which makes it several times faster.
+* `tgs_knn()` on a matrix is much faster and no longer needs memory for an index of the whole matrix.
+* Fixed `tgs_cor()` returning `-Inf` or arbitrary small values instead of `NA` for constant columns.
+* Fixed `tgs_cor_knn()` dropping valid neighbours when the data has a constant column.
 
 # tgstat 2.4.0
 

@@ -89,6 +89,10 @@ factor of NCxNC. In contrast 'tgs_cor_knn' would consume in the similar
 scenario a factor of max(NCxNR,NCxKNN). Similarly 'tgs_cor(x,y)' would
 consume memory as a factor of NCXxNCY, wherever 'tgs_cor_knn(x,y,knn)' would
 reduce that to max((NCX+NCY)xNR,NCXxKNN).
+
+A constant column, and without 'pairwise.complete.obs' a column with missing
+values, has no correlations: 'tgs_cor' returns 'NA' for it, and in
+'tgs_cor_knn' it has no neighbours and is not a neighbour of other columns.
 }
 \examples{
 \donttest{

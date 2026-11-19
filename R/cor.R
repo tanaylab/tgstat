@@ -117,7 +117,10 @@ tgs_cor_knn <- function(x, y, knn, pairwise.complete.obs = FALSE, spearman = FAL
         stop("Usage: tgs_cor_knn(x, y, knn, pairwise.complete.obs = FALSE, spearman = FALSE, threshold = 0)", call. = FALSE)
     }
 
-    if (is.null(y)) {
+    # the BLAS implementation does not support pairwise.complete.obs with missing values
+    if (.tgs_use_blas() && !(isTRUE(pairwise.complete.obs) && (!tgs_finite(x) || !is.null(y) && !tgs_finite(y)))) {
+        .Call("tgs_cor_knn_blas", x, y, knn, pairwise.complete.obs, spearman, threshold, new.env(parent = parent.frame()))
+    } else if (is.null(y)) {
         .Call("tgs_cor_knn", x, knn, pairwise.complete.obs, spearman, threshold, new.env(parent = parent.frame()))
     } else {
         .Call("tgs_cross_cor_knn", x, y, knn, pairwise.complete.obs, spearman, threshold, new.env(parent = parent.frame()))

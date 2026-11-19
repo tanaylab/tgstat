@@ -18,6 +18,7 @@ extern SEXP tgs_cor(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
 extern SEXP tgs_cor_blas(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
 extern SEXP tgs_cor_graph(SEXP, SEXP, SEXP, SEXP, SEXP);
 extern SEXP tgs_cor_knn(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
+extern SEXP tgs_cor_knn_blas(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
 extern SEXP tgs_cross_cor(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
 extern SEXP tgs_cross_cor_blas(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
 extern SEXP tgs_cross_cor_knn(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
@@ -40,6 +41,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"tgs_cor_blas",                  (DL_FUNC) &tgs_cor_blas,                  6},
     {"tgs_cor_graph",                 (DL_FUNC) &tgs_cor_graph,                 5},
     {"tgs_cor_knn",                   (DL_FUNC) &tgs_cor_knn,                   6},
+    {"tgs_cor_knn_blas",              (DL_FUNC) &tgs_cor_knn_blas,              7},
     {"tgs_cross_cor",                 (DL_FUNC) &tgs_cross_cor,                 7},
     {"tgs_cross_cor_blas",            (DL_FUNC) &tgs_cross_cor_blas,            7},
     {"tgs_cross_cor_knn",             (DL_FUNC) &tgs_cross_cor_knn,             7},

@@ -34,8 +34,10 @@ extern SEXP tgs_graph2cluster_multi_edges(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SE
 extern SEXP tgs_graph2cluster_multi_full(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
 extern SEXP tgs_graph2cluster_multi_hash(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
 extern SEXP tgs_knn(SEXP, SEXP, SEXP, SEXP, SEXP);
+extern SEXP tgs_ks(SEXP, SEXP, SEXP, SEXP);
 extern SEXP tgs_matrix_tapply(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
 extern SEXP tgs_standardize(SEXP, SEXP, SEXP);
+extern SEXP tgs_wilcox(SEXP, SEXP, SEXP, SEXP);
 
 }
 
@@ -61,8 +63,10 @@ static const R_CallMethodDef CallEntries[] = {
     {"tgs_graph2cluster_multi_full",  (DL_FUNC) &tgs_graph2cluster_multi_full,  8},
     {"tgs_graph2cluster_multi_hash",  (DL_FUNC) &tgs_graph2cluster_multi_hash,  8},
     {"tgs_knn",                       (DL_FUNC) &tgs_knn,                       5},
+    {"tgs_ks",                        (DL_FUNC) &tgs_ks,                        4},
     {"tgs_matrix_tapply",             (DL_FUNC) &tgs_matrix_tapply,             7},
     {"tgs_standardize",               (DL_FUNC) &tgs_standardize,               3},
+    {"tgs_wilcox",                    (DL_FUNC) &tgs_wilcox,                    4},
     {NULL, NULL, 0}
 };
 

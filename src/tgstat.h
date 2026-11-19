@@ -45,6 +45,16 @@ using namespace std;
 // should be used instead of R_CheckUserInterrupt. Throws exception if the command is interrupted.
 void check_interrupt();
 
+// Returns true if the numeric or integer vector x has no NA, NaN or infinite values.
+bool all_finite(SEXP x);
+
+// Copies the num_mats (1 or 2) numeric matrices rmat[k], which have the same number of rows, into newly mapped
+// shared memory z[k] of z_sizeof[k] bytes, which the caller unmaps, and standardizes their columns: the values
+// are replaced by their ranks (if spearman is true), centered and scaled to unit norm, so that the correlation of
+// two columns is their dot product. A column with a non-finite value and a constant column have no correlations:
+// they are set to zero and flagged[k][icol] is set to true. The work is split between child processes.
+void standardize_cols(SEXP rmat[], int num_mats, bool spearman, double *z[], uint64_t z_sizeof[], vector<bool> flagged[]);
+
 // Sets flags[icol] to true for the constant columns of vals (num_rows x num_cols) that are not flagged yet.
 // The correlation with a constant column is not defined. It must not be left to the computation: the variance
 // of a constant column, computed as mean(x^2) - mean(x)^2, is not always exactly zero.

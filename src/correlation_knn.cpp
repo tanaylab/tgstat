@@ -866,72 +866,18 @@ SEXP tgs_cor_knn_blas(SEXP _x, SEXP _y, SEXP _knn, SEXP _pairwise_complete_obs, 
         }
 
         uint64_t knn = min((uint64_t)Rf_asInteger(_knn), cross ? num_cols[1] : num_cols[0] - 1);
-        uint64_t num_vals = 0;
+        vector<bool> flagged[2];
 
-        // z: the values of the matrices in shared memory, standardized below. A column with a non-finite value is
-        // set to zero, and so is a constant column: its correlations are then exactly zero, and zero correlations
-        // are not neighbours.
-        for (int k = 0; k < num_mats; ++k) {
-            z_sizeof[k] = sizeof(double) * num_rows * num_cols[k];
-            z[k] = (double *)mmap(NULL, z_sizeof[k], PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
-
-            if (z[k] == (double *)MAP_FAILED)
-                verror("Failed to allocate shared memory: %s", strerror(errno));
-
-            const double *xreal = Rf_isReal(rmat[k]) ? REAL(rmat[k]) : NULL;
-            const int *xint = Rf_isReal(rmat[k]) ? NULL : INTEGER(rmat[k]);
-
-            for (uint64_t icol = 0, i = 0; icol < num_cols[k]; ++icol) {
-                bool finite = true;
-
-                for (uint64_t irow = 0; irow < num_rows; ++irow, ++i) {
-                    if (xreal ? !R_FINITE(xreal[i]) : xint[i] == NA_INTEGER)
-                        finite = false;
-                    else
-                        z[k][i] = xreal ? xreal[i] : xint[i];
-                }
-
-                if (!finite) {
-                    if (pairwise_complete_obs)
-                        verror("BLAS implementation of tgs_cor_knn does not support pairwise.complete.obs when x or y contain NA / NaN / Inf");
-                    memset(z[k] + icol * num_rows, 0, sizeof(double) * num_rows);
-                }
+        if (pairwise_complete_obs) {
+            for (int k = 0; k < num_mats; ++k) {
+                if (!all_finite(rmat[k]))
+                    verror("BLAS implementation of tgs_cor_knn does not support pairwise.complete.obs when x or y contain NA / NaN / Inf");
             }
-            num_vals += num_rows * num_cols[k];
         }
 
-        // ranking is done in parallel by child processes, with at least 500K values per process, since forking takes
-        // longer than ranking a smaller part
-        int num_processes = spearman ? (int)min(num_vals / 500000, (uint64_t)g_tgstat->num_processes()) : 1;
-
-        auto standardize_cols = [&](uint64_t ipart, uint64_t num_parts) {
-            vector<pair<double, uint64_t>> sorted;
-
-            for (int k = 0; k < num_mats; ++k) {
-                uint64_t scol = ipart * num_cols[k] / num_parts;
-                uint64_t ecol = (ipart + 1) * num_cols[k] / num_parts;
-
-                for (uint64_t icol = scol; icol < ecol; ++icol) {
-                    if (!standardize(z[k] + icol * num_rows, num_rows, spearman, sorted))
-                        memset(z[k] + icol * num_rows, 0, sizeof(double) * num_rows);
-                }
-            }
-        };
-
-        if (num_processes > 1) {
-            TGStat::prepare4multitasking();
-
-            for (int iprocess = 0; iprocess < num_processes; ++iprocess) {
-                if (!TGStat::launch_process()) {     // child process
-                    standardize_cols(iprocess, num_processes);
-                    rexit();
-                }
-            }
-
-            while (TGStat::wait_for_kids(3000))
-                ;
-        } else
-            standardize_cols(0, 1);
+        // z: the standardized columns. The columns that have no correlations are zero: their dot products are
+        // exactly zero, and zero correlations are not neighbours.
+        standardize_cols(rmat, num_mats, spearman, z, z_sizeof, flagged);
 
         // the neighbours of each column of x: the heap holds the knn highest correlations found so far, the lowest
         // of them at its front

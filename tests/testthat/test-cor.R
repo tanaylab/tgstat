@@ -72,3 +72,76 @@ test_that("tgs_cor returns NA for constant columns", {
         }
     }
 })
+
+test_that("tgs_cor with BLAS matches stats::cor and tgs_cor without BLAS", {
+    set.seed(60427)
+    x <- matrix(rnorm(50 * 30), 50, 30, dimnames = list(NULL, paste0("x", 1:30)))
+    x[, 5] <- x[, 4] * 2 + 1
+    x[, 7] <- 2
+    x[3, 11] <- NA
+    x[8, 12] <- Inf
+    y <- matrix(rnorm(50 * 20), 50, 20, dimnames = list(NULL, paste0("y", 1:20)))
+    y[, 2] <- -1
+    y[9, 6] <- NA
+
+    # tgstat treats infinite values as missing, and the diagonal is always 1
+    ref <- function(x, y = NULL, method = "pearson") {
+        x[!is.finite(x)] <- NA
+        res <- suppressWarnings(stats::cor(x, y, method = method))
+        if (is.null(y)) {
+            diag(res) <- 1
+        }
+        res
+    }
+
+    old <- options(tgs_use.blas = TRUE)
+    on.exit(options(old))
+
+    for (spearman in c(FALSE, TRUE)) {
+        method <- if (spearman) "spearman" else "pearson"
+        options(tgs_use.blas = TRUE)
+        res <- tgs_cor(x, spearman = spearman)
+        cross <- tgs_cor(x, y, spearman = spearman)
+        tidy <- tgs_cor(x, spearman = spearman, tidy = TRUE, threshold = 0.3)
+        cross_tidy <- tgs_cor(x, y, spearman = spearman, tidy = TRUE, threshold = 0.3)
+        expect_equal(res, ref(x, method = method))
+        expect_equal(cross, ref(x, y, method = method))
+        expect_true(isSymmetric(res))
+
+        options(tgs_use.blas = FALSE)
+        expect_equal(res, tgs_cor(x, spearman = spearman))
+        expect_equal(cross, tgs_cor(x, y, spearman = spearman))
+        expect_equal(tidy, tgs_cor(x, spearman = spearman, tidy = TRUE, threshold = 0.3))
+        expect_equal(cross_tidy, tgs_cor(x, y, spearman = spearman, tidy = TRUE, threshold = 0.3))
+        expect_equal(nrow(tidy), sum(abs(res[upper.tri(res)]) >= 0.3, na.rm = TRUE))
+    }
+
+    # integer matrices
+    xi <- matrix(sample(0:9, 40 * 12, replace = TRUE), 40, 12)
+    options(tgs_use.blas = TRUE)
+    expect_equal(tgs_cor(xi), ref(xi))
+    expect_equal(tgs_cor(xi, xi[, 1:5], spearman = TRUE), ref(xi, xi[, 1:5], method = "spearman"), ignore_attr = TRUE)
+})
+
+test_that("tgs_cor with BLAS does not depend on the number of processes", {
+    set.seed(60427)
+    # enough values to rank in several processes, and to center and scale in several processes
+    xs <- matrix(rnorm(1500 * 1200), 1500, 1200)
+    xs[, 17] <- 4
+    xs[20, 100] <- NA
+    xp <- matrix(rnorm(3000 * 3000), 3000, 3000)
+    old <- options(tgs_use.blas = TRUE, tgs_max.processes = 1)
+    on.exit(options(old))
+
+    ref_s <- tgs_cor(xs, spearman = TRUE)
+    ref_cross <- tgs_cor(xs, xs[, 1:300], spearman = TRUE)
+    ref_p <- tgs_cor(xp)
+    for (np in c(3, 8)) {
+        options(tgs_max.processes = np)
+        expect_identical(tgs_cor(xs, spearman = TRUE), ref_s)
+        expect_identical(tgs_cor(xs, xs[, 1:300], spearman = TRUE), ref_cross)
+        expect_identical(tgs_cor(xp), ref_p)
+    }
+    expect_equal(ref_s[1:50, 1:50], suppressWarnings(stats::cor(xs[, 1:50], method = "spearman")), ignore_attr = TRUE)
+    expect_true(all(is.na(ref_s[17, -17])) && all(is.na(ref_s[100, -100])))
+})

@@ -283,6 +283,10 @@ static SEXP two_sample_tests(Test test, SEXP _x, SEXP _labels, SEXP _alternative
         }
         rerror("%s", e.msg());
     } catch (const bad_alloc &e) {
+        if (!TGStat::is_kid() && res != (double *)MAP_FAILED) {
+            munmap((char *)res, res_sizeof);
+            res = (double *)MAP_FAILED;
+        }
         rerror("Out of memory");
     }
 

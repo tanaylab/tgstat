@@ -383,3 +383,21 @@ test_that("tgs_cor_knn accepts data frames and y is optional", {
         expect_identical(with_blas(use_blas, tgs_cor_knn(df, df[, 1:4], 2)), with_blas(use_blas, tgs_cor_knn(m, m[, 1:4], 2)))
     }
 })
+
+test_that("tgs_cor_knn skips constant columns with pairwise.complete.obs and missing values", {
+    set.seed(60427)
+    x <- matrix(rnorm(30 * 10), 30, 10)
+    x[, 4] <- 1 / 3
+    x[c(2, 8), 4] <- NA
+    x[5, 7] <- NA
+    for (use_blas in c(TRUE, FALSE)) {
+        res <- with_blas(use_blas, tgs_cor_knn(x, NULL, 4, pairwise.complete.obs = TRUE))
+        expect_false(4 %in% res$col1)
+        expect_false(4 %in% res$col2)
+        expect_true(all(table(res$col1) == 4))
+        expect_true(all(abs(res$cor) <= 1 + 1e-12))
+        res <- with_blas(use_blas, tgs_cor_knn(x, x[, 10:1], 4, pairwise.complete.obs = TRUE))
+        expect_false(4 %in% res$col1)
+        expect_false(7 %in% res$col2)
+    }
+})

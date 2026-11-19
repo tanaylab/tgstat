@@ -165,3 +165,37 @@ test_that("tgs_cor accepts data frames and vectors", {
         expect_error(tgs_cor(v))
     }
 })
+
+test_that("tgs_cor returns NA for constant columns with pairwise.complete.obs and missing values", {
+    set.seed(60427)
+    x <- matrix(rnorm(30 * 6), 30, 6)
+    y <- matrix(rnorm(30 * 4), 30, 4)
+    old <- options(tgs_use.blas = FALSE)
+    on.exit(options(old))
+
+    for (const in c(3, 0.1, 1 / 3)) {
+        x[, 2] <- const
+        x[c(4, 9), 2] <- NA
+        x[5, 4] <- NA
+        y[, 3] <- const
+        y[7, 1] <- NA
+        ref <- suppressWarnings(stats::cor(x, use = "pairwise.complete.obs"))
+        diag(ref) <- 1
+        cross_ref <- suppressWarnings(stats::cor(x, y, use = "pairwise.complete.obs"))
+        for (use_blas in c(TRUE, FALSE)) {
+            options(tgs_use.blas = use_blas)
+            expect_equal(tgs_cor(x, pairwise.complete.obs = TRUE), ref)
+            expect_equal(tgs_cor(x, y, pairwise.complete.obs = TRUE), cross_ref, ignore_attr = TRUE)
+        }
+        options(tgs_use.blas = FALSE)
+        expect_true(all(is.na(tgs_cor(x, pairwise.complete.obs = TRUE, spearman = TRUE)[2, -2])))
+        expect_true(all(is.na(tgs_cor(x, y, pairwise.complete.obs = TRUE, spearman = TRUE)[, 3])))
+    }
+})
+
+test_that("a NULL y is not converted to a matrix", {
+    # before R 4.4.0 is.atomic(NULL) is TRUE
+    expect_null(.tgs_as_matrix(NULL, vector_ok = TRUE))
+    expect_null(.tgs_as_matrix(NULL))
+    expect_equal(dim(.tgs_as_matrix(1:3, vector_ok = TRUE)), c(3L, 1L))
+})

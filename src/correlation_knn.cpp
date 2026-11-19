@@ -100,6 +100,12 @@ SEXP tgs_cor_knn(SEXP _x, SEXP _knn, SEXP _pairwise_complete_obs, SEXP _spearman
         // the correlations of a constant column are NA, like those of a column with missing values
         flag_constant_cols(&vals.front(), num_rows, num_cols, nan_in_col);
 
+        // with pairwise.complete.obs and missing values: the columns that are constant in every pair
+        vector<bool> constant_col;
+
+        if (nan_in_vals && pairwise_complete_obs)
+            constant_col = constant_cols(_x);
+
         // replace values with ranks if spearman=T
         if (spearman) {
             pvals.reserve(num_vals);
@@ -196,7 +202,9 @@ SEXP tgs_cor_knn(SEXP _x, SEXP _knn, SEXP _pairwise_complete_obs, SEXP _spearman
                         double cor = 0;
 
                         if (icol1 != icol2) {
-                            if (nan_in_vals && pairwise_complete_obs) {
+                            if (nan_in_vals && pairwise_complete_obs && (constant_col[icol1] || constant_col[icol2])) {
+                                // a constant column has no correlations
+                            } else if (nan_in_vals && pairwise_complete_obs) {
                                 uint64_t idx1 = icol1 * num_rows;
                                 uint64_t idx2 = icol2 * num_rows;
                                 double sum1 = 0;
@@ -460,6 +468,7 @@ SEXP tgs_cross_cor_knn(SEXP _x, SEXP _y, SEXP _knn, SEXP _pairwise_complete_obs,
         uint64_t num_vals[2] = { num_rows * num_cols[0], num_rows * num_cols[1] };
         bool nan_in_vals = false;
         vector<bool> nan_in_col[2];
+        vector<bool> constant_col[2];     // with pairwise.complete.obs: the columns that are constant in every pair
         vector<double> sums[2];
         vector<double> sums_square[2];
         vector<double> means[2];
@@ -496,6 +505,8 @@ SEXP tgs_cross_cor_knn(SEXP _x, SEXP _y, SEXP _knn, SEXP _pairwise_complete_obs,
 
             // the correlations of a constant column are NA, like those of a column with missing values
             flag_constant_cols(&vals[k].front(), num_rows, num_cols[k], nan_in_col[k]);
+            if (pairwise_complete_obs)
+                constant_col[k] = constant_cols(x);
         }
 
         // replace values with ranks if spearman=T
@@ -597,7 +608,9 @@ SEXP tgs_cross_cor_knn(SEXP _x, SEXP _y, SEXP _knn, SEXP _pairwise_complete_obs,
                     for (uint64_t icol2 = 0; icol2 < num_cols[1]; ++icol2) {
                         double cor = 0;
 
-                        if (nan_in_vals && pairwise_complete_obs) {
+                        if (nan_in_vals && pairwise_complete_obs && (constant_col[0][icol1] || constant_col[1][icol2])) {
+                            // a constant column has no correlations
+                        } else if (nan_in_vals && pairwise_complete_obs) {
                             uint64_t idx1 = icol1 * num_rows;
                             uint64_t idx2 = icol2 * num_rows;
                             double sum1 = 0;

@@ -60,6 +60,10 @@ void standardize_cols(SEXP rmat[], int num_mats, bool spearman, double *z[], uin
 // of a constant column, computed as mean(x^2) - mean(x)^2, is not always exactly zero.
 void flag_constant_cols(const double *vals, uint64_t num_rows, uint64_t num_cols, vector<bool> &flags);
 
+// Returns for each column of the numeric matrix x whether its values that are not missing are all equal (or it has
+// none). With pairwise.complete.obs such a column is constant in every pair, and has no correlations.
+vector<bool> constant_cols(SEXP x);
+
 // Replaces the n values of v by their ranks (if spearman is true), then centers them and scales them to unit norm.
 // Returns false if the values are constant (or their sum of squares overflows).
 bool standardize(double *v, uint64_t n, bool spearman, vector<pair<double, uint64_t>> &sorted);

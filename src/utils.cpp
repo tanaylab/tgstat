@@ -32,6 +32,34 @@ void flag_constant_cols(const double *vals, uint64_t num_rows, uint64_t num_cols
 
 // Replaces the n values of v by their ranks (if spearman is true), then centers them and scales them to unit norm.
 // Returns false if the values are constant (or their sum of squares overflows).
+vector<bool> constant_cols(SEXP x)
+{
+    uint64_t num_rows = Rf_nrows(x);
+    uint64_t num_cols = Rf_ncols(x);
+    const double *xreal = Rf_isReal(x) ? REAL(x) : NULL;
+    const int *xint = Rf_isReal(x) ? NULL : INTEGER(x);
+    vector<bool> res(num_cols, true);
+
+    for (uint64_t icol = 0, i = 0; icol < num_cols; ++icol) {
+        bool found = false;
+        double first = 0;
+
+        for (uint64_t irow = 0; irow < num_rows; ++irow, ++i) {
+            if (xreal ? !R_FINITE(xreal[i]) : xint[i] == NA_INTEGER)
+                continue;
+
+            double val = xreal ? xreal[i] : xint[i];
+
+            if (!found) {
+                found = true;
+                first = val;
+            } else if (val != first)
+                res[icol] = false;
+        }
+    }
+    return res;
+}
+
 bool standardize(double *v, uint64_t n, bool spearman, vector<pair<double, uint64_t>> &sorted)
 {
     // constant values are checked first: after centering they are not exactly zero if their mean is rounded

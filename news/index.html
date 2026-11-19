@@ -71,6 +71,32 @@
 <li>Debian/Ubuntu installations with OpenBLAS (e.g. the rocker images) now use the faster BLAS code by default.</li>
 <li>Fixed <code><a href="../reference/tgs_dist.html">tgs_dist()</a></code> and <code><a href="../reference/tgs_cor.html">tgs_cor()</a></code> without BLAS, and <code><a href="../reference/tgs_cor.html">tgs_cor_knn()</a></code>, skipping one row or column for some input sizes when the number of processes is not a power of 2.</li>
 <li>Fixed <code><a href="../reference/tgs_dist.html">tgs_dist()</a></code> with BLAS returning NaN for identical points when the data has missing values.</li>
+<li>
+<code><a href="../reference/tgs_cor.html">tgs_cor()</a></code> with BLAS ranks and standardizes the columns in parallel and no longer holds the correlation matrix twice in memory: Spearman correlations are about 3 times faster and Pearson correlations up to 2 times.</li>
+<li>Added <code><a href="../reference/tgs_ks.html">tgs_ks()</a></code> and <code><a href="../reference/tgs_wilcox.html">tgs_wilcox()</a></code>: a two-sample Kolmogorov-Smirnov test and a Wilcoxon rank sum test (with the AUC) on each column of a matrix, between the rows labeled <code>TRUE</code> and the rows labeled <code>FALSE</code>. The results equal those of <code><a href="https://rdrr.io/r/stats/ks.test.html" class="external-link">ks.test()</a></code> and <code><a href="https://rdrr.io/r/stats/wilcox.test.html" class="external-link">wilcox.test()</a></code> with <code>exact = FALSE</code>.</li>
+<li>Added <code><a href="../reference/tgs_dist_knn.html">tgs_dist_knn()</a></code>: the <code>knn</code> nearest rows of each row of <code>x</code>, among the rows of <code>y</code> or of <code>x</code> itself, by euclidean distance, without computing the full distance matrix.</li>
+<li>
+<code><a href="../reference/tgs_dist.html">tgs_dist()</a></code> gained a <code>y</code> argument: <code>tgs_dist(x, y)</code> returns the distances between the rows of <code>x</code> and the rows of <code>y</code>. <code>y</code> is now the second argument, so passing <code>diag</code> by position (<code>tgs_dist(x, TRUE)</code>) is an error.</li>
+<li>
+<code><a href="../reference/tgs_dist.html">tgs_dist()</a></code> with BLAS returns exactly 0 for identical rows; it used to return a small positive distance.</li>
+<li>
+<code><a href="../reference/tgs_dist.html">tgs_dist()</a></code>, <code><a href="../reference/tgs_dist_knn.html">tgs_dist_knn()</a></code> and <code><a href="../reference/tgs_cor_dist.html">tgs_cor_dist()</a></code> accept data frames.</li>
+<li>
+<code><a href="../reference/tgs_cor.html">tgs_cor()</a></code> and <code><a href="../reference/tgs_cor.html">tgs_cor_knn()</a></code> accept data frames. <code><a href="../reference/tgs_cor.html">tgs_cor()</a></code> accepts a vector as <code>y</code> (and then also as <code>x</code>), for the correlations of one vector with all the columns of a matrix. <code>y</code> of <code><a href="../reference/tgs_cor.html">tgs_cor_knn()</a></code> defaults to <code>NULL</code>.</li>
+<li>
+<code><a href="../reference/tgs_cor.html">tgs_cor_knn()</a></code> uses BLAS when <code>tgs_use.blas</code> is on, which makes it several times faster.</li>
+<li>
+<code><a href="../reference/tgs_knn.html">tgs_knn()</a></code> on a matrix is much faster and no longer needs memory for an index of the whole matrix.</li>
+<li>
+<code><a href="../reference/tgs_matrix_tapply.html">tgs_matrix_tapply()</a></code> computes <code><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">max()</a></code>, <code><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">min()</a></code> and <code><a href="https://rdrr.io/r/stats/median.html" class="external-link">median()</a></code> in C++, like <code><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum()</a></code> and <code><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean()</a></code>, which makes them much faster.</li>
+<li>Added a <code>margin</code> argument to <code><a href="../reference/tgs_matrix_tapply.html">tgs_matrix_tapply()</a></code>: <code>margin = 1</code> groups the rows of the matrix instead of the columns, without transposing it (for <code>sum</code>, the same as <code><a href="https://rdrr.io/r/base/rowsum.html" class="external-link">rowsum()</a></code>).</li>
+<li>
+<code><a href="../reference/tgs_matrix_tapply.html">tgs_matrix_tapply()</a></code> with <code><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum()</a></code> or <code><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean()</a></code> on a sparse matrix takes time proportional to the number of non-zero values instead of the size of the matrix.</li>
+<li>Fixed <code><a href="../reference/tgs_matrix_tapply.html">tgs_matrix_tapply()</a></code> returning only <code>NA</code> when arguments are passed to <code>fun</code> through <code>...</code> (including <code><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean()</a></code> with <code>trim</code>), and -2147483648 instead of <code>NA</code> when <code>fun</code> returns an integer <code>NA</code>.</li>
+<li>Fixed <code><a href="../reference/tgs_matrix_tapply.html">tgs_matrix_tapply()</a></code> with <code><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum()</a></code> or <code><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean()</a></code> on an integer matrix with <code>NA</code>, which counted <code>NA</code> as -2147483648.</li>
+<li>A child process that ends without computing its part of the result is now an error in all the functions. It used to be ignored if the process exited (e.g. after an R error), leaving <code>NA</code> in the result.</li>
+<li>Fixed <code><a href="../reference/tgs_cor.html">tgs_cor()</a></code> returning <code>-Inf</code> or arbitrary small values instead of <code>NA</code> for constant columns.</li>
+<li>Fixed <code><a href="../reference/tgs_cor.html">tgs_cor_knn()</a></code> dropping valid neighbours when the data has a constant column.</li>
 </ul></div>
     <div class="section level2">
 <h2 class="page-header" data-toc-text="2.4.0" id="tgstat-240">tgstat 2.4.0<small>2026-08-29</small><a class="anchor" aria-label="anchor" href="#tgstat-240"></a></h2>

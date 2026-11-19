@@ -10,12 +10,15 @@
 <url><loc>/reference/tgs_cor.html</loc></url>
 <url><loc>/reference/tgs_cor_dist.html</loc></url>
 <url><loc>/reference/tgs_dist.html</loc></url>
+<url><loc>/reference/tgs_dist_knn.html</loc></url>
 <url><loc>/reference/tgs_finite.html</loc></url>
 <url><loc>/reference/tgs_graph.html</loc></url>
 <url><loc>/reference/tgs_graph_cover.html</loc></url>
 <url><loc>/reference/tgs_graph_cover_resample.html</loc></url>
 <url><loc>/reference/tgs_knn.html</loc></url>
+<url><loc>/reference/tgs_ks.html</loc></url>
 <url><loc>/reference/tgs_matrix_tapply.html</loc></url>
+<url><loc>/reference/tgs_wilcox.html</loc></url>
 <url><loc>/reference/tgstat-package.html</loc></url>
 </urlset>
 

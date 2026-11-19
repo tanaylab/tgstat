@@ -82,7 +82,7 @@ between a matrix columns.</p>
 <span></span>
 <span><span class="fu">tgs_cor_knn</span><span class="op">(</span></span>
 <span>  <span class="va">x</span>,</span>
-<span>  <span class="va">y</span>,</span>
+<span>  y <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  <span class="va">knn</span>,</span>
 <span>  pairwise.complete.obs <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  spearman <span class="op">=</span> <span class="cn">FALSE</span>,</span>
@@ -95,11 +95,12 @@ between a matrix columns.</p>
 
 
 <dl><dt id="arg-x">x<a class="anchor" aria-label="anchor" href="#arg-x"></a></dt>
-<dd><p>numeric matrix</p></dd>
+<dd><p>numeric matrix or data frame</p></dd>
 
 
 <dt id="arg-y">y<a class="anchor" aria-label="anchor" href="#arg-y"></a></dt>
-<dd><p>numeric matrix</p></dd>
+<dd><p>numeric matrix or data frame. In 'tgs_cor' also a numeric vector,
+which is treated as a matrix of one column, and then 'x' can be a vector too.</p></dd>
 
 
 <dt id="arg-pairwise-complete-obs">pairwise.complete.obs<a class="anchor" aria-label="anchor" href="#arg-pairwise-complete-obs"></a></dt>
@@ -166,6 +167,13 @@ factor of NCxNC. In contrast 'tgs_cor_knn' would consume in the similar
 scenario a factor of max(NCxNR,NCxKNN). Similarly 'tgs_cor(x,y)' would
 consume memory as a factor of NCXxNCY, wherever 'tgs_cor_knn(x,y,knn)' would
 reduce that to max((NCX+NCY)xNR,NCXxKNN).</p>
+<p>A constant column, and without 'pairwise.complete.obs' a column with missing
+values, has no correlations: 'tgs_cor' returns 'NA' for it, and in
+'tgs_cor_knn' it has no neighbours and is not a neighbour of other columns.
+With 'pairwise.complete.obs' and missing values a column is treated as
+constant if all its values that are not missing are equal. A column that is
+constant only over the rows it shares with another column is not detected,
+and its correlation with that column is not reliable.</p>
     </div>
 
     <div id="ref-examples">

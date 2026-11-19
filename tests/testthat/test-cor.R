@@ -58,8 +58,10 @@ test_that("tgs_cor returns NA for constant columns", {
         x[, 2] <- const
         y[, 3] <- const
         ref <- suppressWarnings(stats::cor(x))
+        ref[2, ] <- ref[, 2] <- NA
         diag(ref) <- 1
         cross_ref <- suppressWarnings(stats::cor(x, y))
+        cross_ref[2, ] <- cross_ref[, 3] <- NA
         for (use_blas in c(TRUE, FALSE)) {
             options(tgs_use.blas = use_blas)
             for (pairwise in c(TRUE, FALSE)) {
@@ -179,9 +181,12 @@ test_that("tgs_cor returns NA for constant columns with pairwise.complete.obs an
         x[5, 4] <- NA
         y[, 3] <- const
         y[7, 1] <- NA
+        # stats::cor does not return NA for the constant columns on platforms without extended precision
         ref <- suppressWarnings(stats::cor(x, use = "pairwise.complete.obs"))
+        ref[2, ] <- ref[, 2] <- NA
         diag(ref) <- 1
         cross_ref <- suppressWarnings(stats::cor(x, y, use = "pairwise.complete.obs"))
+        cross_ref[2, ] <- cross_ref[, 3] <- NA
         for (use_blas in c(TRUE, FALSE)) {
             options(tgs_use.blas = use_blas)
             expect_equal(tgs_cor(x, pairwise.complete.obs = TRUE), ref)

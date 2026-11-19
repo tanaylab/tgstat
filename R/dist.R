@@ -13,8 +13,8 @@
 #'
 #' If 'y' is given, 'tgs_dist' returns the distances between each row of 'x'
 #' and each row of 'y': 'tgs_dist(x, y)' is equivalent to
-#' 'as.matrix(dist(rbind(x, y)))[1:nrow(x), nrow(x) + 1:nrow(y)]', and missing
-#' values are treated as in 'dist'. 'diag' and 'upper' are then ignored.
+#' \code{as.matrix(dist(rbind(x, y)))[1:nrow(x), nrow(x) + 1:nrow(y)]}, and
+#' missing values are treated as in 'dist'. 'diag' and 'upper' are then ignored.
 #'
 #' 'tgs_dist' can output its result in "tidy" format: a data frame with three
 #' columns named 'row1', 'row2' and 'dist'. Only the distances that are less or
@@ -25,7 +25,9 @@
 #'
 #' With BLAS ('tgs_use.blas') the squared distance between points x and y is
 #' computed as 'sum(x^2) + sum(y^2) - 2 * sum(x * y)', which loses precision for
-#' points that are close relative to their norms.
+#' points that are close relative to their norms. A squared distance that is
+#' within the rounding error of this formula is computed directly, so identical
+#' points are at distance 0.
 #'
 #' @param x numeric matrix or data frame
 #' @param y numeric matrix with the same number of columns as 'x', or 'NULL'

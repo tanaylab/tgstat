@@ -16,7 +16,7 @@ tgs_cor(
 
 tgs_cor_knn(
   x,
-  y,
+  y = NULL,
   knn,
   pairwise.complete.obs = FALSE,
   spearman = FALSE,
@@ -24,9 +24,10 @@ tgs_cor_knn(
 )
 }
 \arguments{
-\item{x}{numeric matrix}
+\item{x}{numeric matrix or data frame}
 
-\item{y}{numeric matrix}
+\item{y}{numeric matrix or data frame. In 'tgs_cor' also a numeric vector,
+which is treated as a matrix of one column, and then 'x' can be a vector too.}
 
 \item{pairwise.complete.obs}{see below}
 

@@ -6,6 +6,7 @@
 * Fixed `tgs_dist()` and `tgs_cor()` without BLAS, and `tgs_cor_knn()`, skipping one row or column for some input sizes when the number of processes is not a power of 2.
 * Fixed `tgs_dist()` with BLAS returning NaN for identical points when the data has missing values.
 * `tgs_cor()` with BLAS ranks and standardizes the columns in parallel and no longer holds the correlation matrix twice in memory: Spearman correlations are about 3 times faster and Pearson correlations up to 2 times.
+* Added `tgs_ks()` and `tgs_wilcox()`: a two-sample Kolmogorov-Smirnov test and a Wilcoxon rank sum test (with the AUC) on each column of a matrix, between the rows labeled `TRUE` and the rows labeled `FALSE`. The results equal those of `ks.test()` and `wilcox.test()` with `exact = FALSE`.
 * Added `tgs_dist_knn()`: the `knn` nearest rows of each row of `x`, among the rows of `y` or of `x` itself, by euclidean distance, without computing the full distance matrix.
 * `tgs_dist()` gained a `y` argument: `tgs_dist(x, y)` returns the distances between the rows of `x` and the rows of `y`. `y` is now the second argument, so passing `diag` by position (`tgs_dist(x, TRUE)`) is an error.
 * `tgs_dist()` with BLAS returns exactly 0 for identical rows; it used to return a small positive distance.

@@ -39,9 +39,18 @@
 #' consume memory as a factor of NCXxNCY, wherever 'tgs_cor_knn(x,y,knn)' would
 #' reduce that to max((NCX+NCY)xNR,NCXxKNN).
 #'
+#' A constant column, and without 'pairwise.complete.obs' a column with missing
+#' values, has no correlations: 'tgs_cor' returns 'NA' for it, and in
+#' 'tgs_cor_knn' it has no neighbours and is not a neighbour of other columns.
+#' With 'pairwise.complete.obs' and missing values a column is treated as
+#' constant if all its values that are not missing are equal. A column that is
+#' constant only over the rows it shares with another column is not detected,
+#' and its correlation with that column is not reliable.
+#'
 #' @aliases tgs_cor tgs_cor_knn
-#' @param x numeric matrix
-#' @param y numeric matrix
+#' @param x numeric matrix or data frame
+#' @param y numeric matrix or data frame. In 'tgs_cor' also a numeric vector,
+#' which is treated as a matrix of one column, and then 'x' can be a vector too.
 #' @param pairwise.complete.obs see below
 #' @param spearman if 'TRUE' Spearman correlation is computed, otherwise
 #' Pearson
@@ -95,6 +104,9 @@ tgs_cor <- function(x, y = NULL, pairwise.complete.obs = FALSE, spearman = FALSE
         stop("Usage: tgs_cor(x, y = NULL, pairwise.complete.obs = FALSE, spearman = FALSE, tidy = FALSE, threshold = 0)", call. = FALSE)
     }
 
+    x <- .tgs_as_matrix(x, vector_ok = !is.null(y))
+    y <- .tgs_as_matrix(y, vector_ok = TRUE)
+
     if (is.null(y)) {
         if (!.tgs_use_blas() || pairwise.complete.obs && spearman && !tgs_finite(x)) {
             .Call("tgs_cor", x, pairwise.complete.obs, spearman, tidy, threshold, new.env(parent = parent.frame()))
@@ -112,12 +124,18 @@ tgs_cor <- function(x, y = NULL, pairwise.complete.obs = FALSE, spearman = FALSE
 
 #' @rdname tgs_cor
 #' @export
-tgs_cor_knn <- function(x, y, knn, pairwise.complete.obs = FALSE, spearman = FALSE, threshold = 0) {
+tgs_cor_knn <- function(x, y = NULL, knn, pairwise.complete.obs = FALSE, spearman = FALSE, threshold = 0) {
     if (missing(x) || missing(knn)) {
-        stop("Usage: tgs_cor_knn(x, y, knn, pairwise.complete.obs = FALSE, spearman = FALSE, threshold = 0)", call. = FALSE)
+        stop("Usage: tgs_cor_knn(x, y = NULL, knn, pairwise.complete.obs = FALSE, spearman = FALSE, threshold = 0)", call. = FALSE)
     }
 
-    if (is.null(y)) {
+    x <- .tgs_as_matrix(x)
+    y <- .tgs_as_matrix(y)
+
+    # the BLAS implementation does not support pairwise.complete.obs with missing values
+    if (.tgs_use_blas() && !(isTRUE(pairwise.complete.obs) && (!tgs_finite(x) || !is.null(y) && !tgs_finite(y)))) {
+        .Call("tgs_cor_knn_blas", x, y, knn, pairwise.complete.obs, spearman, threshold, new.env(parent = parent.frame()))
+    } else if (is.null(y)) {
         .Call("tgs_cor_knn", x, knn, pairwise.complete.obs, spearman, threshold, new.env(parent = parent.frame()))
     } else {
         .Call("tgs_cross_cor_knn", x, y, knn, pairwise.complete.obs, spearman, threshold, new.env(parent = parent.frame()))

@@ -4,10 +4,19 @@
 \alias{tgs_dist}
 \title{Calculates distances between the matrix rows}
 \usage{
-tgs_dist(x, diag = FALSE, upper = FALSE, tidy = FALSE, threshold = Inf)
+tgs_dist(
+  x,
+  y = NULL,
+  diag = FALSE,
+  upper = FALSE,
+  tidy = FALSE,
+  threshold = Inf
+)
 }
 \arguments{
-\item{x}{numeric matrix}
+\item{x}{numeric matrix or data frame}
+
+\item{y}{numeric matrix with the same number of columns as 'x', or 'NULL'}
 
 \item{diag}{see 'dist' documentation}
 
@@ -19,11 +28,14 @@ tgs_dist(x, diag = FALSE, upper = FALSE, tidy = FALSE, threshold = Inf)
 }
 \value{
 If 'tidy' is 'FALSE' - the output is similar to that of 'dist'
-function. If 'tidy' is 'TRUE' - 'tgs_dist' returns a data frame, where each
-row represents distances between two pairs of original rows.
+function, or if 'y' is given, a matrix of the distances between the rows of
+'x' (its rows) and the rows of 'y' (its columns). If 'tidy' is 'TRUE' -
+'tgs_dist' returns a data frame, where each row represents distances between
+two pairs of original rows.
 }
 \description{
-Calculates distances between the matrix rows.
+Calculates distances between the matrix rows, or between the rows of two
+matrices.
 }
 \details{
 This function is very similar to 'package:stats::dist'. Unlike the latter it
@@ -34,11 +46,23 @@ Unlike 'package:stats::dist' 'tgs_dist' uses always "euclidean" metrics (see
 
 'tgs_dist(x)' is equivalent to 'dist(x, method = "euclidean")'
 
+If 'y' is given, 'tgs_dist' returns the distances between each row of 'x'
+and each row of 'y': 'tgs_dist(x, y)' is equivalent to
+\code{as.matrix(dist(rbind(x, y)))[1:nrow(x), nrow(x) + 1:nrow(y)]}, and
+missing values are treated as in 'dist'. 'diag' and 'upper' are then ignored.
+
 'tgs_dist' can output its result in "tidy" format: a data frame with three
 columns named 'row1', 'row2' and 'dist'. Only the distances that are less or
 equal than the 'threshold' are reported. Distance between row number X and Y
-is reported only if X < Y. 'diag' and 'upper' parameters are ignored when
-the result is returned in "tidy" format.
+is reported only if X < Y, unless 'y' is given ('row1' is then a row of 'x'
+and 'row2' a row of 'y'). 'diag' and 'upper' parameters are ignored when the
+result is returned in "tidy" format.
+
+With BLAS ('tgs_use.blas') the squared distance between points x and y is
+computed as 'sum(x^2) + sum(y^2) - 2 * sum(x * y)', which loses precision for
+points that are close relative to their norms. A squared distance that is
+within the rounding error of this formula is computed directly, so identical
+points are at distance 0.
 }
 \examples{
 \donttest{
@@ -51,6 +75,7 @@ vals <- sample(1:(rows * cols / 2), rows * cols, replace = TRUE)
 m <- matrix(vals, nrow = rows, ncol = cols)
 m[sample(1:(rows * cols), rows * cols / 1000)] <- NA
 r <- tgs_dist(m)
+r2 <- tgs_dist(m, m[1:10, ])
 }
 
 \dontshow{
@@ -66,5 +91,8 @@ m[sample(1:(rows * cols), rows * cols / 1000)] <- NA
 r <- tgs_dist(m)
 }
 
+}
+\seealso{
+\code{\link[=tgs_dist_knn]{tgs_dist_knn()}}
 }
 \keyword{~distance}

@@ -1,5 +1,7 @@
+#define USE_FC_LEN_T
 #include <algorithm>
 #include <cmath>
+#include <cstring>
 #include <errno.h>
 #include <limits>
 #include <queue>
@@ -18,6 +20,10 @@
 #endif
 #ifdef error
 #undef error
+#endif
+
+#ifndef FCONE
+# define FCONE
 #endif
 
 #include "ProgressReporter.h"
@@ -90,6 +96,15 @@ SEXP tgs_cor_knn(SEXP _x, SEXP _knn, SEXP _pairwise_complete_obs, SEXP _spearman
             } else
                 vals.push_back(Rf_isReal(_x) ? REAL(_x)[i] : INTEGER(_x)[i]);
         }
+
+        // the correlations of a constant column are NA, like those of a column with missing values
+        flag_constant_cols(&vals.front(), num_rows, num_cols, nan_in_col);
+
+        // with pairwise.complete.obs and missing values: the columns that are constant in every pair
+        vector<bool> constant_col;
+
+        if (nan_in_vals && pairwise_complete_obs)
+            constant_col = constant_cols(_x);
 
         // replace values with ranks if spearman=T
         if (spearman) {
@@ -187,7 +202,9 @@ SEXP tgs_cor_knn(SEXP _x, SEXP _knn, SEXP _pairwise_complete_obs, SEXP _spearman
                         double cor = 0;
 
                         if (icol1 != icol2) {
-                            if (nan_in_vals && pairwise_complete_obs) {
+                            if (nan_in_vals && pairwise_complete_obs && (constant_col[icol1] || constant_col[icol2])) {
+                                // a constant column has no correlations
+                            } else if (nan_in_vals && pairwise_complete_obs) {
                                 uint64_t idx1 = icol1 * num_rows;
                                 uint64_t idx2 = icol2 * num_rows;
                                 double sum1 = 0;
@@ -273,7 +290,8 @@ SEXP tgs_cor_knn(SEXP _x, SEXP _knn, SEXP _pairwise_complete_obs, SEXP _spearman
                             }
                         }
 
-                        if (!cor || fabs(cor) < threshold)
+                        // also if the correlation is NaN (a constant column), which would break the sort below
+                        if (!cor || !(fabs(cor) >= threshold))
                             cor = -2;
 
                         cors[icol2] = cor;
@@ -450,6 +468,7 @@ SEXP tgs_cross_cor_knn(SEXP _x, SEXP _y, SEXP _knn, SEXP _pairwise_complete_obs,
         uint64_t num_vals[2] = { num_rows * num_cols[0], num_rows * num_cols[1] };
         bool nan_in_vals = false;
         vector<bool> nan_in_col[2];
+        vector<bool> constant_col[2];     // with pairwise.complete.obs: the columns that are constant in every pair
         vector<double> sums[2];
         vector<double> sums_square[2];
         vector<double> means[2];
@@ -483,6 +502,11 @@ SEXP tgs_cross_cor_knn(SEXP _x, SEXP _y, SEXP _knn, SEXP _pairwise_complete_obs,
                 } else
                     vals[k].push_back(Rf_isReal(x) ? REAL(x)[i] : INTEGER(x)[i]);
             }
+
+            // the correlations of a constant column are NA, like those of a column with missing values
+            flag_constant_cols(&vals[k].front(), num_rows, num_cols[k], nan_in_col[k]);
+            if (pairwise_complete_obs)
+                constant_col[k] = constant_cols(x);
         }
 
         // replace values with ranks if spearman=T
@@ -584,7 +608,9 @@ SEXP tgs_cross_cor_knn(SEXP _x, SEXP _y, SEXP _knn, SEXP _pairwise_complete_obs,
                     for (uint64_t icol2 = 0; icol2 < num_cols[1]; ++icol2) {
                         double cor = 0;
 
-                        if (nan_in_vals && pairwise_complete_obs) {
+                        if (nan_in_vals && pairwise_complete_obs && (constant_col[0][icol1] || constant_col[1][icol2])) {
+                            // a constant column has no correlations
+                        } else if (nan_in_vals && pairwise_complete_obs) {
                             uint64_t idx1 = icol1 * num_rows;
                             uint64_t idx2 = icol2 * num_rows;
                             double sum1 = 0;
@@ -669,7 +695,8 @@ SEXP tgs_cross_cor_knn(SEXP _x, SEXP _y, SEXP _knn, SEXP _pairwise_complete_obs,
                             cor /= stddevs[0][icol1] * stddevs[1][icol2];  // => correlation(X,Y)
                         }
 
-                        if (!cor || fabs(cor) < threshold)
+                        // also if the correlation is NaN (a constant column), which would break the sort below
+                        if (!cor || !(fabs(cor) >= threshold))
                             cor = -2;
 
                         cors[icol2] = cor;
@@ -792,6 +819,223 @@ SEXP tgs_cross_cor_knn(SEXP _x, SEXP _y, SEXP _knn, SEXP _pairwise_complete_obs,
     if (!TGStat::is_kid() && res != (char *)MAP_FAILED) {
         munmap((char *)res, res_sizeof);  // needs to be char * for some versions of Solaris
         res = (char *)MAP_FAILED;
+    }
+    rreturn(answer);
+}
+
+// The same as tgs_cor_knn and tgs_cross_cor_knn (_y is NULL for the former) for data without missing values, or
+// without pairwise.complete.obs. The columns are centered and scaled to unit norm, so that the correlations of a
+// block of columns of x with all the columns of y are one matrix product.
+SEXP tgs_cor_knn_blas(SEXP _x, SEXP _y, SEXP _knn, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _threshold, SEXP _envir)
+{
+    SEXP answer = R_NilValue;
+    double *z[2] = { (double *)MAP_FAILED, (double *)MAP_FAILED };
+    uint64_t z_sizeof[2] = { 0, 0 };
+
+    try {
+        struct Mem {
+            double *res{NULL};
+            ~Mem() { free(res); }
+        } mem;
+
+        TGStat tgstat(_envir);
+        bool cross = !Rf_isNull(_y);
+        int num_mats = cross ? 2 : 1;
+        SEXP rmat[2] = { _x, _y };
+        const char *mat_name[2] = { "x", "y" };
+
+        for (int k = 0; k < num_mats; ++k) {
+            SEXP rdim;
+
+            if ((!Rf_isReal(rmat[k]) && !Rf_isInteger(rmat[k])) || Rf_xlength(rmat[k]) < 1 ||
+                !Rf_isInteger(rdim = Rf_getAttrib(rmat[k], R_DimSymbol)) || Rf_xlength(rdim) != 2)
+                verror("\"%s\" argument must be a matrix of numeric values", mat_name[k]);
+        }
+
+        if ((!Rf_isReal(_knn) && !Rf_isInteger(_knn)) || Rf_xlength(_knn) != 1 || Rf_asReal(_knn) < 1 || Rf_asReal(_knn) != (double)Rf_asInteger(_knn))
+            verror("\"knn\" argument must be a positive integer");
+
+        if (!Rf_isLogical(_pairwise_complete_obs) || Rf_xlength(_pairwise_complete_obs) != 1)
+            verror("\"pairwise.complete.obs\" argument must be a logical value");
+
+        if (!Rf_isLogical(_spearman) || Rf_xlength(_spearman) != 1)
+            verror("\"spearman\" argument must be a logical value");
+
+        if ((!Rf_isReal(_threshold) && !Rf_isInteger(_threshold)) || Rf_xlength(_threshold) != 1)
+            verror("\"threshold\" argument must be a numeric value");
+
+        if (cross && Rf_nrows(_x) != Rf_nrows(_y))
+            verror("\"x\" and \"y\" matrices have different number of rows");
+
+        bool pairwise_complete_obs = Rf_asLogical(_pairwise_complete_obs);
+        bool spearman = Rf_asLogical(_spearman);
+        double threshold = fabs(Rf_asReal(_threshold));
+        uint64_t num_rows = Rf_nrows(_x);
+        uint64_t num_cols[2] = { (uint64_t)Rf_ncols(_x), (uint64_t)Rf_ncols(cross ? _y : _x) };
+
+        for (int k = 0; k < num_mats; ++k) {
+            if (num_rows <= 1 || num_cols[k] <= 1)
+                verror("\"%s\" argument must be a matrix of numeric values", mat_name[k]);
+        }
+
+        uint64_t knn = min((uint64_t)Rf_asInteger(_knn), cross ? num_cols[1] : num_cols[0] - 1);
+        vector<bool> flagged[2];
+
+        if (pairwise_complete_obs) {
+            for (int k = 0; k < num_mats; ++k) {
+                if (!all_finite(rmat[k]))
+                    verror("BLAS implementation of tgs_cor_knn does not support pairwise.complete.obs when x or y contain NA / NaN / Inf");
+            }
+        }
+
+        // z: the standardized columns. The columns that have no correlations are zero: their dot products are
+        // exactly zero, and zero correlations are not neighbours.
+        standardize_cols(rmat, num_mats, spearman, z, z_sizeof, flagged);
+
+        // the neighbours of each column of x: the heap holds the knn highest correlations found so far, the lowest
+        // of them at its front
+        typedef pair<double, int> Neighbour;      // correlation, column of y
+        auto better = [](const Neighbour &n1, const Neighbour &n2) { return n1.first > n2.first || (n1.first == n2.first && n1.second < n2.second); };
+        vector<Neighbour> heap;
+        vector<Neighbour> neighbours(num_cols[0] * knn);
+        vector<uint64_t> num_neighbours(num_cols[0], 0);
+        uint64_t answer_size = 0;
+
+        heap.reserve(knn);
+
+        const double *zx = z[0];
+        const double *zy = z[num_mats - 1];
+        uint64_t num_cols_y = num_cols[1];
+        int num_rows32 = (int)num_rows;
+        int num_cols_y32 = (int)num_cols_y;
+
+        // block of at most 2^23 values (64 MB)
+        uint64_t block_cols = min(num_cols[0], max((uint64_t)1, ((uint64_t)1 << 23) / num_cols_y));
+
+        if (posix_memalign((void **)&mem.res, 64, sizeof(double) * num_cols_y * block_cols))
+            verror("%s", strerror(errno));
+
+        ProgressReporter progress;
+        progress.init(num_cols[0], 1);
+
+        for (uint64_t col1 = 0; col1 < num_cols[0]; col1 += block_cols) {
+            // res <- t(zy) %*% zx[, col1:(col2 - 1)]
+            uint64_t col2 = min(col1 + block_cols, num_cols[0]);
+            int num_block_cols32 = (int)(col2 - col1);
+            char transa = 'T';
+            char transb = 'N';
+            double alpha = 1;
+            double beta = 0;
+
+            F77_NAME(dgemm)(&transa, &transb, &num_cols_y32, &num_block_cols32, &num_rows32, &alpha, zy, &num_rows32, zx + col1 * num_rows, &num_rows32, &beta, mem.res, &num_cols_y32 FCONE FCONE);
+
+            for (uint64_t icol1 = col1; icol1 < col2; ++icol1) {
+                double *cors = mem.res + (icol1 - col1) * num_cols_y;
+                double bound = -numeric_limits<double>::infinity();     // the lowest correlation in a full heap
+
+                if (!cross)
+                    cors[icol1] = 0;
+
+                heap.clear();
+                for (uint64_t icol2 = 0; icol2 < num_cols_y; ++icol2) {
+                    double cor = cors[icol2];
+
+                    if (!(cor > bound) || !cor || fabs(cor) < threshold)
+                        continue;
+
+                    if (heap.size() == knn)
+                        pop_heap(heap.begin(), heap.end(), better);
+                    else
+                        heap.resize(heap.size() + 1);
+                    heap.back() = Neighbour(cor, (int)icol2);
+                    push_heap(heap.begin(), heap.end(), better);
+                    if (heap.size() == knn)
+                        bound = heap.front().first;
+                }
+
+                sort_heap(heap.begin(), heap.end(), better);
+                copy(heap.begin(), heap.end(), neighbours.begin() + icol1 * knn);
+                num_neighbours[icol1] = heap.size();
+                answer_size += heap.size();
+            }
+
+            check_interrupt();
+            progress.report(col2 - col1);
+        }
+        progress.report_last();
+
+        // assemble the answer
+        enum { COL1, COL2, COR, RANK, NUM_COLS };
+        const char *COL_NAMES[NUM_COLS] = { "col1", "col2", "cor", "rank" };
+
+        rprotect(answer = RSaneAllocVector(VECSXP, NUM_COLS));
+
+        SEXP rcol1, rcol2, rcor, rrank, rrownames, rcolnames;
+        SEXP rold_colnames[2];
+
+        for (int k = 0; k < 2; ++k) {
+            SEXP rold_dimnames = Rf_getAttrib(rmat[cross ? k : 0], R_DimNamesSymbol);
+            rold_colnames[k] = !Rf_isNull(rold_dimnames) && Rf_xlength(rold_dimnames) == 2 ? VECTOR_ELT(rold_dimnames, 1) : R_NilValue;
+        }
+
+        rprotect(rcol1 = RSaneAllocVector(INTSXP, answer_size));
+        rprotect(rcol2 = RSaneAllocVector(INTSXP, answer_size));
+        rprotect(rcor = RSaneAllocVector(REALSXP, answer_size));
+        rprotect(rrank = RSaneAllocVector(INTSXP, answer_size));
+        rprotect(rcolnames = RSaneAllocVector(STRSXP, NUM_COLS));
+        rprotect(rrownames = RSaneAllocVector(INTSXP, answer_size));
+
+        for (int i = 0; i < NUM_COLS; i++)
+            SET_STRING_ELT(rcolnames, i, Rf_mkChar(COL_NAMES[i]));
+
+        for (uint64_t icol = 0, row = 0; icol < num_cols[0]; ++icol) {
+            for (uint64_t i = 0; i < num_neighbours[icol]; ++i, ++row) {
+                INTEGER(rcol1)[row] = icol + 1;
+                INTEGER(rcol2)[row] = neighbours[icol * knn + i].second + 1;
+                REAL(rcor)[row] = neighbours[icol * knn + i].first;
+                INTEGER(rrank)[row] = i + 1;
+                INTEGER(rrownames)[row] = row + 1;
+            }
+        }
+
+        if (rold_colnames[0] != R_NilValue) {
+            Rf_setAttrib(rcol1, R_LevelsSymbol, rold_colnames[0]);
+            Rf_setAttrib(rcol1, R_ClassSymbol, Rf_mkString("factor"));
+        }
+        if (rold_colnames[1] != R_NilValue) {
+            Rf_setAttrib(rcol2, R_LevelsSymbol, rold_colnames[1]);
+            Rf_setAttrib(rcol2, R_ClassSymbol, Rf_mkString("factor"));
+        }
+
+        SET_VECTOR_ELT(answer, COL1, rcol1);
+        SET_VECTOR_ELT(answer, COL2, rcol2);
+        SET_VECTOR_ELT(answer, COR, rcor);
+        SET_VECTOR_ELT(answer, RANK, rrank);
+
+        Rf_setAttrib(answer, R_NamesSymbol, rcolnames);
+        Rf_setAttrib(answer, R_ClassSymbol, Rf_mkString("data.frame"));
+        Rf_setAttrib(answer, R_RowNamesSymbol, rrownames);
+    } catch (TGLException &e) {
+        for (int k = 0; k < 2; ++k) {
+            if (!TGStat::is_kid() && z[k] != (double *)MAP_FAILED) {
+                munmap((char *)z[k], z_sizeof[k]);  // needs to be char * for some versions of Solaris
+                z[k] = (double *)MAP_FAILED;
+            }
+        }
+        rerror("%s", e.msg());
+    } catch (const bad_alloc &e) {
+        for (int k = 0; k < 2; ++k) {
+            if (!TGStat::is_kid() && z[k] != (double *)MAP_FAILED) {
+                munmap((char *)z[k], z_sizeof[k]);
+                z[k] = (double *)MAP_FAILED;
+            }
+        }
+        rerror("Out of memory");
+    }
+
+    for (int k = 0; k < 2; ++k) {
+        if (!TGStat::is_kid() && z[k] != (double *)MAP_FAILED)
+            munmap((char *)z[k], z_sizeof[k]);
     }
     rreturn(answer);
 }

@@ -27,6 +27,17 @@
 #include "ProgressReporter.h"
 #include "tgstat.h"
 
+// Unmaps the shared memory of standardize_cols.
+static void unmap_shared(double *z[2], uint64_t z_sizeof[2])
+{
+    for (int k = 0; k < 2; ++k) {
+        if (!TGStat::is_kid() && z[k] != (double *)MAP_FAILED) {
+            munmap((char *)z[k], z_sizeof[k]);  // needs to be char * for some versions of Solaris
+            z[k] = (double *)MAP_FAILED;
+        }
+    }
+}
+
 extern "C" {
 
 SEXP tgs_cor(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _tidy, SEXP _threshold, SEXP _envir)
@@ -94,6 +105,15 @@ SEXP tgs_cor(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _tidy, S
             } else
                 vals.push_back(Rf_isReal(_x) ? REAL(_x)[i] : INTEGER(_x)[i]);
         }
+
+        // the correlations of a constant column are NA, like those of a column with missing values
+        flag_constant_cols(&vals.front(), num_rows, num_cols, nan_in_col);
+
+        // with pairwise.complete.obs and missing values: the columns that are constant in every pair
+        vector<bool> constant_col;
+
+        if (nan_in_vals && pairwise_complete_obs)
+            constant_col = constant_cols(_x);
 
         // replace values with ranks if spearman=T
         if (spearman) {
@@ -190,7 +210,9 @@ SEXP tgs_cor(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _tidy, S
                         for (uint64_t icol2 = start; icol2 < ecol[ipart]; ++icol2) {
                             uint64_t idx = icol1 * num_cols + icol2;
 
-                            if (nan_in_vals && pairwise_complete_obs) {
+                            if (nan_in_vals && pairwise_complete_obs && (constant_col[icol1] || constant_col[icol2])) {
+                                // a constant column has no correlations
+                            } else if (nan_in_vals && pairwise_complete_obs) {
                                 uint64_t idx1 = icol1 * num_rows;
                                 uint64_t idx2 = icol2 * num_rows;
                                 double sum1 = 0;
@@ -463,6 +485,7 @@ SEXP tgs_cross_cor(SEXP _x, SEXP _y, SEXP _pairwise_complete_obs, SEXP _spearman
         uint64_t num_vals[2] = { num_rows * num_cols[0], num_rows * num_cols[1] };
         bool nan_in_vals = false;
         vector<bool> nan_in_col[2];
+        vector<bool> constant_col[2];     // with pairwise.complete.obs: the columns that are constant in every pair
         vector<double> sums[2];
         vector<double> sums_square[2];
         vector<double> means[2];
@@ -496,6 +519,11 @@ SEXP tgs_cross_cor(SEXP _x, SEXP _y, SEXP _pairwise_complete_obs, SEXP _spearman
                 } else
                     vals[k].push_back(Rf_isReal(x) ? REAL(x)[i] : INTEGER(x)[i]);
             }
+
+            // the correlations of a constant column are NA, like those of a column with missing values
+            flag_constant_cols(&vals[k].front(), num_rows, num_cols[k], nan_in_col[k]);
+            if (pairwise_complete_obs)
+                constant_col[k] = constant_cols(x);
         }
 
         // replace values with ranks if spearman=T
@@ -591,7 +619,9 @@ SEXP tgs_cross_cor(SEXP _x, SEXP _y, SEXP _pairwise_complete_obs, SEXP _spearman
 
                 for (uint64_t icol2 = scol; icol2 < ecol; ++icol2) {
                     for (uint64_t icol1 = 0; icol1 < num_cols[0]; ++icol1, ++idx) {
-                        if (nan_in_vals && pairwise_complete_obs) {
+                        if (nan_in_vals && pairwise_complete_obs && (constant_col[0][icol1] || constant_col[1][icol2])) {
+                            // a constant column has no correlations
+                        } else if (nan_in_vals && pairwise_complete_obs) {
                             uint64_t idx1 = icol1 * num_rows;
                             uint64_t idx2 = icol2 * num_rows;
                             double sum1 = 0;
@@ -797,6 +827,8 @@ SEXP tgs_cross_cor(SEXP _x, SEXP _y, SEXP _pairwise_complete_obs, SEXP _spearman
 SEXP tgs_cor_blas(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _tidy, SEXP _threshold, SEXP _envir)
 {
     SEXP answer = R_NilValue;
+    double *z[2] = { (double *)MAP_FAILED, (double *)MAP_FAILED };
+    uint64_t z_sizeof[2] = { 0, 0 };
 
     try {
         struct Mem {
@@ -846,68 +878,43 @@ SEXP tgs_cor_blas(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _ti
 
         uint64_t num_vals = num_points * num_dims;
         uint64_t res_size = num_points * num_points;
-        bool nan_in_vals = false;
-        vector<bool> nan_in_point(num_points, false);
+        // pairwise.complete.obs changes the correlations only if there are missing values
+        bool pairwise_nan = pairwise_complete_obs && !all_finite(_x);
 
-        vdebug("START BLAS COR\n");
-        // some BLAS implementations ask to align double arrays to 64 for improved efficiency
-        if (posix_memalign((void **)&mem.m, 64, sizeof(double) * num_vals))
-            verror("%s", strerror(errno));
-
-        if (posix_memalign((void **)&mem.mask, 64, sizeof(double) * num_vals))
-            verror("%s", strerror(errno));
-
-        for (uint64_t i = 0; i < num_vals; ++i) {
-            if ((Rf_isReal(_x) && !R_FINITE(REAL(_x)[i])) || (Rf_isInteger(_x) && INTEGER(_x)[i] == NA_INTEGER)) {
-                mem.m[i] = mem.mask[i] = 0.;
-                nan_in_vals = true;
-                nan_in_point[i / num_dims] = true;
-            } else {
-                double val = Rf_isReal(_x) ? REAL(_x)[i] : INTEGER(_x)[i];
-                mem.m[i] = val;
-                mem.mask[i] = 1.;
-            }
-        }
-
-        if (spearman && pairwise_complete_obs && nan_in_vals)
+        if (spearman && pairwise_nan)
             verror("BLAS implementation of tgs_cor does not support spearman with pairwise.complete.obs when x contains NA / NaN / Inf");
 
-        if (posix_memalign((void **)&mem.res, 64, sizeof(double) * res_size))
-            verror("%s", strerror(errno));
+        vdebug("START BLAS COR\n");
 
-        // replace values with ranks if spearman=T
-        if (spearman) {
-            vector<double *> pvals;
-            pvals.reserve(num_vals);
-            for (uint64_t i = 0; i < num_vals; ++i)
-                pvals.push_back(&mem.m[i]);
+        // the correlations are computed directly in the answer, unless it is tidy
+        double *res;
 
-            for (uint64_t ipoint = 0; ipoint < num_points; ++ipoint) {
-                if (nan_in_point[ipoint])
-                    continue;
-
-                vector<double *>::iterator sival = pvals.begin() + ipoint * num_dims;
-                vector<double *>::iterator eival = sival + num_dims;
-                vector<double *>::iterator last_ival = sival;
-
-                sort(sival, eival, [](double *p1, double *p2) { return *p1 < *p2; });
-                for (auto ival = sival; ; ++ival) {
-                    if (ival == eival || **ival != **last_ival) {
-                        double rank = ((ival - sival) + (last_ival - sival) - 1) / 2. + 1;
-
-                        while (last_ival != ival) {
-                            **last_ival = rank;
-                            ++last_ival;
-                        }
-
-                        if (ival == eival)
-                            break;
-                    }
-                }
-            }
+        if (tidy) {
+            if (posix_memalign((void **)&mem.res, 64, sizeof(double) * res_size))
+                verror("%s", strerror(errno));
+            res = mem.res;
+        } else {
+            rprotect(answer = RSaneAllocVector(REALSXP, res_size));
+            res = REAL(answer);
         }
 
-        if (pairwise_complete_obs && nan_in_vals) {
+        if (pairwise_nan) {
+            // some BLAS implementations ask to align double arrays to 64 for improved efficiency
+            if (posix_memalign((void **)&mem.m, 64, sizeof(double) * num_vals))
+                verror("%s", strerror(errno));
+
+            if (posix_memalign((void **)&mem.mask, 64, sizeof(double) * num_vals))
+                verror("%s", strerror(errno));
+
+            for (uint64_t i = 0; i < num_vals; ++i) {
+                if ((Rf_isReal(_x) && !R_FINITE(REAL(_x)[i])) || (Rf_isInteger(_x) && INTEGER(_x)[i] == NA_INTEGER))
+                    mem.m[i] = mem.mask[i] = 0.;
+                else {
+                    mem.m[i] = Rf_isReal(_x) ? REAL(_x)[i] : INTEGER(_x)[i];
+                    mem.mask[i] = 1.;
+                }
+            }
+
             // correlation with pairwise complete obs is calculated as:
             //     n <- t(mask) %*% mask
             //     s_x <- t(mask) %*% m
@@ -1005,10 +1012,16 @@ SEXP tgs_cor_blas(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _ti
             check_interrupt();
 
             //     res <- cov_n / sqrt(var_n * t(var_n))
+            vector<bool> constant_col = constant_cols(_x);
+
             for (uint64_t ipoint1 = 0, idx1 = 0; ipoint1 < num_points; ++ipoint1) {
                 idx1 += ipoint1 + 1;
                 for (uint64_t ipoint2 = ipoint1 + 1, idx2 = ipoint2 * num_points + ipoint1; ipoint2 < num_points; ++ipoint2) {
-                    mem.res[idx1] = mem.res[idx2] = mem.cov_n[idx1] / sqrt(mem.var_n[idx1] * mem.var_n[idx2]);
+                    // a column that is constant in every pair has no correlations
+                    if (constant_col[ipoint1] || constant_col[ipoint2])
+                        res[idx1] = res[idx2] = NA_REAL;
+                    else
+                        res[idx1] = res[idx2] = mem.cov_n[idx1] / sqrt(mem.var_n[idx1] * mem.var_n[idx2]);
                     ++idx1;
                     idx2 += num_points;
                 }
@@ -1016,94 +1029,87 @@ SEXP tgs_cor_blas(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _ti
             check_interrupt();
 
             for (uint64_t idx = 0; idx < res_size; idx += num_points + 1)
-                mem.res[idx] = 1.;
+                res[idx] = 1.;
             check_interrupt();
 
             progress.report_last();
         } else {
-            // correlation without pairwise complete obs or with all finite values requires matrix multiplications (only one):
-            //     s_xy <- t(m) %*% m
-            //     stddev[i] <- sqrt(sums_square[i] / dims - e(i)^2)
-            //     res[i,j] <- (s_xy[i,j] / dims - e(i) * e(j)) / (stddev(i) * stddev(j))
-
+            // The columns are standardized, so that the correlation matrix is t(z) %*% z. The columns that have no
+            // correlations (a missing value or constant values) are flagged and their correlations are NA.
             ProgressReporter progress;
             progress.init(3, 1);
 
-            vector<double> sums(num_points, 0);
-            vector<double> sums_square(num_points, 0);
-            vector<double> means(num_points, 0);
-            vector<double> stddevs(num_points, 0);
+            vector<bool> flagged[2];
 
-            for (uint64_t idim = 0; idim < num_dims; ++idim) {
-                uint64_t idx = idim;
-                for (uint64_t ipoint = 0; ipoint < num_points; ++ipoint) {
-                    if (!nan_in_point[ipoint]) {
-                        sums[ipoint] += mem.m[idx];
-                        sums_square[ipoint] += mem.m[idx] * mem.m[idx];
-                    }
-                    idx += num_dims;
-                }
-            }
-            check_interrupt();
-
-            for (uint64_t ipoint = 0; ipoint < num_points; ++ipoint) {
-                if (!nan_in_point[ipoint]) {
-                    means[ipoint] = sums[ipoint] / num_dims;
-
-                    // we are calaculating standard deviation:
-                    // sqrt(sum((x-mean)^2) / N)) = sqrt(sum(x^2) / N - mean^2)
-                    stddevs[ipoint] = sqrt(sums_square[ipoint] / num_dims - means[ipoint] * means[ipoint]);
-                }
-            }
+            standardize_cols(&_x, 1, spearman, z, z_sizeof, flagged);
             check_interrupt();
             progress.report(1);
 
-            //     res <- t(m) %*% m
+            //     res <- t(z) %*% z, the lower triangle
             {
                 char uplo = 'L';
                 char trans = 'T';
                 double alpha = 1;
                 double beta = 0;
-                F77_NAME(dsyrk)(&uplo, &trans, &num_points32, &num_dims32, &alpha, mem.m, &num_dims32, &beta, mem.res, &num_points32 FCONE FCONE);
-                check_interrupt();
-                progress.report(1);
+                F77_NAME(dsyrk)(&uplo, &trans, &num_points32, &num_dims32, &alpha, z[0], &num_dims32, &beta, res, &num_points32 FCONE FCONE);
+            }
+            unmap_shared(z, z_sizeof);
+            check_interrupt();
+            progress.report(1);
+
+            vector<uint64_t> flagged_points;
+
+            for (uint64_t ipoint = 0; ipoint < num_points; ++ipoint) {
+                if (flagged[0][ipoint])
+                    flagged_points.push_back(ipoint);
             }
 
-            for (uint64_t ipoint1 = 0, idx1 = 0; ipoint1 < num_points; ++ipoint1) {
-                idx1 += ipoint1 + 1;
-                for (uint64_t ipoint2 = ipoint1 + 1, idx2 = ipoint2 * num_points + ipoint1; ipoint2 < num_points; ++ipoint2) {
-                    if (nan_in_point[ipoint1] || nan_in_point[ipoint2])
-                        mem.res[idx1] = mem.res[idx2] = NA_REAL;
-                    else
-                        mem.res[idx1] = mem.res[idx2] = (mem.res[idx1] / num_dims - means[ipoint1] * means[ipoint2]) / (stddevs[ipoint1] * stddevs[ipoint2]);
-                    ++idx1;
-                    idx2 += num_points;
+            if (!flagged_points.empty()) {
+                for (uint64_t ipoint = 0; ipoint < num_points; ++ipoint) {
+                    double *col = res + ipoint * num_points;
+
+                    if (flagged[0][ipoint])
+                        fill(col + ipoint, col + num_points, NA_REAL);
+                    else {
+                        for (auto ipoint2 = lower_bound(flagged_points.begin(), flagged_points.end(), ipoint); ipoint2 != flagged_points.end(); ++ipoint2)
+                            col[*ipoint2] = NA_REAL;
+                    }
+                }
+            }
+
+            for (uint64_t idx = 0; idx < res_size; idx += num_points + 1)
+                res[idx] = num_dims > 1 ? 1. : NA_REAL;
+
+            if (!tidy) {
+                // copy the lower triangle to the upper one, in tiles that fit in the cache
+                const uint64_t tile = 64;
+
+                for (uint64_t col1 = 0; col1 < num_points; col1 += tile) {
+                    uint64_t col2 = min(col1 + tile, num_points);
+
+                    for (uint64_t row1 = col1; row1 < num_points; row1 += tile) {
+                        uint64_t row2 = min(row1 + tile, num_points);
+
+                        for (uint64_t icol = col1; icol < col2; ++icol) {
+                            for (uint64_t irow = max(row1, icol + 1); irow < row2; ++irow)
+                                res[irow * num_points + icol] = res[icol * num_points + irow];
+                        }
+                    }
                 }
             }
             check_interrupt();
-
-            if (num_dims > 1) {
-                for (uint64_t idx = 0; idx < res_size; idx += num_points + 1)
-                    mem.res[idx] = 1.;
-            } else {
-                for (uint64_t idx = 0; idx < res_size; idx += num_points + 1)
-                    mem.res[idx] = NA_REAL;
-            }
-
-            check_interrupt();
-
             progress.report_last();
         }
         vdebug("END BLAS COR\n");
 
-//memcpy(mem.res, mem.var_n, sizeof(double) * res_size);
+//memcpy(res, mem.var_n, sizeof(double) * res_size);
 //{
 //SEXP rdims;
 //rprotect(answer = RSaneAllocVector(REALSXP, (uint64_t)num_points * num_points));
 //rprotect(rdims = RSaneAllocVector(INTSXP, 2));
 //INTEGER(rdims)[0] = INTEGER(rdims)[1] = num_points;
 //Rf_setAttrib(answer, R_DimSymbol, rdims);
-//memcpy(REAL(answer), mem.res, Rf_length(answer) * sizeof(REAL(answer)[0]));
+//memcpy(REAL(answer), res, Rf_length(answer) * sizeof(REAL(answer)[0]));
 //return answer;
 //}
 
@@ -1123,7 +1129,7 @@ SEXP tgs_cor_blas(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _ti
             for (uint64_t icol1 = 0; icol1 < num_points; ++icol1) {
                 uint64_t idx = icol1;
                 for (uint64_t icol2 = 0; icol2 < icol1; ++icol2) {
-                    if (!std::isnan(mem.res[idx]) && fabs(mem.res[idx]) >= threshold)
+                    if (!std::isnan(res[idx]) && fabs(res[idx]) >= threshold)
                         ++answer_size;
                     idx += num_points;
                 }
@@ -1145,10 +1151,10 @@ SEXP tgs_cor_blas(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _ti
                 for (uint64_t icol1 = 0; icol1 < num_points; ++icol1) {
                     for (uint64_t icol2 = icol1 + 1; icol2 < num_points; ++icol2) {
                         uint64_t idx = (uint64_t)icol1 * num_points + icol2;
-                        if (!std::isnan(mem.res[idx]) && fabs(mem.res[idx]) >= threshold) {
+                        if (!std::isnan(res[idx]) && fabs(res[idx]) >= threshold) {
                             INTEGER(rcol1)[i] = icol1 + 1;
                             INTEGER(rcol2)[i] = icol2 + 1;
-                            REAL(rcor)[i] = mem.res[idx];
+                            REAL(rcor)[i] = res[idx];
                             INTEGER(rrownames)[i] = i + 1;
                             ++i;
                         }
@@ -1173,13 +1179,12 @@ SEXP tgs_cor_blas(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _ti
         } else {
             SEXP dim;
 
-            for (uint64_t i = 0; i < res_size; ++i) {
-                if (std::isnan(mem.res[i]))
-                    mem.res[i] = NA_REAL;
+            if (pairwise_nan) {
+                for (uint64_t i = 0; i < res_size; ++i) {
+                    if (std::isnan(res[i]))
+                        res[i] = NA_REAL;
+                }
             }
-
-            rprotect(answer = RSaneAllocVector(REALSXP, res_size));
-            memcpy(REAL(answer), mem.res, res_size * sizeof(double));
 
             rprotect(dim = RSaneAllocVector(INTSXP, 2));
             INTEGER(dim)[0] = num_points;
@@ -1195,17 +1200,22 @@ SEXP tgs_cor_blas(SEXP _x, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _ti
             }
         }
     } catch (TGLException &e) {
+        unmap_shared(z, z_sizeof);
         rerror("%s", e.msg());
     } catch (const bad_alloc &e) {
+        unmap_shared(z, z_sizeof);
         rerror("Out of memory");
     }
 
+    unmap_shared(z, z_sizeof);
     rreturn(answer);
 }
 
 SEXP tgs_cross_cor_blas(SEXP _x, SEXP _y, SEXP _pairwise_complete_obs, SEXP _spearman, SEXP _tidy, SEXP _threshold, SEXP _envir)
 {
     SEXP answer = R_NilValue;
+    double *z[2] = { (double *)MAP_FAILED, (double *)MAP_FAILED };
+    uint64_t z_sizeof[2] = { 0, 0 };
 
     try {
         struct Mem {
@@ -1282,77 +1292,46 @@ SEXP tgs_cross_cor_blas(SEXP _x, SEXP _y, SEXP _pairwise_complete_obs, SEXP _spe
 
         uint64_t num_vals[2] = { num_points[0] * num_dims, num_points[1] * num_dims };
         uint64_t res_size = num_points[0] * num_points[1];
-        bool nan_in_vals = false;
-        vector<bool> nan_in_point[2];
 
-        nan_in_point[0].resize(num_points[0], false);
-        nan_in_point[1].resize(num_points[1], false);
+        // pairwise.complete.obs changes the correlations only if there are missing values
+        bool pairwise_nan = pairwise_complete_obs && (!all_finite(_x) || !all_finite(_y));
 
-        vdebug("START BLAS COR\n");
-        // some BLAS implementations ask to align double arrays to 64 for improved efficiency
-        for (int k = 0; k < 2; k++) {
-            if (posix_memalign((void **)&mem.m[k], 64, sizeof(double) * num_vals[k]) ||
-                posix_memalign((void **)&mem.mask[k], 64, sizeof(double) * num_vals[k]))
-                verror("%s", strerror(errno));
-
-            SEXP x = k ? _y : _x;
-
-            for (uint64_t i = 0; i < num_vals[k]; ++i) {
-                if ((Rf_isReal(x) && !R_FINITE(REAL(x)[i])) || (Rf_isInteger(x) && INTEGER(x)[i] == NA_INTEGER)) {
-                    mem.m[k][i] = mem.mask[k][i] = 0.;
-                    nan_in_vals = true;
-                    nan_in_point[k][i / num_dims] = true;
-                } else {
-                    double val = Rf_isReal(x) ? REAL(x)[i] : INTEGER(x)[i];
-                    mem.m[k][i] = val;
-                    mem.mask[k][i] = 1.;
-                }
-            }
-        }
-
-        if (spearman && pairwise_complete_obs && nan_in_vals)
+        if (spearman && pairwise_nan)
             verror("BLAS implementation of tgs_cor does not support spearman with pairwise.complete.obs when x or y contain NA / NaN / Inf");
 
-        if (posix_memalign((void **)&mem.res, 64, sizeof(double) * res_size))
-            verror("%s", strerror(errno));
+        vdebug("START BLAS COR\n");
 
-        // replace values with ranks if spearman=T
-        if (spearman) {
-            vector<double *> pvals;
-            for (int k = 0; k < 2; ++k) {
-                pvals.clear();
-                pvals.reserve(num_vals[k]);
+        // the correlations are computed directly in the answer, unless it is tidy
+        double *res;
 
-                for (uint64_t i = 0; i < num_vals[k]; ++i)
-                    pvals.push_back(&mem.m[k][i]);
+        if (tidy) {
+            if (posix_memalign((void **)&mem.res, 64, sizeof(double) * res_size))
+                verror("%s", strerror(errno));
+            res = mem.res;
+        } else {
+            rprotect(answer = RSaneAllocVector(REALSXP, res_size));
+            res = REAL(answer);
+        }
 
-                for (uint64_t ipoint = 0; ipoint < num_points[k]; ++ipoint) {
-                    if (nan_in_point[k][ipoint])
-                        continue;
+        if (pairwise_nan) {
+            // some BLAS implementations ask to align double arrays to 64 for improved efficiency
+            for (int k = 0; k < 2; k++) {
+                if (posix_memalign((void **)&mem.m[k], 64, sizeof(double) * num_vals[k]) ||
+                    posix_memalign((void **)&mem.mask[k], 64, sizeof(double) * num_vals[k]))
+                    verror("%s", strerror(errno));
 
-                    vector<double *>::iterator sival = pvals.begin() + ipoint * num_dims;
-                    vector<double *>::iterator eival = sival + num_dims;
-                    vector<double *>::iterator last_ival = sival;
+                SEXP x = k ? _y : _x;
 
-                    sort(sival, eival, [](double *p1, double *p2) { return *p1 < *p2; });
-                    for (auto ival = sival; ; ++ival) {
-                        if (ival == eival || **ival != **last_ival) {
-                            double rank = ((ival - sival) + (last_ival - sival) - 1) / 2. + 1;
-
-                            while (last_ival != ival) {
-                                **last_ival = rank;
-                                ++last_ival;
-                            }
-
-                            if (ival == eival)
-                                break;
-                        }
+                for (uint64_t i = 0; i < num_vals[k]; ++i) {
+                    if ((Rf_isReal(x) && !R_FINITE(REAL(x)[i])) || (Rf_isInteger(x) && INTEGER(x)[i] == NA_INTEGER))
+                        mem.m[k][i] = mem.mask[k][i] = 0.;
+                    else {
+                        mem.m[k][i] = Rf_isReal(x) ? REAL(x)[i] : INTEGER(x)[i];
+                        mem.mask[k][i] = 1.;
                     }
                 }
             }
-        }
 
-        if (pairwise_complete_obs && nan_in_vals) {
             // given that X is a matrix of d x k and Y is a matrix of d x m
             // correlation with pairwise complete jobs is calculated as:
             //     n <- t(maskx) %*% masky
@@ -1466,74 +1445,60 @@ SEXP tgs_cross_cor_blas(SEXP _x, SEXP _y, SEXP _pairwise_complete_obs, SEXP _spe
             check_interrupt();
 
             //     res <- cov_n / sqrt(varx_n * vary_n)
-            for (uint64_t i = 0; i < res_size; ++i)
-                mem.res[i] = mem.cov_n[i] / sqrt(mem.varx_n[i] * mem.vary_n[i]);
+            // NA for a column that is constant in every pair: it has no correlations
+            vector<bool> constant_col[2] = { constant_cols(_x), constant_cols(_y) };
+
+            for (uint64_t ipoint2 = 0, i = 0; ipoint2 < num_points[1]; ++ipoint2) {
+                for (uint64_t ipoint1 = 0; ipoint1 < num_points[0]; ++ipoint1, ++i) {
+                    if (constant_col[0][ipoint1] || constant_col[1][ipoint2])
+                        res[i] = NA_REAL;
+                    else
+                        res[i] = mem.cov_n[i] / sqrt(mem.varx_n[i] * mem.vary_n[i]);
+                }
+            }
             check_interrupt();
             progress.report_last();
         } else {
-            // correlation without pairwise complete obs or with all finite values requires matrix multiplications (only one):
-            //     s_xy <- t(mx) %*% my
-            //     stddev[i] <- sqrt(sums_square[i] / dims - e(i)^2)
-            //     res[i,j] <- (s_xy[i,j] / dims - ex(i) * ey(j)) / (stddevx(i) * stddevy(j))
-
+            // The columns are standardized, so that the correlation matrix is t(zx) %*% zy. The columns that have no
+            // correlations (a missing value or constant values) are flagged and their correlations are NA.
             ProgressReporter progress;
             progress.init(3, 1);
 
-            vector<double> sums[2];
-            vector<double> sums_square[2];
-            vector<double> means[2];
-            vector<double> stddevs[2];
+            SEXP rmat[2] = { _x, _y };
+            vector<bool> flagged[2];
 
-            for (int k = 0; k < 2; ++k) {
-                sums[k].resize(num_points[k], 0);
-                sums_square[k].resize(num_points[k], 0);
-                means[k].resize(num_points[k], 0);
-                stddevs[k].resize(num_points[k], 0);
-
-                for (uint64_t idim = 0; idim < num_dims; ++idim) {
-                    uint64_t idx = idim;
-                    for (uint64_t ipoint = 0; ipoint < num_points[k]; ++ipoint) {
-                        if (!nan_in_point[k][ipoint]) {
-                            sums[k][ipoint] += mem.m[k][idx];
-                            sums_square[k][ipoint] += mem.m[k][idx] * mem.m[k][idx];
-                        }
-                        idx += num_dims;
-                    }
-                }
-                check_interrupt();
-
-                for (uint64_t ipoint = 0; ipoint < num_points[k]; ++ipoint) {
-                    if (!nan_in_point[k][ipoint]) {
-                        means[k][ipoint] = sums[k][ipoint] / num_dims;
-
-                        // we are calaculating standard deviation:
-                        // sqrt(sum((x-mean)^2) / N)) = sqrt(sum(x^2) / N - mean^2)
-                        stddevs[k][ipoint] = sqrt(sums_square[k][ipoint] / num_dims - means[k][ipoint] * means[k][ipoint]);
-                    }
-                }
-                check_interrupt();
-            }
+            standardize_cols(rmat, 2, spearman, z, z_sizeof, flagged);
+            check_interrupt();
             progress.report(1);
 
-            //     res <- t(mx) %*% my
+            //     res <- t(zx) %*% zy
             {
                 char transa = 'T';
                 char transb = 'N';
                 double alpha = 1;
                 double beta = 0;
                 F77_NAME(dgemm)
-                (&transa, &transb, &num_points32[0], &num_points32[1], &num_dims32, &alpha, mem.m[0], &num_dims32, mem.m[1], &num_dims32, &beta, mem.res, &num_points32[0] FCONE FCONE);
-                check_interrupt();
-                progress.report(1);
+                (&transa, &transb, &num_points32[0], &num_points32[1], &num_dims32, &alpha, z[0], &num_dims32, z[1], &num_dims32, &beta, res, &num_points32[0] FCONE FCONE);
+            }
+            unmap_shared(z, z_sizeof);
+            check_interrupt();
+            progress.report(1);
+
+            vector<uint64_t> flagged_points;
+
+            for (uint64_t ipoint = 0; ipoint < num_points[0]; ++ipoint) {
+                if (flagged[0][ipoint])
+                    flagged_points.push_back(ipoint);
             }
 
-            for (uint64_t ipoint2 = 0, idx = 0; ipoint2 < num_points[1]; ++ipoint2) {
-                for (uint64_t ipoint1 = 0; ipoint1 < num_points[0]; ++ipoint1) {
-                    if (nan_in_point[0][ipoint1] || nan_in_point[1][ipoint2])
-                        mem.res[idx] = NA_REAL;
-                    else
-                        mem.res[idx] = (mem.res[idx] / num_dims - means[0][ipoint1] * means[1][ipoint2]) / (stddevs[0][ipoint1] * stddevs[1][ipoint2]);
-                    ++idx;
+            for (uint64_t ipoint = 0; ipoint < num_points[1]; ++ipoint) {
+                double *col = res + ipoint * num_points[0];
+
+                if (flagged[1][ipoint])
+                    fill(col, col + num_points[0], NA_REAL);
+                else {
+                    for (auto ipoint1 : flagged_points)
+                        col[ipoint1] = NA_REAL;
                 }
             }
             check_interrupt();
@@ -1557,7 +1522,7 @@ SEXP tgs_cross_cor_blas(SEXP _x, SEXP _y, SEXP _pairwise_complete_obs, SEXP _spe
             uint64_t answer_size = 0;
 
             for (uint64_t i = 0; i < res_size; ++i) {
-                if (!std::isnan(mem.res[i]) && fabs(mem.res[i]) >= threshold)
+                if (!std::isnan(res[i]) && fabs(res[i]) >= threshold)
                     ++answer_size;
             }
 
@@ -1577,10 +1542,10 @@ SEXP tgs_cross_cor_blas(SEXP _x, SEXP _y, SEXP _pairwise_complete_obs, SEXP _spe
                 for (uint64_t icol1 = 0; icol1 < num_points[0]; ++icol1) {
                     uint64_t idx_m = icol1;
                     for (uint64_t icol2 = 0; icol2 < num_points[1]; ++icol2) {
-                        if (!std::isnan(mem.res[idx_m]) && fabs(mem.res[idx_m]) >= threshold) {
+                        if (!std::isnan(res[idx_m]) && fabs(res[idx_m]) >= threshold) {
                             INTEGER(rcol1)[idx_answer] = icol1 + 1;
                             INTEGER(rcol2)[idx_answer] = icol2 + 1;
-                            REAL(rcor)[idx_answer] = mem.res[idx_m];
+                            REAL(rcor)[idx_answer] = res[idx_m];
                             INTEGER(rrownames)[idx_answer] = idx_answer + 1;
                             ++idx_answer;
                         }
@@ -1609,13 +1574,12 @@ SEXP tgs_cross_cor_blas(SEXP _x, SEXP _y, SEXP _pairwise_complete_obs, SEXP _spe
             SEXP dim;
             SEXP dimnames;
 
-            for (uint64_t i = 0; i < res_size; ++i) {
-                if (std::isnan(mem.res[i]))
-                    mem.res[i] = NA_REAL;
+            if (pairwise_nan) {
+                for (uint64_t i = 0; i < res_size; ++i) {
+                    if (std::isnan(res[i]))
+                        res[i] = NA_REAL;
+                }
             }
-
-            rprotect(answer = RSaneAllocVector(REALSXP, res_size));
-            memcpy(REAL(answer), mem.res, res_size * sizeof(double));
 
             rprotect(dim = RSaneAllocVector(INTSXP, 2));
             INTEGER(dim)[0] = num_points[0];
@@ -1628,11 +1592,14 @@ SEXP tgs_cross_cor_blas(SEXP _x, SEXP _y, SEXP _pairwise_complete_obs, SEXP _spe
             Rf_setAttrib(answer, R_DimNamesSymbol, dimnames);
         }
     } catch (TGLException &e) {
+        unmap_shared(z, z_sizeof);
         rerror("%s", e.msg());
     } catch (const bad_alloc &e) {
+        unmap_shared(z, z_sizeof);
         rerror("Out of memory");
     }
 
+    unmap_shared(z, z_sizeof);
     rreturn(answer);
 }
 

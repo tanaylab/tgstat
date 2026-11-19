@@ -7,7 +7,7 @@
 tgs_cor_dist(x, pairwise.complete.obs = FALSE, spearman = FALSE)
 }
 \arguments{
-\item{x}{numeric matrix}
+\item{x}{numeric matrix or data frame}
 
 \item{pairwise.complete.obs}{see 'tgs_cor' documentation}
 

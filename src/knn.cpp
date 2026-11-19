@@ -53,6 +53,7 @@ SEXP tgs_knn(SEXP _x, SEXP _knn, SEXP _diag, SEXP _threshold, SEXP _envir)
         vector<uint64_t> sorted_rows;     // contains number of rows of _x sorted by col1
         uint64_t num_rows = 0;
         uint64_t num_cols = 0;
+        uint64_t mat_rec = 0;             // if x is a matrix: the number of values per column in the shared memory
 
         vdebug("Preparing for multitasking...\n");
         if (Rf_isReal(_x) && Rf_xlength(_x) >= 1) {    // x is a matrix
@@ -70,40 +71,15 @@ SEXP tgs_knn(SEXP _x, SEXP _knn, SEXP _diag, SEXP _threshold, SEXP _envir)
 
             point2size.resize(num_cols, 0);
 
-            {
-                uint64_t idx = 0;
-                for (uint64_t icol = 0; icol < num_cols; ++icol) {
-                    for (uint64_t irow = 0; irow < num_rows; ++irow) {
-                        if ((irow != icol || diag) && R_FINITE(data[idx]) && data[idx] >= threshold) {
-                            ++point2size[icol];
-                            ++num_pairs;
-                        }
-                        ++idx;
-                    }
-                }
-            }
+            // Shared memory: for each column, the number of its highest values that were found (at most knn),
+            // followed by their indices in x. The child processes select the values of each column directly
+            // from x.
+            mat_rec = min(knn, num_rows) + 1;
+            res_sizeof = sizeof(uint64_t) * mat_rec * num_cols;
+            res = (uint64_t *)mmap(NULL, res_sizeof, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
 
-            if (num_pairs) {
-                res_sizeof = sizeof(uint64_t) * num_pairs;
-                res = (uint64_t *)mmap(NULL, res_sizeof, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
-
-                if (res == (uint64_t *)MAP_FAILED)
-                    verror("Failed to allocate shared memory: %s", strerror(errno));
-
-                {
-                    uint64_t idx1 = 0;
-                    uint64_t idx2 = 0;
-
-                    for (uint64_t icol = 0; icol < num_cols; ++icol) {
-                        for (uint64_t irow = 0; irow < num_rows; ++irow) {
-                            if ((irow != icol || diag) && R_FINITE(data[idx1]) && data[idx1] >= threshold)
-                                res[idx2++] = idx1;
-                            ++idx1;
-                        }
-                    }
-
-                }
-            }
+            if (res == (uint64_t *)MAP_FAILED)
+                verror("Failed to allocate shared memory: %s", strerror(errno));
         } else if (Rf_isVector(_x) && Rf_xlength(_x) >= 3) {
             tidy = true;
 
@@ -168,9 +144,10 @@ SEXP tgs_knn(SEXP _x, SEXP _knn, SEXP _diag, SEXP _threshold, SEXP _envir)
             verror("Invalid format of \"x\" argument");
         }
 
-        int num_processes = (int)min(num_pairs / 1000000, (uint64_t)g_tgstat->num_processes());
+        uint64_t num_vals = tidy ? num_pairs : num_rows * num_cols;
+        int num_processes = (int)min(num_vals / 1000000, (uint64_t)g_tgstat->num_processes());
 
-        if (num_pairs)
+        if (num_vals)
             num_processes = max(num_processes, 1);
 
         ProgressReporter progress;
@@ -184,6 +161,28 @@ SEXP tgs_knn(SEXP _x, SEXP _knn, SEXP _diag, SEXP _threshold, SEXP _envir)
                 uint64_t spoint = point2size.size() * (iprocess / (double)num_processes);
                 uint64_t epoint = point2size.size() * ((iprocess + 1) / (double)num_processes);
                 uint64_t idx = 0;
+
+                if (!tidy) {
+                    vector<uint64_t> col_idx;
+                    col_idx.reserve(num_rows);
+
+                    for (uint64_t icol = spoint; icol < epoint; ++icol) {
+                        uint64_t sidx = icol * num_rows;
+
+                        col_idx.clear();
+                        for (uint64_t irow = 0; irow < num_rows; ++irow) {
+                            if ((irow != icol || diag) && R_FINITE(data[sidx + irow]) && data[sidx + irow] >= threshold)
+                                col_idx.push_back(sidx + irow);
+                        }
+
+                        uint64_t col_knn = min(knn, (uint64_t)col_idx.size());
+                        partial_sort(col_idx.begin(), col_idx.begin() + col_knn, col_idx.end(), cmp);
+                        res[icol * mat_rec] = col_knn;
+                        copy(col_idx.begin(), col_idx.begin() + col_knn, res + icol * mat_rec + 1);
+                        TGStat::itr_idx(icol - spoint + 1);
+                    }
+                    rexit();
+                }
 
                 for (uint64_t i = 0; i < spoint; ++i)
                     idx += point2size[i];
@@ -214,6 +213,11 @@ SEXP tgs_knn(SEXP _x, SEXP _knn, SEXP _diag, SEXP _threshold, SEXP _envir)
         uint64_t answer_size = 0;
 
         vdebug("PACKING\n");
+        if (!tidy) {
+            for (uint64_t icol = 0; icol < num_cols; ++icol)
+                point2size[icol] = res[icol * mat_rec];
+        }
+
         for (auto point_size : point2size)
             answer_size += min(knn, point_size);
 
@@ -267,8 +271,9 @@ SEXP tgs_knn(SEXP _x, SEXP _knn, SEXP _diag, SEXP _threshold, SEXP _envir)
             }
         } else {
             for (uint64_t icol = 0; icol < num_cols; ++icol) {
-                uint64_t point_knn = min(knn, point2size[icol]);
+                uint64_t point_knn = point2size[icol];
 
+                idx = icol * mat_rec + 1;
                 for (uint64_t i = 0; i < point_knn; ++i) {
                     INTEGER(rcol1)[row] = icol + 1;
                     INTEGER(rcol2)[row] = res[idx + i] % num_rows + 1;
@@ -282,7 +287,6 @@ SEXP tgs_knn(SEXP _x, SEXP _knn, SEXP _diag, SEXP _threshold, SEXP _envir)
                     ++rank;
                     ++row;
                 }
-                idx += point2size[icol];
             }
         }
 

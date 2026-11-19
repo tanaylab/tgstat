@@ -20,34 +20,52 @@
 
 #include "tgstat.h"
 
-extern "C" {
-
-SEXP tgs_finite(SEXP _x, SEXP _envir)
+void flag_constant_cols(const double *vals, uint64_t num_rows, uint64_t num_cols, vector<bool> &flags)
 {
-	try {
-        TGStat tgstat(_envir);
-        uint64_t len = Rf_xlength(_x);
+    for (uint64_t icol = 0; icol < num_cols; ++icol) {
+        const double *col = vals + icol * num_rows;
 
-        if (!Rf_isReal(_x) && !Rf_isInteger(_x))
-            verror("\"x\" argument must be numeric or integer");
-
-        for (uint64_t i = 0; i < len; ++i) {
-            if ((Rf_isReal(_x) && !R_FINITE(REAL(_x)[i])) || (Rf_isInteger(_x) && INTEGER(_x)[i] == NA_INTEGER))
-                rreturn(Rf_ScalarLogical(false));
-        }
-    } catch (TGLException &e) {
-        rerror("%s", e.msg());
-    } catch (const bad_alloc &e) {
-        rerror("Out of memory");
+        if (!flags[icol] && all_of(col, col + num_rows, [col](double val) { return val == col[0]; }))
+            flags[icol] = true;
     }
-
-    rreturn(Rf_ScalarLogical(true));
 }
 
 // Replaces the n values of v by their ranks (if spearman is true), then centers them and scales them to unit norm.
 // Returns false if the values are constant (or their sum of squares overflows).
-static bool standardize(double *v, uint64_t n, bool spearman, vector<pair<double, uint64_t>> &sorted)
+vector<bool> constant_cols(SEXP x)
 {
+    uint64_t num_rows = Rf_nrows(x);
+    uint64_t num_cols = Rf_ncols(x);
+    const double *xreal = Rf_isReal(x) ? REAL(x) : NULL;
+    const int *xint = Rf_isReal(x) ? NULL : INTEGER(x);
+    vector<bool> res(num_cols, true);
+
+    for (uint64_t icol = 0, i = 0; icol < num_cols; ++icol) {
+        bool found = false;
+        double first = 0;
+
+        for (uint64_t irow = 0; irow < num_rows; ++irow, ++i) {
+            if (xreal ? !R_FINITE(xreal[i]) : xint[i] == NA_INTEGER)
+                continue;
+
+            double val = xreal ? xreal[i] : xint[i];
+
+            if (!found) {
+                found = true;
+                first = val;
+            } else if (val != first)
+                res[icol] = false;
+        }
+    }
+    return res;
+}
+
+bool standardize(double *v, uint64_t n, bool spearman, vector<pair<double, uint64_t>> &sorted)
+{
+    // constant values are checked first: after centering they are not exactly zero if their mean is rounded
+    if (all_of(v, v + n, [v](double val) { return val == v[0]; }))
+        return false;
+
     if (spearman) {
         // average ranks for ties, as in tgs_cor
         sorted.resize(n);
@@ -81,6 +99,127 @@ static bool standardize(double *v, uint64_t n, bool spearman, vector<pair<double
     for (uint64_t i = 0; i < n; ++i)
         v[i] *= scale;
     return true;
+}
+
+bool all_finite(SEXP x)
+{
+    uint64_t len = Rf_xlength(x);
+
+    if (Rf_isReal(x)) {
+        const double *vals = REAL(x);
+        return all_of(vals, vals + len, [](double val) { return R_FINITE(val); });
+    }
+
+    const int *vals = INTEGER(x);
+    return all_of(vals, vals + len, [](int val) { return val != NA_INTEGER; });
+}
+
+void standardize_cols(SEXP rmat[], int num_mats, bool spearman, double *z[], uint64_t z_sizeof[], vector<bool> flagged[])
+{
+    uint64_t num_rows = Rf_nrows(rmat[0]);
+    uint64_t num_cols[2] = { 0, 0 };
+    uint64_t num_vals = 0;
+
+    for (int k = 0; k < num_mats; ++k) {
+        num_cols[k] = Rf_ncols(rmat[k]);
+        z_sizeof[k] = sizeof(double) * max(num_rows * num_cols[k], (uint64_t)1);
+        z[k] = (double *)mmap(NULL, z_sizeof[k], PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+
+        if (z[k] == (double *)MAP_FAILED)
+            verror("Failed to allocate shared memory: %s", strerror(errno));
+
+        num_vals += num_rows * num_cols[k];
+    }
+
+    // one byte per column, set by the process that standardizes the column
+    struct Flags {
+        unsigned char *p{(unsigned char *)MAP_FAILED};
+        uint64_t size{0};
+        ~Flags() { if (!TGStat::is_kid() && p != (unsigned char *)MAP_FAILED) munmap((char *)p, size); }
+    } flags;
+
+    flags.size = max(num_cols[0] + num_cols[1], (uint64_t)1);
+    flags.p = (unsigned char *)mmap(NULL, flags.size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+
+    if (flags.p == (unsigned char *)MAP_FAILED)
+        verror("Failed to allocate shared memory: %s", strerror(errno));
+
+    auto standardize_part = [&](uint64_t ipart, uint64_t num_parts) {
+        vector<pair<double, uint64_t>> sorted;
+
+        for (int k = 0; k < num_mats; ++k) {
+            const double *xreal = Rf_isReal(rmat[k]) ? REAL(rmat[k]) : NULL;
+            const int *xint = Rf_isReal(rmat[k]) ? NULL : INTEGER(rmat[k]);
+            unsigned char *col_flags = flags.p + (k ? num_cols[0] : 0);
+            uint64_t scol = ipart * num_cols[k] / num_parts;
+            uint64_t ecol = (ipart + 1) * num_cols[k] / num_parts;
+
+            for (uint64_t icol = scol; icol < ecol; ++icol) {
+                double *v = z[k] + icol * num_rows;
+                uint64_t offset = icol * num_rows;
+                bool finite = true;
+
+                for (uint64_t irow = 0; irow < num_rows && finite; ++irow) {
+                    if (xreal ? !R_FINITE(xreal[offset + irow]) : xint[offset + irow] == NA_INTEGER)
+                        finite = false;
+                    else
+                        v[irow] = xreal ? xreal[offset + irow] : xint[offset + irow];
+                }
+
+                if (!finite || !standardize(v, num_rows, spearman, sorted)) {
+                    memset(v, 0, sizeof(double) * num_rows);
+                    col_flags[icol] = 1;
+                }
+            }
+        }
+    };
+
+    // a process per 500K values to rank or 4M values to center and scale: forking takes longer than a smaller part
+    int num_processes = (int)min(num_vals / (spearman ? 500000 : 4000000), (uint64_t)g_tgstat->num_processes());
+
+    if (num_processes > 1) {
+        TGStat::prepare4multitasking();
+
+        for (int iprocess = 0; iprocess < num_processes; ++iprocess) {
+            if (!TGStat::launch_process()) {     // child process
+                standardize_part(iprocess, num_processes);
+                rexit();
+            }
+        }
+
+        while (TGStat::wait_for_kids(3000))
+            ;
+    } else
+        standardize_part(0, 1);
+
+    for (int k = 0; k < num_mats; ++k) {
+        const unsigned char *col_flags = flags.p + (k ? num_cols[0] : 0);
+        flagged[k].assign(col_flags, col_flags + num_cols[k]);
+    }
+}
+
+extern "C" {
+
+SEXP tgs_finite(SEXP _x, SEXP _envir)
+{
+	try {
+        TGStat tgstat(_envir);
+        uint64_t len = Rf_xlength(_x);
+
+        if (!Rf_isReal(_x) && !Rf_isInteger(_x))
+            verror("\"x\" argument must be numeric or integer");
+
+        for (uint64_t i = 0; i < len; ++i) {
+            if ((Rf_isReal(_x) && !R_FINITE(REAL(_x)[i])) || (Rf_isInteger(_x) && INTEGER(_x)[i] == NA_INTEGER))
+                rreturn(Rf_ScalarLogical(false));
+        }
+    } catch (TGLException &e) {
+        rerror("%s", e.msg());
+    } catch (const bad_alloc &e) {
+        rerror("Out of memory");
+    }
+
+    rreturn(Rf_ScalarLogical(true));
 }
 
 // Replaces the values of each column of x by their ranks (if spearman is true), then centers each column and

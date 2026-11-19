@@ -16,7 +16,7 @@ tgs_cor(
 
 tgs_cor_knn(
   x,
-  y,
+  y = NULL,
   knn,
   pairwise.complete.obs = FALSE,
   spearman = FALSE,
@@ -24,9 +24,10 @@ tgs_cor_knn(
 )
 }
 \arguments{
-\item{x}{numeric matrix}
+\item{x}{numeric matrix or data frame}
 
-\item{y}{numeric matrix}
+\item{y}{numeric matrix or data frame. In 'tgs_cor' also a numeric vector,
+which is treated as a matrix of one column, and then 'x' can be a vector too.}
 
 \item{pairwise.complete.obs}{see below}
 
@@ -89,6 +90,14 @@ factor of NCxNC. In contrast 'tgs_cor_knn' would consume in the similar
 scenario a factor of max(NCxNR,NCxKNN). Similarly 'tgs_cor(x,y)' would
 consume memory as a factor of NCXxNCY, wherever 'tgs_cor_knn(x,y,knn)' would
 reduce that to max((NCX+NCY)xNR,NCXxKNN).
+
+A constant column, and without 'pairwise.complete.obs' a column with missing
+values, has no correlations: 'tgs_cor' returns 'NA' for it, and in
+'tgs_cor_knn' it has no neighbours and is not a neighbour of other columns.
+With 'pairwise.complete.obs' and missing values a column is treated as
+constant if all its values that are not missing are equal. A column that is
+constant only over the rows it shares with another column is not detected,
+and its correlation with that column is not reliable.
 }
 \examples{
 \donttest{

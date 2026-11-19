@@ -236,3 +236,168 @@ test_that("tgs_cor_knn does not depend on the number of processes", {
         expect_identical(tgs_cor_knn(x, y, 5), expected_cross)
     }
 })
+
+# reference: the highest correlations of each column of x with the columns of y, ties broken by the column number
+cor_knn_ref <- function(x, y, knn, spearman = FALSE, threshold = 0) {
+    # tgstat treats infinite values as missing
+    x[!is.finite(x)] <- NA
+    if (!is.null(y)) {
+        y[!is.finite(y)] <- NA
+    }
+    cc <- suppressWarnings(stats::cor(x, if (is.null(y)) x else y, method = if (spearman) "spearman" else "pearson"))
+    res <- lapply(seq_len(nrow(cc)), function(i) {
+        v <- cc[i, ]
+        ok <- !is.na(v) & v != 0 & abs(v) >= abs(threshold)
+        if (is.null(y)) {
+            ok[i] <- FALSE
+        }
+        cols <- which(ok)
+        cols <- utils::head(cols[order(-v[cols], cols)], knn)
+        data.frame(col1 = rep(i, length(cols)), col2 = cols, cor = unname(v[cols]), rank = seq_along(cols))
+    })
+    do.call(rbind, res)
+}
+
+# Spearman correlations of different pairs are often equal up to rounding, and then the neighbour that is chosen
+# depends on the rounding: ties = TRUE does not compare the neighbours
+expect_cor_knn_equal <- function(res, ref, ties = FALSE) {
+    expect_equal(as.integer(res$col1), ref$col1)
+    if (!ties) {
+        expect_equal(as.integer(res$col2), ref$col2)
+    }
+    expect_equal(res$cor, ref$cor, tolerance = 1e-10)
+    expect_equal(res$rank, ref$rank)
+}
+
+with_blas <- function(use_blas, expr) {
+    old <- options(tgs_use.blas = use_blas)
+    on.exit(options(old))
+    expr
+}
+
+test_that("tgs_cor_knn with and without BLAS matches the reference", {
+    set.seed(60427)
+    x <- matrix(rnorm(40 * 60), 40, 60)
+    y <- matrix(rnorm(40 * 25), 40, 25)
+    y[, 1:10] <- y[, 1:10] + x[, 1:10]
+
+    for (use_blas in c(TRUE, FALSE)) {
+        for (spearman in c(FALSE, TRUE)) {
+            expect_cor_knn_equal(
+                with_blas(use_blas, tgs_cor_knn(x, NULL, 7, spearman = spearman)),
+                cor_knn_ref(x, NULL, 7, spearman = spearman),
+                ties = spearman
+            )
+            expect_cor_knn_equal(
+                with_blas(use_blas, tgs_cor_knn(x, y, 7, spearman = spearman)),
+                cor_knn_ref(x, y, 7, spearman = spearman),
+                ties = spearman
+            )
+            expect_cor_knn_equal(
+                with_blas(use_blas, tgs_cor_knn(x, NULL, 1000, spearman = spearman, threshold = 0.21)),
+                cor_knn_ref(x, NULL, 1000, spearman = spearman, threshold = 0.21),
+                ties = spearman
+            )
+            expect_cor_knn_equal(
+                with_blas(use_blas, tgs_cor_knn(x, y, 1000, spearman = spearman, threshold = -0.21)),
+                cor_knn_ref(x, y, 1000, spearman = spearman, threshold = 0.21),
+                ties = spearman
+            )
+        }
+    }
+})
+
+test_that("tgs_cor_knn skips constant columns and columns with missing values", {
+    set.seed(60427)
+    x <- matrix(rnorm(30 * 20), 30, 20)
+    x[, 4] <- 3
+    x[5, 9] <- NA
+    x[7, 15] <- Inf
+    storage.mode(x) <- "double"
+    y <- x[, 20:1]
+
+    for (use_blas in c(TRUE, FALSE)) {
+        res <- with_blas(use_blas, tgs_cor_knn(x, NULL, 5))
+        expect_cor_knn_equal(res, cor_knn_ref(x, NULL, 5))
+        expect_false(any(c(4, 9, 15) %in% res$col1))
+        expect_false(any(c(4, 9, 15) %in% res$col2))
+        expect_true(all(table(res$col1) == 5))
+
+        res <- with_blas(use_blas, tgs_cor_knn(x, y, 5, spearman = TRUE))
+        expect_cor_knn_equal(res, cor_knn_ref(x, y, 5, spearman = TRUE), ties = TRUE)
+    }
+})
+
+test_that("tgs_cor_knn with pairwise.complete.obs and missing values is the same with and without BLAS", {
+    set.seed(60427)
+    x <- matrix(rnorm(30 * 20), 30, 20)
+    x[sample(length(x), 40)] <- NA
+    res <- lapply(c(TRUE, FALSE), function(use_blas) {
+        with_blas(use_blas, tgs_cor_knn(x, NULL, 5, pairwise.complete.obs = TRUE))
+    })
+    expect_identical(res[[1]], res[[2]])
+
+    # without missing values pairwise.complete.obs changes nothing
+    x <- matrix(rnorm(30 * 20), 30, 20)
+    expect_cor_knn_equal(with_blas(TRUE, tgs_cor_knn(x, NULL, 5, pairwise.complete.obs = TRUE)), cor_knn_ref(x, NULL, 5))
+})
+
+test_that("tgs_cor_knn with BLAS handles integer matrices, column names and several blocks", {
+    set.seed(60427)
+    x <- matrix(sample(0:20, 15 * 12, replace = TRUE), 15, 12, dimnames = list(NULL, paste0("x", 1:12)))
+    y <- matrix(sample(0:20, 15 * 8, replace = TRUE), 15, 8, dimnames = list(NULL, paste0("y", 1:8)))
+    res <- with_blas(TRUE, tgs_cor_knn(x, y, 3))
+    expect_cor_knn_equal(res, cor_knn_ref(x, y, 3))
+    expect_equal(levels(res$col1), colnames(x))
+    expect_equal(levels(res$col2), colnames(y))
+    expect_identical(with_blas(TRUE, tgs_cor_knn(x, NULL, 3))$col2, with_blas(FALSE, tgs_cor_knn(x, NULL, 3))$col2)
+
+    # 3000 columns need more than one block of 2^23 correlations
+    x <- matrix(rnorm(12 * 3000), 12, 3000)
+    for (spearman in c(FALSE, TRUE)) {
+        expect_cor_knn_equal(
+            with_blas(TRUE, tgs_cor_knn(x, NULL, 4, spearman = spearman)),
+            cor_knn_ref(x, NULL, 4, spearman = spearman),
+            ties = spearman
+        )
+    }
+})
+
+test_that("tgs_cor_knn with BLAS ranks in several processes", {
+    set.seed(60427)
+    x <- matrix(rnorm(2500 * 500), 2500, 500)
+    old <- options(tgs_max.processes = 4)
+    on.exit(options(old))
+    expect_cor_knn_equal(with_blas(TRUE, tgs_cor_knn(x, NULL, 3, spearman = TRUE)), cor_knn_ref(x, NULL, 3, spearman = TRUE), ties = TRUE)
+    expect_cor_knn_equal(with_blas(TRUE, tgs_cor_knn(x, x[, 1:100], 3, spearman = TRUE)), cor_knn_ref(x, x[, 1:100], 3, spearman = TRUE), ties = TRUE)
+})
+
+test_that("tgs_cor_knn accepts data frames and y is optional", {
+    set.seed(60427)
+    m <- matrix(rnorm(40 * 8), 40, 8, dimnames = list(NULL, letters[1:8]))
+    df <- as.data.frame(m)
+    for (use_blas in c(TRUE, FALSE)) {
+        ref <- with_blas(use_blas, tgs_cor_knn(m, NULL, 3))
+        expect_identical(with_blas(use_blas, tgs_cor_knn(m, knn = 3)), ref)
+        expect_identical(with_blas(use_blas, tgs_cor_knn(df, knn = 3)), ref)
+        expect_identical(with_blas(use_blas, tgs_cor_knn(df, df[, 1:4], 2)), with_blas(use_blas, tgs_cor_knn(m, m[, 1:4], 2)))
+    }
+})
+
+test_that("tgs_cor_knn skips constant columns with pairwise.complete.obs and missing values", {
+    set.seed(60427)
+    x <- matrix(rnorm(30 * 10), 30, 10)
+    x[, 4] <- 1 / 3
+    x[c(2, 8), 4] <- NA
+    x[5, 7] <- NA
+    for (use_blas in c(TRUE, FALSE)) {
+        res <- with_blas(use_blas, tgs_cor_knn(x, NULL, 4, pairwise.complete.obs = TRUE))
+        expect_false(4 %in% res$col1)
+        expect_false(4 %in% res$col2)
+        expect_true(all(table(res$col1) == 4))
+        expect_true(all(abs(res$cor) <= 1 + 1e-12))
+        res <- with_blas(use_blas, tgs_cor_knn(x, x[, 10:1], 4, pairwise.complete.obs = TRUE))
+        expect_false(4 %in% res$col1)
+        expect_false(7 %in% res$col2)
+    }
+})

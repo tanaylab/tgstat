@@ -45,6 +45,29 @@ using namespace std;
 // should be used instead of R_CheckUserInterrupt. Throws exception if the command is interrupted.
 void check_interrupt();
 
+// Returns true if the numeric or integer vector x has no NA, NaN or infinite values.
+bool all_finite(SEXP x);
+
+// Copies the num_mats (1 or 2) numeric matrices rmat[k], which have the same number of rows, into newly mapped
+// shared memory z[k] of z_sizeof[k] bytes, which the caller unmaps, and standardizes their columns: the values
+// are replaced by their ranks (if spearman is true), centered and scaled to unit norm, so that the correlation of
+// two columns is their dot product. A column with a non-finite value and a constant column have no correlations:
+// they are set to zero and flagged[k][icol] is set to true. The work is split between child processes.
+void standardize_cols(SEXP rmat[], int num_mats, bool spearman, double *z[], uint64_t z_sizeof[], vector<bool> flagged[]);
+
+// Sets flags[icol] to true for the constant columns of vals (num_rows x num_cols) that are not flagged yet.
+// The correlation with a constant column is not defined. It must not be left to the computation: the variance
+// of a constant column, computed as mean(x^2) - mean(x)^2, is not always exactly zero.
+void flag_constant_cols(const double *vals, uint64_t num_rows, uint64_t num_cols, vector<bool> &flags);
+
+// Returns for each column of the numeric matrix x whether its values that are not missing are all equal (or it has
+// none). With pairwise.complete.obs such a column is constant in every pair, and has no correlations.
+vector<bool> constant_cols(SEXP x);
+
+// Replaces the n values of v by their ranks (if spearman is true), then centers them and scales them to unit norm.
+// Returns false if the values are constant (or their sum of squares overflows).
+bool standardize(double *v, uint64_t n, bool spearman, vector<pair<double, uint64_t>> &sorted);
+
 // adds timeout to the time that is already in req
 void set_abs_timeout(int64_t delay_msec, struct timespec &req);
 

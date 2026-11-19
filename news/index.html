@@ -17,7 +17,7 @@
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">tgstat</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">2.5.0</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">2.5.1</span>
       </span>
     </div>
 
@@ -63,6 +63,11 @@
       <small>Source: <a href="https://github.com/tanaylab/tgstat/blob/master/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="page-header" data-toc-text="2.5.1" id="tgstat-251">tgstat 2.5.1<a class="anchor" aria-label="anchor" href="#tgstat-251"></a></h2>
+<ul><li>Fixed <code><a href="../reference/tgs_cor.html">tgs_cor()</a></code> and <code><a href="../reference/tgs_cor.html">tgs_cor_knn()</a></code> with <code>pairwise.complete.obs</code> and missing values returning an arbitrary correlation (possibly outside [-1, 1]) for two columns of which one is constant over the rows in which both have values. The correlation is now <code>NA</code>, and in <code><a href="../reference/tgs_cor.html">tgs_cor_knn()</a></code> the two columns are not neighbours.</li>
+<li>An R error raised in a child process is reported as the error of the call. The child process used to return to R and go on running the code of the caller as a second process, or end R and remove the temporary directory of the session.</li>
+</ul></div>
     <div class="section level2">
 <h2 class="page-header" data-toc-text="2.5.0" id="tgstat-250">tgstat 2.5.0<a class="anchor" aria-label="anchor" href="#tgstat-250"></a></h2>
 <ul><li>Added <code><a href="../reference/tgs_cor_dist.html">tgs_cor_dist()</a></code>: the same as <code>tgs_dist(tgs_cor(x))</code>, but much faster and with less memory when <code>x</code> has many more columns than rows.</li>

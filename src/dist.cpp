@@ -631,7 +631,8 @@ SEXP tgs_dist_blas(SEXP _x, SEXP _attrs, SEXP _tidy, SEXP _threshold, SEXP _rrow
         // The lower triangle of these N x N matrices is computed in blocks of columns, and the distances are
         // written in the order of the 'dist' object directly into the answer (or into a buffer if tidy).
 
-        vector<double> s_v2;
+        vector<double> s_v2 = row_sums_square(mem.m, num_points, num_dims);
+        double tol = SQ_DIST_TOL * num_dims * DBL_EPSILON;
 
         if (nan_in_vals) {
             if (posix_memalign((void **)&mem.m2, 64, sizeof(double) * num_vals))
@@ -639,15 +640,6 @@ SEXP tgs_dist_blas(SEXP _x, SEXP _attrs, SEXP _tidy, SEXP _threshold, SEXP _rrow
 
             for (uint64_t i = 0; i < num_vals; ++i)
                 mem.m2[i] = mem.m[i] * mem.m[i];
-        } else {
-            s_v2.resize(num_points, 0.);
-
-            for (uint64_t idim = 0, idx = 0; idim < num_dims; ++idim) {
-                for (uint64_t ipoint = 0; ipoint < num_points; ++ipoint) {
-                    s_v2[ipoint] += mem.m[idx] * mem.m[idx];
-                    ++idx;
-                }
-            }
         }
 
         double *d;
@@ -699,20 +691,31 @@ SEXP tgs_dist_blas(SEXP _x, SEXP _attrs, SEXP _tidy, SEXP _threshold, SEXP _rrow
                 beta = 0;
                 F77_NAME(dgemm)(&transa, &transb, &num_rows32, &num_cols32, &num_dims32, &alpha, mem.mask + col1, &num_points32, mem.mask + col1, &num_points32, &beta, mem.n, &num_rows32 FCONE FCONE);
 
-                // sqrt(res / n), clamped at 0 against rounding errors; NA if the points share no dimension (as without BLAS)
+                // sqrt(res / n), computed directly if it is within the rounding error (see SQ_DIST_TOL); NA if the points
+                // share no dimension (as without BLAS)
                 for (uint64_t ipoint1 = col1; ipoint1 < col2; ++ipoint1) {
                     uint64_t offset = (ipoint1 - col1) * (num_points - col1) - col1;
                     for (uint64_t ipoint2 = ipoint1 + 1; ipoint2 < num_points; ++ipoint2) {
                         double n = mem.n[offset + ipoint2];
-                        d[idx++] = n ? sqrt(max(mem.res[offset + ipoint2] / n, 0.)) : NA_REAL;
+                        double sq_dist = mem.res[offset + ipoint2];     // times num_dims
+
+                        if (n && sq_dist < num_dims * tol * (s_v2[ipoint1] + s_v2[ipoint2]))
+                            sq_dist = num_dims * direct_sq_dist(mem.m + ipoint1, mem.mask + ipoint1, num_points, mem.m + ipoint2, mem.mask + ipoint2, num_points, num_dims);
+                        d[idx++] = n ? sqrt(max(sq_dist / n, 0.)) : NA_REAL;
                     }
                 }
             } else {
                 // sqrt(res + s_x^2 + s_y^2)
                 for (uint64_t ipoint1 = col1; ipoint1 < col2; ++ipoint1) {
                     uint64_t offset = (ipoint1 - col1) * (num_points - col1) - col1;
-                    for (uint64_t ipoint2 = ipoint1 + 1; ipoint2 < num_points; ++ipoint2)
-                        d[idx++] = sqrt(max(mem.res[offset + ipoint2] + s_v2[ipoint1] + s_v2[ipoint2], 0.));
+                    for (uint64_t ipoint2 = ipoint1 + 1; ipoint2 < num_points; ++ipoint2) {
+                        double s_v2_sum = s_v2[ipoint1] + s_v2[ipoint2];
+                        double sq_dist = mem.res[offset + ipoint2] + s_v2_sum;
+
+                        if (sq_dist < tol * s_v2_sum)
+                            sq_dist = direct_sq_dist(mem.m + ipoint1, NULL, num_points, mem.m + ipoint2, NULL, num_points, num_dims);
+                        d[idx++] = sqrt(max(sq_dist, 0.));
+                    }
                 }
             }
 
@@ -984,7 +987,7 @@ SEXP tgs_cross_dist_blas(SEXP _x, SEXP _y, SEXP _tidy, SEXP _threshold, SEXP _en
                         continue;
                     }
 
-                    if (sq_dist <= tol * s_v2_sum)
+                    if (sq_dist < tol * s_v2_sum)
                         sq_dist = direct_sq_dist(mem.m[0] + ipoint1, nan_in_vals ? mem.mask[0] + ipoint1 : NULL, num_points[0],
                                                  mem.m[1] + ipoint2, nan_in_vals ? mem.mask[1] + ipoint2 : NULL, num_points[1], num_dims);
 
@@ -1204,7 +1207,7 @@ SEXP tgs_dist_knn_blas(SEXP _x, SEXP _y, SEXP _knn, SEXP _threshold, SEXP _envir
                     double s_v2_sum = s_x1 + s_y2[ipoint2];
                     double sq_dist = res[ipoint2] + s_v2_sum;
 
-                    if (sq_dist <= tol * s_v2_sum)
+                    if (sq_dist < tol * s_v2_sum)
                         sq_dist = direct_sq_dist(mx + ipoint1, NULL, num_points[0], my + ipoint2, NULL, num_points[1], num_dims);
                     return max(sq_dist, 0.);
                 };
@@ -1220,7 +1223,7 @@ SEXP tgs_dist_knn_blas(SEXP _x, SEXP _y, SEXP _knn, SEXP _threshold, SEXP _envir
                     double s_v2_sum = s_x1 + s_y2[ipoint2];
                     double sq = res[ipoint2] + s_v2_sum;
 
-                    if (sq >= bound && sq > tol * s_v2_sum)
+                    if (sq >= bound && sq >= tol * s_v2_sum)
                         continue;
 
                     if (!cross && ipoint2 == ipoint1)

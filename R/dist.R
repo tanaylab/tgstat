@@ -27,7 +27,7 @@
 #' computed as 'sum(x^2) + sum(y^2) - 2 * sum(x * y)', which loses precision for
 #' points that are close relative to their norms.
 #'
-#' @param x numeric matrix
+#' @param x numeric matrix or data frame
 #' @param y numeric matrix with the same number of columns as 'x', or 'NULL'
 #' @param diag see 'dist' documentation
 #' @param upper see 'dist' documentation
@@ -73,9 +73,7 @@ tgs_dist <- function(x, y = NULL, diag = FALSE, upper = FALSE, tidy = FALSE, thr
         stop("Usage: tgs_dist(x, y = NULL, diag = FALSE, upper = FALSE, tidy = FALSE, threshold = Inf)", call. = FALSE)
     }
 
-    if (is.data.frame(x)) {
-        x <- as.matrix(x)
-    }
+    x <- .tgs_as_matrix(x)
 
     if (!is.null(y)) {
         # "diag" used to be the second argument of tgs_dist
@@ -83,9 +81,7 @@ tgs_dist <- function(x, y = NULL, diag = FALSE, upper = FALSE, tidy = FALSE, thr
             stop("\"y\" argument must be a numeric matrix (to set \"diag\", pass it by name: tgs_dist(x, diag = ...))", call. = FALSE)
         }
 
-        if (is.data.frame(y)) {
-            y <- as.matrix(y)
-        }
+        y <- .tgs_as_matrix(y)
 
         if (.tgs_use_blas()) {
             return(.Call("tgs_cross_dist_blas", x, y, tidy, threshold, new.env(parent = parent.frame())))
@@ -128,7 +124,7 @@ tgs_dist <- function(x, y = NULL, diag = FALSE, upper = FALSE, tidy = FALSE, thr
 #' sum(x * y)', which loses precision for points that are close relative to
 #' their norms.
 #'
-#' @param x numeric matrix
+#' @param x numeric matrix or data frame
 #' @param y numeric matrix with the same number of columns as 'x', or 'NULL'
 #' @param knn the number of nearest rows returned per row of 'x'
 #' @param threshold the maximal distance of a neighbour
@@ -164,13 +160,9 @@ tgs_dist_knn <- function(x, y = NULL, knn, threshold = Inf) {
         stop("Usage: tgs_dist_knn(x, y = NULL, knn, threshold = Inf)", call. = FALSE)
     }
 
-    if (is.data.frame(x)) {
-        x <- as.matrix(x)
-    }
+    x <- .tgs_as_matrix(x)
 
-    if (is.data.frame(y)) {
-        y <- as.matrix(y)
-    }
+    y <- .tgs_as_matrix(y)
 
     # the BLAS implementation does not support missing values
     if (.tgs_use_blas() && is.numeric(x) && tgs_finite(x) && (is.null(y) || is.numeric(y) && tgs_finite(y))) {
@@ -204,7 +196,7 @@ tgs_dist_knn <- function(x, y = NULL, knn, threshold = Inf) {
 #' It is also used only when all the values of 'x' are finite and no column of
 #' 'x' is constant. Otherwise 'tgs_cor_dist' returns 'tgs_dist(tgs_cor(...))'.
 #'
-#' @param x numeric matrix
+#' @param x numeric matrix or data frame
 #' @param pairwise.complete.obs see 'tgs_cor' documentation
 #' @param spearman if 'TRUE' Spearman correlation is computed, otherwise
 #' Pearson
@@ -240,6 +232,8 @@ tgs_cor_dist <- function(x, pairwise.complete.obs = FALSE, spearman = FALSE) {
     if (!is.logical(pairwise.complete.obs) || length(pairwise.complete.obs) != 1) {
         stop("\"pairwise.complete.obs\" argument must be a logical value", call. = FALSE)
     }
+
+    x <- .tgs_as_matrix(x)
 
     # z: the columns of x (or their ranks) centered and scaled to unit norm, so that the correlation
     # matrix is crossprod(z). NULL if x has non-finite values or constant columns.

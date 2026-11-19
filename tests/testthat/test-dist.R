@@ -245,3 +245,29 @@ test_that("tgs_dist accepts data frames and rejects invalid y", {
     expect_error(tgs_dist(x, FALSE, TRUE), "diag")
     expect_equal(tgs_dist(x, diag = TRUE), dist(x, diag = TRUE), ignore_attr = "call")
 })
+
+test_that("tgs_dist with BLAS returns 0 for identical rows", {
+    set.seed(60427)
+    x <- matrix(rnorm(40 * 30, mean = 5), 40, 30)
+    x[7, ] <- x[3, ]
+    x[20, ] <- x[3, ]
+    xna <- x
+    xna[c(3, 7, 20), 4] <- NA
+    xna[11, 9] <- NA
+    old <- options(tgs_use.blas = TRUE)
+    on.exit(options(old))
+
+    d <- as.matrix(tgs_dist(x))
+    expect_identical(d[c(3, 7, 20), c(3, 7, 20)], matrix(0, 3, 3, dimnames = list(c(3, 7, 20), c(3, 7, 20))), ignore_attr = TRUE)
+    expect_equal(d, as.matrix(stats::dist(x)), ignore_attr = TRUE)
+    dna <- as.matrix(tgs_dist(xna))
+    expect_true(all(dna[c(3, 7, 20), c(3, 7, 20)] == 0))
+    expect_equal(dna, as.matrix(stats::dist(xna)), ignore_attr = TRUE)
+    expect_equal(tgs_dist(matrix(0, 5, 4)), stats::dist(matrix(0, 5, 4)), ignore_attr = TRUE)
+})
+
+test_that("tgs_cor_dist accepts a data frame", {
+    set.seed(60427)
+    x <- matrix(rnorm(20 * 8), 20, 8, dimnames = list(NULL, letters[1:8]))
+    expect_equal(tgs_cor_dist(as.data.frame(x)), tgs_cor_dist(x), ignore_attr = TRUE)
+})

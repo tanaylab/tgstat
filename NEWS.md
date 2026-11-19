@@ -1,3 +1,8 @@
+# tgstat 2.5.1
+
+* Fixed `tgs_cor()` and `tgs_cor_knn()` with `pairwise.complete.obs` and missing values returning an arbitrary correlation (possibly outside [-1, 1]) for two columns of which one is constant over the rows in which both have values. The correlation is now `NA`, and in `tgs_cor_knn()` the two columns are not neighbours.
+* An R error raised in a child process is reported as the error of the call. The child process used to return to R and go on running the code of the caller as a second process, or end R and remove the temporary directory of the session.
+
 # tgstat 2.5.0
 
 * Added `tgs_cor_dist()`: the same as `tgs_dist(tgs_cor(x))`, but much faster and with less memory when `x` has many more columns than rows.

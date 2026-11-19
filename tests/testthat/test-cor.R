@@ -204,3 +204,41 @@ test_that("a NULL y is not converted to a matrix", {
     expect_null(.tgs_as_matrix(NULL))
     expect_equal(dim(.tgs_as_matrix(1:3, vector_ok = TRUE)), c(3L, 1L))
 })
+
+test_that("tgs_cor returns NA for a column that is constant over the rows it shares with another column", {
+    set.seed(60427)
+    old <- options(tgs_use.blas = FALSE)
+    on.exit(options(old))
+
+    for (const in c(3, 0.1, 1 / 3, 1e6 + 0.1, 0)) {
+        for (num_shared in c(7, 20, 30)) {
+            x <- matrix(rnorm(50 * 6), 50, 6)
+            y <- matrix(rnorm(50 * 4), 50, 4)
+            # column 2 of x is constant over the rows in which column 5 of x and column 3 of y have values
+            x[1:num_shared, 2] <- const
+            x[(num_shared + 1):50, 5] <- NA
+            y[(num_shared + 1):50, 3] <- NA
+            x[4, 1] <- NA
+
+            # stats::cor does not return NA for constant values on platforms without extended precision
+            ref <- suppressWarnings(stats::cor(x, use = "pairwise.complete.obs"))
+            ref[2, 5] <- ref[5, 2] <- NA
+            cross_ref <- suppressWarnings(stats::cor(x, y, use = "pairwise.complete.obs"))
+            cross_ref[2, 3] <- NA
+            spearman_ref <- suppressWarnings(stats::cor(x, use = "pairwise.complete.obs", method = "spearman"))
+            spearman_ref[2, 5] <- spearman_ref[5, 2] <- NA
+            spearman_cross_ref <- suppressWarnings(stats::cor(x, y, use = "pairwise.complete.obs", method = "spearman"))
+            spearman_cross_ref[2, 3] <- NA
+
+            for (use_blas in c(TRUE, FALSE)) {
+                options(tgs_use.blas = use_blas)
+                expect_equal(tgs_cor(x, pairwise.complete.obs = TRUE), ref)
+                expect_equal(tgs_cor(x, y, pairwise.complete.obs = TRUE), cross_ref, ignore_attr = TRUE)
+                expect_equal(tgs_cor(y, x, pairwise.complete.obs = TRUE), t(cross_ref), ignore_attr = TRUE)
+            }
+            options(tgs_use.blas = FALSE)
+            expect_equal(tgs_cor(x, pairwise.complete.obs = TRUE, spearman = TRUE), spearman_ref)
+            expect_equal(tgs_cor(x, y, pairwise.complete.obs = TRUE, spearman = TRUE), spearman_cross_ref, ignore_attr = TRUE)
+        }
+    }
+})

@@ -61,5 +61,5 @@ tgs_chi2 <- function(x, yates = TRUE) {
         stop("Usage: tgs_chi2(x, yates = TRUE)", call. = FALSE)
     }
 
-    .Call("tgs_chi2", x, yates, new.env())
+    .tgs_call("tgs_chi2", x, yates, new.env())
 }

@@ -271,10 +271,15 @@ SEXP tgs_cor_knn(SEXP _x, SEXP _knn, SEXP _pairwise_complete_obs, SEXP _spearman
                                     double var1 = sum_square1 / num_finite_pairs - mean1 * mean1;
                                     double var2 = sum_square2 / num_finite_pairs - mean2 * mean2;
 
-                                    // calculate correlation
-                                    cor /= num_finite_pairs;      // => mean(X*Y)
-                                    cor -= mean1 * mean2;         // => covariance(X,Y)
-                                    cor /= sqrt(var1 * var2);     // => correlation(X,Y)
+                                    // calculate correlation: there is none if one of the columns is constant over the rows in which both have values
+                                    if ((var_near_zero(var1, sum_square1 / num_finite_pairs, num_finite_pairs) ||
+                                         var_near_zero(var2, sum_square2 / num_finite_pairs, num_finite_pairs)) && constant_in_pair(_x, icol1, _x, icol2))
+                                        cor = 0;
+                                    else {
+                                        cor /= num_finite_pairs;      // => mean(X*Y)
+                                        cor -= mean1 * mean2;         // => covariance(X,Y)
+                                        cor /= sqrt(var1 * var2);     // => correlation(X,Y)
+                                    }
                                 }
                             } else if (!nan_in_col[icol1] && !nan_in_col[icol2]) {
                                 uint64_t idx1 = icol1 * num_rows;
@@ -677,10 +682,15 @@ SEXP tgs_cross_cor_knn(SEXP _x, SEXP _y, SEXP _knn, SEXP _pairwise_complete_obs,
                                 double var1 = sum_square1 / num_finite_pairs - mean1 * mean1;
                                 double var2 = sum_square2 / num_finite_pairs - mean2 * mean2;
 
-                                // calculate correlation
-                                cor /= num_finite_pairs;      // => mean(X*Y)
-                                cor -= mean1 * mean2;         // => covariance(X,Y)
-                                cor /= sqrt(var1 * var2);     // => correlation(X,Y)
+                                // calculate correlation: there is none if one of the columns is constant over the rows in which both have values
+                                if ((var_near_zero(var1, sum_square1 / num_finite_pairs, num_finite_pairs) ||
+                                     var_near_zero(var2, sum_square2 / num_finite_pairs, num_finite_pairs)) && constant_in_pair(_x, icol1, _y, icol2))
+                                    cor = 0;
+                                else {
+                                    cor /= num_finite_pairs;      // => mean(X*Y)
+                                    cor -= mean1 * mean2;         // => covariance(X,Y)
+                                    cor /= sqrt(var1 * var2);     // => correlation(X,Y)
+                                }
                             }
                         } else if (!nan_in_col[0][icol1] && !nan_in_col[1][icol2]) {
                             uint64_t idx1 = icol1 * num_rows;

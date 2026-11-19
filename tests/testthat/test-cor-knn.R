@@ -401,3 +401,30 @@ test_that("tgs_cor_knn skips constant columns with pairwise.complete.obs and mis
         expect_false(7 %in% res$col2)
     }
 })
+
+test_that("tgs_cor_knn skips a column that is constant over the rows it shares with another column", {
+    set.seed(60427)
+    for (const in c(3, 0.1, 1 / 3, 1e6 + 0.1, 0)) {
+        for (num_shared in c(9, 20, 30)) {
+            x <- matrix(rnorm(50 * 6), 50, 6)
+            # column 2 is constant over the rows in which column 5 has values
+            x[1:num_shared, 2] <- const
+            x[(num_shared + 1):50, 5] <- NA
+            y <- x[, 6:1]
+
+            for (use_blas in c(TRUE, FALSE)) {
+                for (spearman in c(FALSE, TRUE)) {
+                    # all the other columns are returned: only the pair of columns 2 and 5 has no correlation
+                    res <- with_blas(use_blas, tgs_cor_knn(x, NULL, 5, pairwise.complete.obs = TRUE, spearman = spearman))
+                    expect_equal(as.vector(table(res$col1)), c(5, 4, 5, 5, 4, 5))
+                    expect_false(any(res$col1 == 2 & res$col2 == 5 | res$col1 == 5 & res$col2 == 2))
+                    expect_true(all(abs(res$cor) <= 1 + 1e-12))
+
+                    res <- with_blas(use_blas, tgs_cor_knn(x, y, 6, pairwise.complete.obs = TRUE, spearman = spearman))
+                    expect_equal(as.vector(table(res$col1)), c(6, 5, 6, 6, 5, 6))
+                    expect_false(any(res$col1 == 2 & res$col2 == 2 | res$col1 == 5 & res$col2 == 5))
+                }
+            }
+        }
+    }
+})

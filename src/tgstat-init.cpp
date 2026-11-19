@@ -13,6 +13,7 @@
 /* .Call calls */
 
 extern "C" {
+extern SEXP tgs_child_exit(SEXP);
 extern SEXP tgs_chi2(SEXP, SEXP, SEXP);
 extern SEXP tgs_cor(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
 extern SEXP tgs_cor_blas(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
@@ -42,6 +43,7 @@ extern SEXP tgs_wilcox(SEXP, SEXP, SEXP, SEXP);
 }
 
 static const R_CallMethodDef CallEntries[] = {
+    {"tgs_child_exit",                (DL_FUNC) &tgs_child_exit,                1},
     {"tgs_chi2",                      (DL_FUNC) &tgs_chi2,                      3},
     {"tgs_cor",                       (DL_FUNC) &tgs_cor,                       6},
     {"tgs_cor_blas",                  (DL_FUNC) &tgs_cor_blas,                  6},

@@ -1014,3 +1014,15 @@ string get_bound_colname(const char *str, unsigned maxlen)
 	return colname;
 }
 
+extern "C" {
+
+// Called from R by a child process that returned from the C code to R, which happens only if an R error was raised in
+// it: reports msg to the parent process as the error of the child and ends the child.
+SEXP tgs_child_exit(SEXP _msg)
+{
+    if (TGStat::is_kid())
+        rerror("%s", CHAR(STRING_ELT(_msg, 0)));
+    return R_NilValue;
+}
+
+}

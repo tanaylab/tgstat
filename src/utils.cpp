@@ -30,8 +30,6 @@ void flag_constant_cols(const double *vals, uint64_t num_rows, uint64_t num_cols
     }
 }
 
-// Replaces the n values of v by their ranks (if spearman is true), then centers them and scales them to unit norm.
-// Returns false if the values are constant (or their sum of squares overflows).
 vector<bool> constant_cols(SEXP x)
 {
     uint64_t num_rows = Rf_nrows(x);
@@ -58,6 +56,45 @@ vector<bool> constant_cols(SEXP x)
         }
     }
     return res;
+}
+
+bool constant_in_pair(SEXP x, uint64_t xcol, SEXP y, uint64_t ycol)
+{
+    uint64_t num_rows = Rf_nrows(x);
+    SEXP mats[2] = { x, y };
+    uint64_t cols[2] = { xcol, ycol };
+    const double *reals[2];
+    const int *ints[2];
+    bool found = false;
+    bool constant[2] = { true, true };
+    double first[2] = { 0, 0 };
+
+    for (int k = 0; k < 2; ++k) {
+        reals[k] = Rf_isReal(mats[k]) ? REAL(mats[k]) + cols[k] * num_rows : NULL;
+        ints[k] = Rf_isReal(mats[k]) ? NULL : INTEGER(mats[k]) + cols[k] * num_rows;
+    }
+
+    for (uint64_t irow = 0; irow < num_rows; ++irow) {
+        double vals[2];
+
+        for (int k = 0; k < 2; ++k)
+            vals[k] = reals[k] ? reals[k][irow] : (ints[k][irow] == NA_INTEGER ? NA_REAL : ints[k][irow]);
+
+        if (!R_FINITE(vals[0]) || !R_FINITE(vals[1]))
+            continue;
+
+        if (!found) {
+            found = true;
+            first[0] = vals[0];
+            first[1] = vals[1];
+        } else {
+            constant[0] = constant[0] && vals[0] == first[0];
+            constant[1] = constant[1] && vals[1] == first[1];
+            if (!constant[0] && !constant[1])
+                return false;
+        }
+    }
+    return found && (constant[0] || constant[1]);
 }
 
 bool standardize(double *v, uint64_t n, bool spearman, vector<pair<double, uint64_t>> &sorted)

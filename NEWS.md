@@ -14,6 +14,7 @@
 * `tgs_matrix_tapply()` with `sum()` or `mean()` on a sparse matrix takes time proportional to the number of non-zero values instead of the size of the matrix.
 * Fixed `tgs_matrix_tapply()` returning only `NA` when arguments are passed to `fun` through `...` (including `mean()` with `trim`), and -2147483648 instead of `NA` when `fun` returns an integer `NA`.
 * Fixed `tgs_matrix_tapply()` with `sum()` or `mean()` on an integer matrix with `NA`, which counted `NA` as -2147483648.
+* A child process that ends without computing its part of the result is now an error in all the functions. It used to be ignored if the process exited (e.g. after an R error), leaving `NA` in the result.
 * Fixed `tgs_cor()` returning `-Inf` or arbitrary small values instead of `NA` for constant columns.
 * Fixed `tgs_cor_knn()` dropping valid neighbours when the data has a constant column.
 

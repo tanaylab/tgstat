@@ -361,7 +361,10 @@ void TGStat::check_kids_state(bool ignore_errors)
                 vdebug("pid %d was identified as a child process\n", pid);
                 swap(*ipid, s_running_pids.back());
                 s_running_pids.pop_back();
-                if (!ignore_errors && !WIFEXITED(status) && WIFSIGNALED(status) && WTERMSIG(status) != TGS_EXIT_SIG)
+                // A child process ends properly only by sending itself TGS_EXIT_SIG (see rexit). If it ended in any
+                // other way, e.g. it exited after an R error that was not raised by verror, its part of the result
+                // was not computed.
+                if (!ignore_errors && !(WIFSIGNALED(status) && WTERMSIG(status) == TGS_EXIT_SIG))
                     verror("Child process %d ended unexpectedly", (int)pid);
                 break;
             }

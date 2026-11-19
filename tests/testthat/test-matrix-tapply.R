@@ -254,3 +254,14 @@ test_that("tgs_matrix_tapply checks margin and the length of index", {
     expect_error(tgs_matrix_tapply(x, 1:4, sum, margin = 1), "rows")
     expect_error(tgs_matrix_tapply(x, 1:3, sum), "columns")
 })
+
+test_that("an error of the function in a child process is reported", {
+    m <- matrix(as.numeric(1:2000), 100, 20)
+    index <- factor(rep(1:4, 5))
+    expect_error(with_processes(4, tgs_matrix_tapply(m, index, function(v) stop("an error in fun"))), "an error in fun")
+    # a child process that is killed does not leave its part of the result as NA
+    expect_error(
+        with_processes(4, tgs_matrix_tapply(m, index, function(v) tools::pskill(Sys.getpid(), tools::SIGKILL))),
+        "ended unexpectedly"
+    )
+})

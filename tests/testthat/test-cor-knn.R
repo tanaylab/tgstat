@@ -247,7 +247,7 @@ cor_knn_ref <- function(x, y, knn, spearman = FALSE, threshold = 0) {
     cc <- suppressWarnings(stats::cor(x, if (is.null(y)) x else y, method = if (spearman) "spearman" else "pearson"))
     res <- lapply(seq_len(nrow(cc)), function(i) {
         v <- cc[i, ]
-        ok <- !is.na(v) & v != 0 & abs(v) >= abs(threshold)
+        ok <- !is.na(v) & abs(v) >= abs(threshold)
         if (is.null(y)) {
             ok[i] <- FALSE
         }
@@ -426,5 +426,44 @@ test_that("tgs_cor_knn skips a column that is constant over the rows it shares w
                 }
             }
         }
+    }
+})
+
+test_that("tgs_cor_knn returns neighbours with a correlation of exactly zero", {
+    a <- c(1, -1, 1, -1, 0)
+    b <- c(1, 1, -1, -1, 0)
+    d <- c(1, -1, -1, 1, 0)
+    x <- cbind(a, b, d, -a)
+    dimnames(x) <- NULL
+    x_na <- x
+    x_na[5, 2] <- NA
+
+    for (use_blas in c(TRUE, FALSE)) {
+        for (spearman in c(FALSE, TRUE)) {
+            for (pairwise in c(FALSE, TRUE)) {
+                m <- if (pairwise) x_na else x
+                res <- with_blas(use_blas, tgs_cor_knn(m, NULL, 3, pairwise.complete.obs = pairwise, spearman = spearman))
+                expect_equal(as.vector(table(res$col1)), rep(3, 4))
+                expect_equal(res$col2[res$col1 == 1], c(2, 3, 4))
+                expect_equal(res$cor[res$col1 == 1], c(0, 0, -1))
+                expect_equal(res$cor[res$col1 == 2], c(0, 0, 0))
+
+                res <- with_blas(use_blas, tgs_cor_knn(m, m[, 4:1], 4, pairwise.complete.obs = pairwise, spearman = spearman))
+                expect_equal(as.vector(table(res$col1)), rep(4, 4))
+                expect_equal(res$col2[res$col1 == 1], c(4, 2, 3, 1))
+                expect_equal(res$cor[res$col1 == 1], c(1, 0, 0, -1))
+            }
+        }
+    }
+
+    # a column that has no correlations still has no neighbours
+    x[, 3] <- 2
+    for (use_blas in c(TRUE, FALSE)) {
+        res <- with_blas(use_blas, tgs_cor_knn(x, NULL, 3))
+        expect_equal(as.vector(table(factor(res$col1, 1:4))), c(2, 2, 0, 2))
+        expect_false(3 %in% res$col2)
+        res <- with_blas(use_blas, tgs_cor_knn(x, x[, 4:1], 4))
+        expect_equal(as.vector(table(factor(res$col1, 1:4))), c(3, 3, 0, 3))
+        expect_false(2 %in% res$col2)
     }
 })

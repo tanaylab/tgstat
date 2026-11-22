@@ -1,3 +1,7 @@
+# tgstat 2.5.2
+
+* Fixed `tgs_cor_knn()` leaving out the neighbours whose correlation is exactly zero.
+
 # tgstat 2.5.1
 
 * Fixed `tgs_cor()` and `tgs_cor_knn()` with `pairwise.complete.obs` and missing values returning an arbitrary correlation (possibly outside [-1, 1]) for two columns of which one is constant over the rows in which both have values. The correlation is now `NA`, and in `tgs_cor_knn()` the two columns are not neighbours.

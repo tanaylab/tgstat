@@ -199,12 +199,13 @@ SEXP tgs_cor_knn(SEXP _x, SEXP _knn, SEXP _pairwise_complete_obs, SEXP _spearman
 
                 for (uint64_t icol1 = scol; icol1 < ecol; ++icol1) {
                     for (uint64_t icol2 = 0; icol2 < num_cols; ++icol2) {
-                        double cor = 0;
+                        double cor = numeric_limits<double>::quiet_NaN();    // NaN: the columns have no correlation
 
                         if (icol1 != icol2) {
                             if (nan_in_vals && pairwise_complete_obs && (constant_col[icol1] || constant_col[icol2])) {
                                 // a constant column has no correlations
                             } else if (nan_in_vals && pairwise_complete_obs) {
+                                cor = 0;
                                 uint64_t idx1 = icol1 * num_rows;
                                 uint64_t idx2 = icol2 * num_rows;
                                 double sum1 = 0;
@@ -274,14 +275,16 @@ SEXP tgs_cor_knn(SEXP _x, SEXP _knn, SEXP _pairwise_complete_obs, SEXP _spearman
                                     // calculate correlation: there is none if one of the columns is constant over the rows in which both have values
                                     if ((var_near_zero(var1, sum_square1 / num_finite_pairs, num_finite_pairs) ||
                                          var_near_zero(var2, sum_square2 / num_finite_pairs, num_finite_pairs)) && constant_in_pair(_x, icol1, _x, icol2))
-                                        cor = 0;
+                                        cor = numeric_limits<double>::quiet_NaN();
                                     else {
                                         cor /= num_finite_pairs;      // => mean(X*Y)
                                         cor -= mean1 * mean2;         // => covariance(X,Y)
                                         cor /= sqrt(var1 * var2);     // => correlation(X,Y)
                                     }
-                                }
+                                } else
+                                    cor = numeric_limits<double>::quiet_NaN();
                             } else if (!nan_in_col[icol1] && !nan_in_col[icol2]) {
+                                cor = 0;
                                 uint64_t idx1 = icol1 * num_rows;
                                 uint64_t idx2 = icol2 * num_rows;
                                 uint64_t end_idx1 = idx1 + num_rows;
@@ -295,8 +298,8 @@ SEXP tgs_cor_knn(SEXP _x, SEXP _knn, SEXP _pairwise_complete_obs, SEXP _spearman
                             }
                         }
 
-                        // also if the correlation is NaN (a constant column), which would break the sort below
-                        if (!cor || !(fabs(cor) >= threshold))
+                        // also if the correlation is NaN, which would break the sort below
+                        if (!(fabs(cor) >= threshold))
                             cor = -2;
 
                         cors[icol2] = cor;
@@ -611,11 +614,12 @@ SEXP tgs_cross_cor_knn(SEXP _x, SEXP _y, SEXP _knn, SEXP _pairwise_complete_obs,
 
                 for (uint64_t icol1 = scol; icol1 < ecol; ++icol1) {
                     for (uint64_t icol2 = 0; icol2 < num_cols[1]; ++icol2) {
-                        double cor = 0;
+                        double cor = numeric_limits<double>::quiet_NaN();    // NaN: the columns have no correlation
 
                         if (nan_in_vals && pairwise_complete_obs && (constant_col[0][icol1] || constant_col[1][icol2])) {
                             // a constant column has no correlations
                         } else if (nan_in_vals && pairwise_complete_obs) {
+                            cor = 0;
                             uint64_t idx1 = icol1 * num_rows;
                             uint64_t idx2 = icol2 * num_rows;
                             double sum1 = 0;
@@ -685,14 +689,16 @@ SEXP tgs_cross_cor_knn(SEXP _x, SEXP _y, SEXP _knn, SEXP _pairwise_complete_obs,
                                 // calculate correlation: there is none if one of the columns is constant over the rows in which both have values
                                 if ((var_near_zero(var1, sum_square1 / num_finite_pairs, num_finite_pairs) ||
                                      var_near_zero(var2, sum_square2 / num_finite_pairs, num_finite_pairs)) && constant_in_pair(_x, icol1, _y, icol2))
-                                    cor = 0;
+                                    cor = numeric_limits<double>::quiet_NaN();
                                 else {
                                     cor /= num_finite_pairs;      // => mean(X*Y)
                                     cor -= mean1 * mean2;         // => covariance(X,Y)
                                     cor /= sqrt(var1 * var2);     // => correlation(X,Y)
                                 }
-                            }
+                            } else
+                                cor = numeric_limits<double>::quiet_NaN();
                         } else if (!nan_in_col[0][icol1] && !nan_in_col[1][icol2]) {
+                            cor = 0;
                             uint64_t idx1 = icol1 * num_rows;
                             uint64_t idx2 = icol2 * num_rows;
                             uint64_t end_idx1 = idx1 + num_rows;
@@ -705,8 +711,8 @@ SEXP tgs_cross_cor_knn(SEXP _x, SEXP _y, SEXP _knn, SEXP _pairwise_complete_obs,
                             cor /= stddevs[0][icol1] * stddevs[1][icol2];  // => correlation(X,Y)
                         }
 
-                        // also if the correlation is NaN (a constant column), which would break the sort below
-                        if (!cor || !(fabs(cor) >= threshold))
+                        // also if the correlation is NaN, which would break the sort below
+                        if (!(fabs(cor) >= threshold))
                             cor = -2;
 
                         cors[icol2] = cor;
@@ -898,9 +904,16 @@ SEXP tgs_cor_knn_blas(SEXP _x, SEXP _y, SEXP _knn, SEXP _pairwise_complete_obs, 
             }
         }
 
-        // z: the standardized columns. The columns that have no correlations are zero: their dot products are
-        // exactly zero, and zero correlations are not neighbours.
+        // z: the standardized columns. The columns that have no correlations are zero and flagged.
         standardize_cols(rmat, num_mats, spearman, z, z_sizeof, flagged);
+
+        // the columns of y that have no correlations: they are not neighbours
+        vector<uint64_t> flagged_y;
+
+        for (uint64_t icol = 0; icol < num_cols[1]; ++icol) {
+            if (flagged[num_mats - 1][icol])
+                flagged_y.push_back(icol);
+        }
 
         // the neighbours of each column of x: the heap holds the knn highest correlations found so far, the lowest
         // of them at its front
@@ -943,14 +956,18 @@ SEXP tgs_cor_knn_blas(SEXP _x, SEXP _y, SEXP _knn, SEXP _pairwise_complete_obs, 
                 double *cors = mem.res + (icol1 - col1) * num_cols_y;
                 double bound = -numeric_limits<double>::infinity();     // the lowest correlation in a full heap
 
+                // NaN marks the columns that cannot be neighbours
                 if (!cross)
-                    cors[icol1] = 0;
+                    cors[icol1] = numeric_limits<double>::quiet_NaN();
+
+                for (auto icol2 : flagged_y)
+                    cors[icol2] = numeric_limits<double>::quiet_NaN();
 
                 heap.clear();
-                for (uint64_t icol2 = 0; icol2 < num_cols_y; ++icol2) {
+                for (uint64_t icol2 = 0; icol2 < num_cols_y && !flagged[0][icol1]; ++icol2) {
                     double cor = cors[icol2];
 
-                    if (!(cor > bound) || !cor || fabs(cor) < threshold)
+                    if (!(cor > bound) || fabs(cor) < threshold)
                         continue;
 
                     if (heap.size() == knn)

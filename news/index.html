@@ -17,7 +17,7 @@
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">tgstat</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">2.5.1</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">2.5.2</span>
       </span>
     </div>
 
@@ -60,9 +60,13 @@
   <div class="col-md-9 contents">
     <div class="page-header">
       <h1 data-toc-skip>Changelog <small></small></h1>
-      <small>Source: <a href="https://github.com/tanaylab/tgstat/blob/v2.5.1/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
+      <small>Source: <a href="https://github.com/tanaylab/tgstat/blob/master/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="page-header" data-toc-text="2.5.2" id="tgstat-252">tgstat 2.5.2<a class="anchor" aria-label="anchor" href="#tgstat-252"></a></h2>
+<ul><li>Fixed <code><a href="../reference/tgs_cor.html">tgs_cor_knn()</a></code> leaving out the neighbours whose correlation is exactly zero.</li>
+</ul></div>
     <div class="section level2">
 <h2 class="page-header" data-toc-text="2.5.1" id="tgstat-251">tgstat 2.5.1<a class="anchor" aria-label="anchor" href="#tgstat-251"></a></h2>
 <ul><li>Fixed <code><a href="../reference/tgs_cor.html">tgs_cor()</a></code> and <code><a href="../reference/tgs_cor.html">tgs_cor_knn()</a></code> with <code>pairwise.complete.obs</code> and missing values returning an arbitrary correlation (possibly outside [-1, 1]) for two columns of which one is constant over the rows in which both have values. The correlation is now <code>NA</code>, and in <code><a href="../reference/tgs_cor.html">tgs_cor_knn()</a></code> the two columns are not neighbours.</li>
